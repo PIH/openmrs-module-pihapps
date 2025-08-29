@@ -150,10 +150,10 @@
         const saveButton = jq("#draft-save-button");
         const orderDateSection = jq("#order-date-section");
         if (orderedTests.length > 1) {
-            discardAllButton.val('${ui.encodeJavaScript(ui.message("pihcore.discardAll"))}');
+            discardAllButton.val('${ui.encodeJavaScript(ui.message("pihapps.discardAll"))}');
         }
         else {
-            discardAllButton.val('${ui.encodeJavaScript(ui.message("pihcore.discard"))}');
+            discardAllButton.val('${ui.encodeJavaScript(ui.message("pihapps.discard"))}');
             if (orderedTests.length === 0) {
                 discardAllButton.attr("disabled", "disabled");
                 saveButton.attr("disabled", "disabled");
@@ -232,12 +232,12 @@
                     data: JSON.stringify(encounterPayload),
                     dataType: 'json', // Expect JSON response
                     success: function(response) {
-                        emr.successMessage('${ui.encodeJavaScript(ui.message("pihcore.orderSuccessMessage"))}');
+                        emr.successMessage('${ui.encodeJavaScript(ui.message("pihapps.orderSuccessMessage"))}');
                         document.location.href = returnUrl;
                     },
                     error: function(xhr, status, error) {
                         const message = xhr.responseJSON?.error?.message ?? error ?? xhr.responseText;
-                        emr.errorMessage('${ui.encodeJavaScript(ui.message("pihcore.orderErrorMessage"))}: ' + message);
+                        emr.errorMessage('${ui.encodeJavaScript(ui.message("pihapps.orderErrorMessage"))}: ' + message);
                         saveButton.removeAttr("disabled");
                     }
                 });
@@ -256,11 +256,11 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
             link: '${ui.urlBind("/" + contextPath + pihAppsUtils.getDashboardUrl(), ["patientId": patient.id])}'
         },
         {
-            label: "${ ui.encodeJavaScript(ui.message("pihcore.labOrders")) }",
+            label: "${ ui.encodeJavaScript(ui.message("pihapps.labOrders")) }",
             link: '${ui.pageLink("pihapps", "labs/labOrders", ["patient": patient.id])}'
         },
         {
-            label: "${ ui.encodeJavaScript(ui.message("pihcore.addLabOrders")) }",
+            label: "${ ui.encodeJavaScript(ui.message("pihapps.addLabOrders")) }",
             link: '${ui.pageLink("pihapps", "labs/labOrder", ["patient": patient.id])}'
         }
     ];
@@ -352,7 +352,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
 <div class="row">
     <div class="col-12 col-md-8">
         <div class="lab-order-entry">
-            <h3>${ ui.message("pihcore.addLabOrders") }</h3>
+            <h3>${ ui.message("pihapps.addLabOrders") }</h3>
 
             <% if (!labSet) { %>
 
@@ -377,7 +377,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                             <div class="lab-selection-form" id="lab-selection-form-${category.uuid}">
                                 <fieldset class="fieldset">
                                     <legend>
-                                        ${ui.message("pihcore.labOrder.panels")}
+                                        ${ui.message("pihapps.labOrder.panels")}
                                     </legend>
                                     <div class="panel-box">
                                         <% category.setMembers.each { orderable -> %>
@@ -385,7 +385,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                                                 <button id="panel-button-${orderable.uuid}" class="lab-tests-btn tooltip" type="button" onclick="toggleTest('${orderable.uuid}')">
                                                     ${ pihAppsUtils.getBestShortName(orderable) }
                                                     <span class="tooltip-text">
-                                                        <p>${ui.message("pihcore.testsIncludedInThisPanel")}:</p>
+                                                        <p>${ui.message("pihapps.testsIncludedInThisPanel")}:</p>
                                                         <div>
                                                             <% orderable.setMembers.each { setMember -> %>
                                                                 <span>${pihAppsUtils.getBestShortName(setMember)}</span>
@@ -398,7 +398,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                                     </div>
                                 </fieldset>
                                 <fieldset class="fieldset">
-                                    <legend>${ui.message("pihcore.labOrder.tests")}</legend>
+                                    <legend>${ui.message("pihapps.labOrder.tests")}</legend>
                                     <div class="panel-box">
                                         <% category.setMembers.each { orderable -> %>
                                             <% if (!orderable.isSet()) { %>
@@ -418,7 +418,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
     </div>
     <div class="col-12 col-sm-6 col-md-4 draft-wrapper">
         <h5 class="h5-draft-header">
-            ${ui.message('pihcore.unsavedDraftOrders')}
+            ${ui.message('pihapps.unsavedDraftOrders')}
             (<span id="num-draft-orders">0</span>)
         </h5>
         <div class="table-container">
@@ -430,23 +430,23 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                 <span class="draft-name"></span>
                 <div class="action-btn-wrapper">
                     <a class="draft-urgency-toggle-btn action-btn" href="#">
-                        <i class="draft-urgency-icon i-gray scale" title="${ui.message('pihcore.urgency')}">&#x25B2;</i>
+                        <i class="draft-urgency-icon i-gray scale" title="${ui.message('pihapps.urgency')}">&#x25B2;</i>
                     </a>
                     <a class="action-btn right" href="#">
-                        <i class="draft-discard-icon draft-discard-btn icon-remove scale" title="${ui.message('pihcore.discard')}"></i>
+                        <i class="draft-discard-icon draft-discard-btn icon-remove scale" title="${ui.message('pihapps.discard')}"></i>
                     </a>
                 </div>
             </li>
             <li id="order-reason-template" style="display: none;">
-                <span>${ui.message("pihcore.orderReason")}</span>:
+                <span>${ui.message("pihapps.orderReason")}</span>:
                 <select class="order-reason-selector" name="orderReason"></select>
             </li>
         </ul>
         <div id="order-date-section">
-            <span id="order-date-label">${ui.message("pihcore.orderDate")}:</span>
+            <span id="order-date-label">${ui.message("pihapps.orderDate")}:</span>
             <span id="order-date-default">
                 ${ ui.format(defaultOrderDate) }
-                <a href="#" id="order-date-toggle">${ui.message("pihcore.change")}</a>
+                <a href="#" id="order-date-toggle">${ui.message("pihapps.change")}</a>
             </span>
             <span id="order-date-custom">
                 ${ui.includeFragment("uicommons", "field/datetimepicker", [
@@ -460,14 +460,14 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
             </span>
         </div>
         <br/>
-        <input type="button" id="draft-discard-all" value="${ui.message('pihcore.discard')}" disabled="disabled" class="cancel modified-btn"/>
-        <input type="submit" id="draft-save-button" value="${ui.message('mirebalais.save')}" disabled="disabled" class="right confirm modified-btn"/>
+        <input type="button" id="draft-discard-all" value="${ui.message('pihapps.discard')}" disabled="disabled" class="cancel modified-btn"/>
+        <input type="submit" id="draft-save-button" value="${ui.message('pihapps.save')}" disabled="disabled" class="right confirm modified-btn"/>
         <br />
         <br />
     </div>
 </div>
 <div style="margin-top: 20px;">
     <button class="cancel" id="cancel-button">
-        ${ui.message("pihcore.encounterList.return")}
+        ${ui.message("pihapps.return")}
     </button>
 </div>

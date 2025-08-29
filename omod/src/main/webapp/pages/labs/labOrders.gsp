@@ -11,7 +11,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     var breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
         { label: "${ ui.escapeJs(ui.format(patient.patient)) }" , link: '${ui.urlBind("/" + contextPath + pihAppsUtils.getDashboardUrl(), ["patientId": patient.id])}'},
-        { label: "${ ui.encodeJavaScript(ui.message("pihcore.labOrders")) }" , link: '${ui.pageLink("pihapps", "labs/labOrders", ["patientId": patient.id])}'}
+        { label: "${ ui.encodeJavaScript(ui.message("pihapps.labOrders")) }" , link: '${ui.pageLink("pihapps", "labs/labOrders", ["patientId": patient.id])}'}
     ];
     function discontinueOrder(orderUuid, orderableUuid) {
         const discontinueDialog = emr.setupConfirmationDialog({
@@ -52,12 +52,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                             data: JSON.stringify(encounterPayload),
                             dataType: 'json', // Expect JSON response
                             success: function(response) {
-                                emr.successMessage('${ui.encodeJavaScript(ui.message("pihcore.discontinueSuccessMessage"))}');
+                                emr.successMessage('${ui.encodeJavaScript(ui.message("pihapps.discontinueSuccessMessage"))}');
                                 document.location.href = '${ui.pageLink('pihapps', 'labs/labOrders', [patient: patient.id])}>';
                             },
                             error: function(xhr, status, error) {
                                 const message = xhr.responseJSON?.error?.message ?? error ?? xhr.responseText;
-                                emr.errorMessage('${ui.encodeJavaScript(ui.message("pihcore.discontinueErrorMessage"))}: ' + message);
+                                emr.errorMessage('${ui.encodeJavaScript(ui.message("pihapps.discontinueErrorMessage"))}: ' + message);
                             }
                         });
                     })
@@ -73,11 +73,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
 <div class="row">
     <div class="col-6">
-        <h3>${ ui.message("pihcore.labOrders.active") }</h3>
+        <h3>${ ui.message("pihapps.labOrders.active") }</h3>
     </div>
     <div class="col-6 text-right">
         <a href="${ui.pageLink("pihapps", "labs/labOrder", ["patient": patient.patient.uuid])}">
-            <input type="button" value="${ui.message("pihcore.addLabOrders")}" style="max-width: unset;"/>
+            <input type="button" value="${ui.message("pihapps.addLabOrders")}" style="max-width: unset;"/>
         </a>
     </div>
 </div>
@@ -85,11 +85,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 <table id="active-orders-list" width="100%" border="1" cellspacing="0" cellpadding="2">
     <thead>
         <tr>
-            <th>${ ui.message("pihcore.orderDate") }</th>
-            <th>${ ui.message("pihcore.orderNumber") }</th>
-            <th>${ ui.message("pihcore.labTest") }</th>
-            <th>${ ui.message("pihcore.testOrderedBy") }</th>
-            <th>${ ui.message("pihcore.status")} </th>
+            <th>${ ui.message("pihapps.orderDate") }</th>
+            <th>${ ui.message("pihapps.orderNumber") }</th>
+            <th>${ ui.message("pihapps.labTest") }</th>
+            <th>${ ui.message("pihapps.testOrderedBy") }</th>
+            <th>${ ui.message("pihapps.status")} </th>
             <th></th>
         </tr>
     </thead>
@@ -110,11 +110,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 <% } %>
                 ${ pihAppsUtils.getBestShortName(labOrder.concept) }</td>
             <td>${ ui.format(labOrder.orderer) }</td>
-            <td>${ ui.message(status == "" ? "pihcore.ordered" : "pihcore.fulfillerStatus." + status) }</td>
+            <td>${ ui.message(status == "" ? "pihapps.ordered" : "pihapps.fulfillerStatus." + status) }</td>
             <td class="order-actions-btn" style="text-align: center;">
                 <% if (labOrder.orderType.name == 'Test Order' && status != 'IN_PROGRESS' && status != 'COMPLETED') { %>
                     <span>
-                        <a href="#" onclick="discontinueOrder('${labOrder.uuid}', '${labOrder.concept.uuid}')"><i class="icon-remove scale" title="${ui.message("pihcore.discontinue")}"></i></a>
+                        <a href="#" onclick="discontinueOrder('${labOrder.uuid}', '${labOrder.concept.uuid}')"><i class="icon-remove scale" title="${ui.message("pihapps.discontinue")}"></i></a>
                     </span>
                 <% } %>
             </td>
@@ -125,16 +125,16 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
 <br/>
 
-<h3>${ ui.message("pihcore.labOrders.inactive") }</h3>
+<h3>${ ui.message("pihapps.labOrders.inactive") }</h3>
 
 <table id="inactive-orders-list" width="100%" border="1" cellspacing="0" cellpadding="2">
     <thead>
     <tr>
-        <th>${ ui.message("pihcore.orderDate") }</th>
-        <th>${ ui.message("pihcore.orderNumber") }</th>
-        <th>${ ui.message("pihcore.labTest") }</th>
-        <th>${ ui.message("pihcore.testOrderedBy") }</th>
-        <th>${ ui.message("pihcore.status")} </th>
+        <th>${ ui.message("pihapps.orderDate") }</th>
+        <th>${ ui.message("pihapps.orderNumber") }</th>
+        <th>${ ui.message("pihapps.labTest") }</th>
+        <th>${ ui.message("pihapps.testOrderedBy") }</th>
+        <th>${ ui.message("pihapps.status")} </th>
     </tr>
     </thead>
     <tbody>
@@ -150,7 +150,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         <td>${ ui.format(labOrder.orderNumber) }</td>
         <td>${ pihAppsUtils.getBestShortName(labOrder.concept) }</td>
         <td>${ ui.format(labOrder.orderer) }</td>
-        <td>${ ui.message("pihcore." + (status == "" ? labOrder.isDiscontinuedRightNow() ? "discontinued" : "expired" : "fulfillerStatus." + status)) }</td>
+        <td>${ ui.message("pihapps." + (status == "" ? labOrder.isDiscontinuedRightNow() ? "discontinued" : "expired" : "fulfillerStatus." + status)) }</td>
     </tr>
     <% } %>
     </tbody>
@@ -159,10 +159,10 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 <div id="discontinue-order-dialog" class="dialog" style="display: none;">
     <div class="dialog-header">
         <i class="icon-remove"></i>
-        <h3>${ui.message("pihcore.discontinueOrder")}</h3>
+        <h3>${ui.message("pihapps.discontinueOrder")}</h3>
     </div>
     <div class="dialog-content form">
-        ${ui.message("pihcore.discontinueReason")}
+        ${ui.message("pihapps.discontinueReason")}
         <br>
         <textarea id="discontinue-reason-field" type="text" rows="3" cols="40"></textarea>
         <br><br>
