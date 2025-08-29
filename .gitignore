@@ -1,0 +1,20 @@
+*.iml
+*.ipr
+*.iws
+*.idea
+*.project
+*.classpath
+
+omod/node
+omod/node_modules
+omod/src/main/compass
+
+target
+api/target
+omod/target
+
+# OS X auto-generated files #
+.DS_Store
+
+.vscode/
+.swp
