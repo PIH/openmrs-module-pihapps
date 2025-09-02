@@ -46,7 +46,7 @@
 	</modules>
 
     <properties>
-        <openMRSVersion>2.8.0</openMRSVersion>
+        <openMRSVersion>2.6.4</openMRSVersion>
 
         <appframeworkVersion>2.18.0</appframeworkVersion>
         <appuiVersion>1.18.0</appuiVersion>
@@ -252,6 +252,20 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>versions-maven-plugin</artifactId>
+                    <version>2.1</version>
+                    <configuration>
+                        <generateBackupPoms>false</generateBackupPoms>
+                        <properties>
+                            <property>
+                                <name>openMRSVersion</name>
+                                <version>[2.6.0,2.6.999]</version>
+                            </property>
+                        </properties>
+                    </configuration>
                 </plugin>
 			</plugins>
 		</pluginManagement>
