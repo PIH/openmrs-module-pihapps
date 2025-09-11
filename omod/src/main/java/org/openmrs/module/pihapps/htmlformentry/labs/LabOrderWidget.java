@@ -49,6 +49,9 @@ public class LabOrderWidget extends OrderWidget {
 					}
 				}
 			}
+
+			// Add additional translations needed
+			config.getObject("translations").addTranslation("pihapps.", "testsIncludedInThisPanel");
 		}
 		return config;
 	}
