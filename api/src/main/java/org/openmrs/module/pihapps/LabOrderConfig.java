@@ -23,6 +23,7 @@ public class LabOrderConfig {
 
     private static final Log log = LogFactory.getLog(LabOrderConfig.class);
 
+    final PihAppsUtils pihAppsUtils = new PihAppsUtils();
     final ConceptService conceptService;
     final OrderService orderService;
 
@@ -41,6 +42,17 @@ public class LabOrderConfig {
 
     public Concept getLabOrderablesConceptSet() {
         return conceptService.getConceptByReference(getLabOrderablesConceptSetReference());
+    }
+
+    public String getTestShortName(Concept c) {
+        return pihAppsUtils.getBestShortName(c);
+    }
+
+    /**
+     * TODO: Provide ability to configure this to use the preferred name for a given implementation
+     */
+    public String getTestDisplayName(Concept c) {
+        return pihAppsUtils.getBestShortName(c);
     }
 
     /**

@@ -3,9 +3,11 @@ package org.openmrs.module.pihapps.htmlformentry.labs;
 import org.apache.commons.lang.StringUtils;
 import org.openmrs.CareSetting;
 import org.openmrs.Concept;
+import org.openmrs.Order;
 import org.openmrs.OrderType;
 import org.openmrs.module.htmlformentry.BadFormDesignException;
 import org.openmrs.module.htmlformentry.FormEntryContext;
+import org.openmrs.module.htmlformentry.HtmlFormEntryUtil;
 import org.openmrs.module.htmlformentry.handler.OrderTagHandler;
 import org.openmrs.module.htmlformentry.widget.Option;
 import org.openmrs.module.htmlformentry.widget.OrderWidget;
@@ -68,6 +70,31 @@ public class LabOrderTagHandler extends OrderTagHandler {
 	}
 
 	/**
+	 * If no urgencies are explicitly configured, set up the widget support NORMAL and STAT
+	 */
+	@Override
+	protected void processEnumOptions(OrderWidgetConfig config, String property, Enum[] vals, Enum defVal) {
+		if ("urgency".equals(property)) {
+			List<Option> options = config.getOrderPropertyOptions("urgency");
+			if (options.isEmpty()) {
+				options.add(new Option(HtmlFormEntryUtil.translate("htmlformentry.orders.urgency.routine"), Order.Urgency.ROUTINE.name(), true));
+				options.add(new Option(HtmlFormEntryUtil.translate("htmlformentry.orders.urgency.stat"), Order.Urgency.STAT.name(), false));
+			}
+		}
+		else if ("action".equals(property)) {
+			List<Option> options = config.getOrderPropertyOptions("action");
+			if (options.isEmpty()) {
+				options.add(new Option(HtmlFormEntryUtil.translate("htmlformentry.orders.action.new"), Order.Action.NEW.name(), true));
+				options.add(new Option(HtmlFormEntryUtil.translate("htmlformentry.orders.action.discontinue"), Order.Action.DISCONTINUE.name(), false));
+			}
+			else {
+				throw new IllegalArgumentException("Action options cannot be customized with the LabOrderTag");
+			}
+		}
+		super.processEnumOptions(config, property, vals, defVal);
+	}
+
+	/**
 	 * If no concepts are explicitly configured, then populate with all lab orderables
 	 * If concepts _are_ explicitly configured, then populate with lab orderables that are configured
 	 * Also add the appropriate configuration to the widget config for the categories
@@ -75,9 +102,12 @@ public class LabOrderTagHandler extends OrderTagHandler {
 	@Override
 	protected void processConceptOptions(OrderWidgetConfig config, String prop) throws BadFormDesignException {
 		super.processConceptOptions(config, prop);
-		if (!"concept".equals(prop)) {
-			return;
+		if ("concept".equals(prop)) {
+			processLabTestOptions(config, prop);
 		}
+	}
+
+	protected void processLabTestOptions(OrderWidgetConfig config, String prop) throws BadFormDesignException {
 		LabOrderWidgetConfig labOrderWidgetConfig = (LabOrderWidgetConfig) config;
 		Map<Concept, List<Concept>> labOrderables = labOrderConfig.getAvailableLabTestsByCategory();
 		Map<Concept, List<Concept>> orderReasonMap = labOrderConfig.getOrderReasonsMap();
