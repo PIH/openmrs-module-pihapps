@@ -15,7 +15,10 @@ package org.openmrs.module.pihapps;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.openmrs.api.context.Context;
 import org.openmrs.module.BaseModuleActivator;
+import org.openmrs.module.htmlformentry.HtmlFormEntryService;
+import org.openmrs.module.pihapps.htmlformentry.labs.LabOrderTagHandler;
 
 public class PihAppsActivator extends BaseModuleActivator {
 
@@ -24,6 +27,8 @@ public class PihAppsActivator extends BaseModuleActivator {
     @Override
 	public void started() {
         log.info("PIH Apps Module Started");
+        LabOrderTagHandler labOrderTagHandler = Context.getRegisteredComponents(LabOrderTagHandler.class).get(0);
+        Context.getService(HtmlFormEntryService.class).addHandler(LabOrderTagHandler.TAG_NAME, labOrderTagHandler);
     }
 
     @Override
