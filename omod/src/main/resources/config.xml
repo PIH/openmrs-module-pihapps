@@ -27,6 +27,9 @@
             org.openmrs.module.emrapi
         </require_module>
         <require_module>
+            org.openmrs.module.htmlformentry
+        </require_module>
+        <require_module>
             org.openmrs.module.uicommons
         </require_module>
         <require_module>

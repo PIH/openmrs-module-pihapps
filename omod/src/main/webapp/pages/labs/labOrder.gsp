@@ -33,9 +33,9 @@
                     testsByPanel.get('${ orderable.uuid }').add('${ test.uuid }');
                 <% } %>
             <% } %>
-            <% if (orderReasonsMap.get(orderable.uuid)) { %>
+            <% if (orderReasonsMap.get(orderable)) { %>
                 reasonsByTest.set('${ orderable.uuid }', []);
-                <% orderReasonsMap.get(orderable.uuid).each{ reasonConcept -> %>
+                <% orderReasonsMap.get(orderable).each{ reasonConcept -> %>
                     reasonsByTest.get('${ orderable.uuid }').push({uuid: '${reasonConcept.uuid}', display: '${ ui.encodeJavaScript(pihAppsUtils.getBestShortName(reasonConcept)) }'});
                 <% } %>
             <% } %>
