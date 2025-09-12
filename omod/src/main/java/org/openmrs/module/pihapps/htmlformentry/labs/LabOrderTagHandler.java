@@ -84,8 +84,9 @@ public class LabOrderTagHandler extends OrderTagHandler {
 		else if ("action".equals(property)) {
 			List<Option> options = config.getOrderPropertyOptions("action");
 			if (options.isEmpty()) {
-				options.add(new Option(HtmlFormEntryUtil.translate("htmlformentry.orders.action.new"), Order.Action.NEW.name(), true));
-				options.add(new Option(HtmlFormEntryUtil.translate("htmlformentry.orders.action.discontinue"), Order.Action.DISCONTINUE.name(), false));
+				for (Order.Action action : Order.Action.values()) {
+					options.add(new Option(HtmlFormEntryUtil.translate("htmlformentry.orders.action." + action.name().toLowerCase()), action.name()));
+				}
 			}
 			else {
 				throw new IllegalArgumentException("Action options cannot be customized with the LabOrderTag");
