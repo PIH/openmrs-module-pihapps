@@ -7,7 +7,6 @@ import org.openmrs.Order;
 import org.openmrs.OrderType;
 import org.openmrs.module.htmlformentry.BadFormDesignException;
 import org.openmrs.module.htmlformentry.FormEntryContext;
-import org.openmrs.module.htmlformentry.FormEntrySession;
 import org.openmrs.module.htmlformentry.HtmlFormEntryUtil;
 import org.openmrs.module.htmlformentry.handler.OrderTagHandler;
 import org.openmrs.module.htmlformentry.widget.Option;
@@ -15,12 +14,9 @@ import org.openmrs.module.htmlformentry.widget.OrderWidget;
 import org.openmrs.module.htmlformentry.widget.OrderWidgetConfig;
 import org.openmrs.module.pihapps.LabOrderConfig;
 import org.openmrs.module.pihapps.PihAppsUtils;
-import org.openmrs.ui.framework.UiUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.w3c.dom.Node;
 
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -39,17 +35,6 @@ public class LabOrderTagHandler extends OrderTagHandler {
 
 	@Autowired
 	LabOrderConfig labOrderConfig;
-
-	@Override
-	public boolean doStartTag(FormEntrySession session, PrintWriter out, Node p, Node node) throws BadFormDesignException {
-		UiUtils uiUtils = (UiUtils) session.getAttribute("uiUtils");
-		if (uiUtils == null) {
-			throw new IllegalArgumentException("uiUtils is not found as expected, please ensure htmlformentryui is installed");
-		}
-		uiUtils.includeJavascript("pihapps", "labs/renderLabOrdersByCategory.js");
-		uiUtils.includeCss("pihapps", "labs/renderLabOrdersByCategory.css");
-		return super.doStartTag(session, out, p, node);
-	}
 
 	@Override
 	protected OrderWidgetConfig createOrderWidgetConfig() {
