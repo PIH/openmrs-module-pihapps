@@ -245,6 +245,8 @@ function renderLabOrdersByCategory(config) {
                         }
                     });
 
+                    $clonedFieldSection.find(":input").addClass("lab-order-field-input");
+
                     // We have special handling for orderReason, so do this first
                     if (field === "orderReason") {
                         if (isViewMode) {
