@@ -1,0 +1,298 @@
+/* * This Source Code Form is subject to the terms of the Mozilla Public License,
+ * v. 2.0. If a copy of the MPL was not distributed with this file, You can
+ * obtain one at http://mozilla.org/MPL/2.0/. OpenMRS is also distributed under
+ * the terms of the Healthcare Disclaimer located at http://openmrs.org/license.
+ *
+ * Copyright (C) OpenMRS Inc. OpenMRS is a registered trademark and the OpenMRS
+ * graphic logo is a trademark of OpenMRS Inc.
+ */
+.order-entry-page .error-notice {
+  color: red;
+  padding: 0px 8px;
+}
+.order-entry-page .order-type-button {
+  margin: 10px 5px 10px 0px;
+  outline: none;
+}
+.order-entry-page .order-type-button.active {
+  border: 2px solid #009384 !important;
+}
+.order-entry-page .header-nav {
+  display: flex;
+}
+.order-entry-page .orders-nav {
+  margin-right: 20px;
+  cursor: pointer;
+}
+.order-entry-page .select-nav {
+  display: flex;
+}
+.order-entry-page .dropdown {
+  position: relative;
+  display: inline-block;
+  background: none;
+  margin-top: -10px;
+}
+.order-entry-page .dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #f9f9f9;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+  z-index: 1;
+  margin-top: 10px;
+}
+.order-entry-page .dropdown-content div {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  color: black;
+  text-decoration: none;
+  display: block;
+}
+.order-entry-page .dropdown-content div:hover {
+  background-color: #f1f1f1;
+}
+.order-entry-page .dropdown:hover .dropdown-content {
+  display: block;
+}
+.order-entry-page .dropdown:hover .dropbtn {
+  background-color: #3e8e41;
+}
+.order-entry-page .order-type-option {
+  font-size: 18px;
+  font-weight: 300;
+  cursor: pointer;
+  padding: 5px 10px;
+  text-align: left;
+}
+.order-entry-page .add-order-nav {
+  height: 15px;
+  margin-top: -10px;
+  cursor: pointer;
+}
+.order-entry-page .header-nav {
+  border-bottom: 1px solid #333;
+}
+.order-entry-page .order-details {
+  background-color: #fff;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.order-entry-page .details {
+  padding-left: 50px;
+}
+.order-entry-page .drug-form-header {
+  margin-bottom: 30px;
+}
+.order-entry-page .accordion-link {
+  cursor: pointer;
+}
+.order-entry-page .content .open {
+  overflow-y: hidden;
+  max-height: 500px; /* approximate max height */
+  transition-property: all;
+  transition-duration: 0.5s;
+  transition-timing-function: cubic-bezier(0, 1, 0.5, 1);
+}
+.order-entry-page .t-orders {
+  position: relative;
+}
+.order-entry-page .t-orders #details {
+  width: 55%;
+}
+.order-entry-page .th-invisible {
+  border: none;
+  background-color: #fff;
+  padding: 0px;
+}
+.order-entry-page .th-details {
+  border: none;
+  background: #fff;
+  padding: 0px;
+}
+.order-entry-page .orders-breadcrumb {
+  margin-bottom: 20px;
+}
+.order-entry-page .rotate90 {
+  transform: rotate(90deg);
+}
+.order-entry-page .rotate180::before {
+  transform: rotate(180deg);
+}
+.order-entry-page .accordion-two.content {
+  padding: 0px 5px;
+  overflow-y: scroll;
+  max-height: 0px;
+  transition: all 0.5s ease;
+}
+.order-entry-page .accordion-two.content.close {
+  max-height: 0;
+}
+.order-entry-page .th-1 {
+  width: 120px;
+  text-align: left;
+}
+.order-entry-page .accordion-two.content.open {
+  max-height: 500px;
+}
+.order-entry-page .sort-filter-section {
+  display: flex;
+}
+.order-entry-page .sort-type {
+  padding-right: 15px;
+}
+.order-entry-page .label-sort {
+  padding-right: 5px;
+}
+.order-entry-page .sort-select:focus {
+  border: none !important;
+}
+.order-entry-page .no-results {
+  margin-top: 20px;
+  text-align: center;
+}
+.order-entry-page .sort-status {
+  display: none;
+}
+
+.pagination {
+  display: flex;
+  text-align: center;
+  padding-left: 35%;
+  padding-right: 35%;
+  padding-bottom: 50px;
+}
+
+.page-link {
+  color: black;
+  float: left;
+  padding: 8px 16px;
+  text-decoration: none;
+  transition: background-color 0.3s;
+  border: 1px solid #ddd;
+  cursor: pointer;
+}
+
+.page-link-disabled {
+  color: black;
+  float: left;
+  padding: 8px 16px;
+  text-decoration: none;
+  transition: background-color 0.3s;
+  border: 1px solid #ddd;
+  pointer-events: none;
+}
+.page-link-disabled p {
+  color: #58626b !important;
+}
+
+.page-link-disabled:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.page-link:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.no-click {
+  cursor: auto;
+}
+
+.no-click:hover {
+  background-color: #fff;
+}
+
+.order-actions-btn span {
+  width: 50%;
+}
+.order-actions-btn span a i.scale {
+  text-decoration: none;
+  color: black;
+}
+.order-actions-btn span :hover {
+  transform: scale(1.5);
+  -webkit-transform: scale(1.5);
+  -moz-transform: scale(1.5);
+}
+
+.swal-button--NO {
+  background: #f66;
+}
+
+.swal-button--YES,
+.swal-button--confirm {
+  background: #8eb82a;
+}
+
+.draft-list-container {
+  /* Icon styles */
+}
+.draft-list-container .draft-list {
+  display: block;
+  background: #EBEBEB;
+  padding: 0 0 0 10px;
+  margin: 5px 0px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  border-radius: 5px;
+}
+.draft-list-container .draft-list:hover {
+  background: #D3D3D3;
+  transition: all 200ms ease-in-out;
+  -webkit-transition: all 200ms ease-in-out;
+  -moz-transition: all 200ms ease-in-out;
+}
+.draft-list-container .draft-list .order-status {
+  font-size: 0.7em;
+  margin-right: 10px;
+}
+.draft-list-container .draft-list .draft-name {
+  font-size: 0.9em;
+  font-weight: bolder;
+}
+.draft-list-container .i-gray {
+  color: gray;
+}
+.draft-list-container .i-red {
+  color: red;
+}
+
+.th-orderable {
+  text-align: left;
+}
+
+.draft-wrapper .action-btn-wrapper {
+  display: flex;
+}
+.draft-wrapper .action-btn {
+  cursor: pointer;
+  width: 50%;
+  height: 100% !important;
+  border-left: 1px #d0d0d0 solid;
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.7em;
+  transition: all ease-in-out 200ms;
+  -moz-transition: all ease-in-out 200ms;
+  -webkit-transition: all ease-in-out 200ms;
+}
+.draft-wrapper .action-btn .draft-discard-btn {
+  color: #ff3d3d;
+}
+.draft-wrapper .action-btn:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+.draft-wrapper .action-btn:hover a i.scale {
+  text-decoration: none;
+  transform: scale(1.7);
+  -webkit-transform: scale(1.7);
+  -moz-transform: scale(1.7);
+}
+
+.patient-header {
+  margin: 10px 0px;
+}
+
+/*# sourceMappingURL=orderEntry.css.map */
