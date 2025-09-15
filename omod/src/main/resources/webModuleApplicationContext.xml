@@ -16,7 +16,7 @@
                 <bean class="org.openmrs.ui.framework.resource.Resource">
                     <property name="category" value="js"/>
                     <property name="providerName" value="pihapps"/>
-                    <property name="resourcePath" value="styles/labs/renderLabOrdersByCategory.js"/>
+                    <property name="resourcePath" value="scripts/labs/renderLabOrdersByCategory.js"/>
                     <property name="priority" value="-100"/>
                 </bean>
                 <bean class="org.openmrs.ui.framework.resource.Resource">
