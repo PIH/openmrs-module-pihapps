@@ -12,6 +12,9 @@ function renderLabOrdersByCategory(config) {
     const $templateSection = $editTemplateSection.length > 0 ? $editTemplateSection : $viewTemplateSection;
     const isViewMode = (config.mode === 'VIEW');
 
+    // Add class for css styling
+    $orderSection.addClass("lab-orders-by-category");
+
     // Determine which fields need to be collected, by examining both the template or default configuration with multiple options
     const labOrderFields = Object.keys(config.widgets);
 

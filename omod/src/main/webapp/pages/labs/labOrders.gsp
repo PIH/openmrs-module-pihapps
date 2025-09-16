@@ -10,7 +10,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 <script type="text/javascript">
     var breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
-        { label: "${ ui.escapeJs(ui.format(patient.patient)) }" , link: '${ui.urlBind("/" + contextPath + pihAppsUtils.getDashboardUrl(), ["patientId": patient.id])}'},
+        { label: "${ ui.escapeJs(ui.format(patient.patient)) }" , link: '${ui.urlBind("/" + contextPath + pihAppsConfig.getDashboardUrl(), ["patientId": patient.id])}'},
         { label: "${ ui.encodeJavaScript(ui.message("pihapps.labOrders")) }" , link: '${ui.pageLink("pihapps", "labs/labOrders", ["patientId": patient.id])}'}
     ];
     function discontinueOrder(orderUuid, orderableUuid) {
@@ -108,7 +108,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 <% if (ui.format(labOrder.urgency) == 'STAT') { %>
                     <i class="fas fa-fw fa-exclamation" style="color: red;"></i>
                 <% } %>
-                ${ pihAppsUtils.getBestShortName(labOrder.concept) }</td>
+                ${ labOrderConfig.formatConcept(labOrder.concept) }</td>
             <td>${ ui.format(labOrder.orderer) }</td>
             <td>${ ui.message(status == "" ? "pihapps.ordered" : "pihapps.fulfillerStatus." + status) }</td>
             <td class="order-actions-btn" style="text-align: center;">
@@ -148,7 +148,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     <tr>
         <td>${ ui.formatDatePretty(labOrder.effectiveStartDate) }</td>
         <td>${ ui.format(labOrder.orderNumber) }</td>
-        <td>${ pihAppsUtils.getBestShortName(labOrder.concept) }</td>
+        <td>${ labOrderConfig.formatConcept(labOrder.concept) }</td>
         <td>${ ui.format(labOrder.orderer) }</td>
         <td>${ ui.message("pihapps." + (status == "" ? labOrder.isDiscontinuedRightNow() ? "discontinued" : "expired" : "fulfillerStatus." + status)) }</td>
     </tr>

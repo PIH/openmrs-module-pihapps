@@ -1,33 +1,33 @@
 
 /* Style the categories, tests, and tests within panels */
-.orderwidget-order-section .lab-category-name {
+.lab-orders-by-category .lab-category-name {
     font-weight: bold;
     padding: 5px;
 }
 
-.orderwidget-order-section .lab-category-tests {
+.lab-orders-by-category .lab-category-tests {
     padding-left: 20px;
 }
 
 /* Style the fields for each particular order */
-.orderwidget-order-section .order-field {
+.lab-orders-by-category .order-field {
     display: inline;
 }
-.orderwidget-order-section .order-field-label {
+.lab-orders-by-category .order-field-label {
     display: inline;
     vertical-align: middle;
     padding-left: 15px;
 }
-.orderwidget-order-section .order-field-widget {
+.lab-orders-by-category .order-field-widget {
     display: inline;
     vertical-align: middle;
 }
-.orderwidget-order-section .lab-order-field-input {
+.lab-orders-by-category .lab-order-field-input {
     display: inline;
     margin: 0 0 0 0;
     padding: 0 0 0 0;
 }
-.orderwidget-order-section .order-toggle-readonly {
+.lab-orders-by-category .order-toggle-readonly {
     display: inline;
     margin: 0 0 0 0;
     padding: 0 0 0 0;
@@ -36,16 +36,16 @@
 }
 
 /* Style the tooltip that displays tests within each panel */
-.orderwidget-order-section .test-in-panel {
+.lab-orders-by-category .test-in-panel {
     padding-left: 20px;
 }
 
-.orderwidget-order-section .tooltip {
+.lab-orders-by-category .tooltip {
     position: relative;
     opacity: unset;
     text-align: center;
 }
-.orderwidget-order-section .tooltip .tooltip-text {
+.lab-orders-by-category .tooltip .tooltip-text {
     visibility: hidden;
     opacity: 0;
     width: 300px;
@@ -59,12 +59,12 @@
     margin-left: 20px;
     transition: opacity 0.3s;
 }
-.orderwidget-order-section .tooltip .tooltip-text p {
+.lab-orders-by-category .tooltip .tooltip-text p {
     padding: 5px 0 0 8px;
     font-size: 13px;
     font-weight: bold;
 }
-.orderwidget-order-section .tooltip .tooltip-text div {
+.lab-orders-by-category .tooltip .tooltip-text div {
     display: flex;
     flex-flow: row wrap;
     padding: 0px 10px 5px 10px;
@@ -74,7 +74,7 @@
     text-align: left;
     width: 31.5%;
 }
-.orderwidget-order-section .tooltip .tooltip-text::after {
+.lab-orders-by-category .tooltip .tooltip-text::after {
     content: "";
     position: absolute;
     top: 10%;
@@ -84,7 +84,7 @@
     border-style: solid;
     border-color: transparent #555 transparent transparent;
 }
-.orderwidget-order-section .tooltip:hover .tooltip-text {
+.lab-orders-by-category .tooltip:hover .tooltip-text {
     visibility: visible;
     opacity: 1;
 }
