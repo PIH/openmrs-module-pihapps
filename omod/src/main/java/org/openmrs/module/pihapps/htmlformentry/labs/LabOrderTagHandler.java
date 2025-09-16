@@ -13,7 +13,6 @@ import org.openmrs.module.htmlformentry.widget.Option;
 import org.openmrs.module.htmlformentry.widget.OrderWidget;
 import org.openmrs.module.htmlformentry.widget.OrderWidgetConfig;
 import org.openmrs.module.pihapps.LabOrderConfig;
-import org.openmrs.module.pihapps.PihAppsConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -121,7 +120,7 @@ public class LabOrderTagHandler extends OrderTagHandler {
 				if (supported) {
 					if (!conceptsAreConfigured) {
 						Option option = new Option();
-						option.setLabel(labOrderConfig.getTestDisplayName(orderable));
+						option.setLabel(labOrderConfig.formatConcept(orderable));
 						option.setValue(orderable.getConceptId().toString());
 						orderPropertyOptions.add(option);
 						config.getConceptsAndDrugsConfigured().put(orderable, new ArrayList<>());

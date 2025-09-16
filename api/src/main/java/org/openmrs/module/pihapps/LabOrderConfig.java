@@ -51,8 +51,8 @@ public class LabOrderConfig {
     /**
      * @return the display name for the given concept, based on global property configuration
      */
-    public String getTestDisplayName(Concept c) {
-        String format = ConfigUtil.getGlobalProperty("pihapps.labOrderableDisplayFormat");
+    public String formatConcept(Concept c) {
+        String format = ConfigUtil.getGlobalProperty("pihapps.labs.conceptDisplayFormat");
         if ("shortest".equals(format)) {
             return getBestShortName(c);
         }

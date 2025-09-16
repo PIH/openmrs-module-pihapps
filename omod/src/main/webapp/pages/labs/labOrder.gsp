@@ -26,7 +26,7 @@
 
     <% labSet.setMembers.each { category -> %>
         <% category.setMembers.each { orderable -> %>
-            testNames.set('${ orderable.uuid }', '${ ui.encodeJavaScript(labOrderConfig.getTestDisplayName(orderable)) }');
+            testNames.set('${ orderable.uuid }', '${ ui.encodeJavaScript(labOrderConfig.formatConcept(orderable)) }');
             <% if (orderable.isSet()) { %>
                 testsByPanel.set('${ orderable.uuid }', new Set());
                 <% orderable.setMembers.each { test -> %>
@@ -36,7 +36,7 @@
             <% if (orderReasonsMap.get(orderable)) { %>
                 reasonsByTest.set('${ orderable.uuid }', []);
                 <% orderReasonsMap.get(orderable).each{ reasonConcept -> %>
-                    reasonsByTest.get('${ orderable.uuid }').push({uuid: '${reasonConcept.uuid}', display: '${ ui.encodeJavaScript(labOrderConfig.getTestDisplayName(reasonConcept)) }'});
+                    reasonsByTest.get('${ orderable.uuid }').push({uuid: '${reasonConcept.uuid}', display: '${ ui.encodeJavaScript(labOrderConfig.formatConcept(reasonConcept)) }'});
                 <% } %>
             <% } %>
         <% } %>
@@ -366,7 +366,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                             <% labSet.setMembers.each { category -> %>
                                 <li>
                                     <a id="category-link-${category.uuid}" class="category-link" href="#" onclick="changeCategory('${category.uuid}')">
-                                        ${ labOrderConfig.getTestDisplayName(category) }
+                                        ${ labOrderConfig.formatConcept(category) }
                                     </a>
                                 </li>
                             <% } %>
@@ -383,12 +383,12 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                                         <% category.setMembers.each { orderable -> %>
                                             <% if (orderable.isSet()) { %>
                                                 <button id="panel-button-${orderable.uuid}" class="lab-tests-btn tooltip" type="button" onclick="toggleTest('${orderable.uuid}')">
-                                                    ${ labOrderConfig.getTestDisplayName(orderable) }
+                                                    ${ labOrderConfig.formatConcept(orderable) }
                                                     <span class="tooltip-text">
                                                         <p>${ui.message("pihapps.testsIncludedInThisPanel")}:</p>
                                                         <div>
                                                             <% orderable.setMembers.each { setMember -> %>
-                                                                <span>${labOrderConfig.getTestDisplayName(setMember)}</span>
+                                                                <span>${labOrderConfig.formatConcept(setMember)}</span>
                                                             <% } %>
                                                         </div>
                                                     </span>
@@ -403,7 +403,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                                         <% category.setMembers.each { orderable -> %>
                                             <% if (!orderable.isSet()) { %>
                                                 <button id="test-button-${orderable.uuid}" class="lab-tests-btn" type="button" onclick="toggleTest('${orderable.uuid}')">
-                                                    ${ labOrderConfig.getTestDisplayName(orderable) }
+                                                    ${ labOrderConfig.formatConcept(orderable) }
                                                 </button>
                                             <% } %>
                                         <% } %>

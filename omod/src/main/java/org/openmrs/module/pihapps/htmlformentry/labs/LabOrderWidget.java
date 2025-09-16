@@ -59,7 +59,7 @@ public class LabOrderWidget extends OrderWidget {
 		jsonConcept.addString("conceptId", concept.getId().toString());
 		jsonConcept.addString("conceptUuid", concept.getUuid());
 		jsonConcept.addString("shortName", getLabOrderConfig().getBestShortName(concept));
-		jsonConcept.addString("displayName", getLabOrderConfig().getTestDisplayName(concept));
+		jsonConcept.addString("displayName", getLabOrderConfig().formatConcept(concept));
 	}
 
 	LabOrderConfig getLabOrderConfig() {
