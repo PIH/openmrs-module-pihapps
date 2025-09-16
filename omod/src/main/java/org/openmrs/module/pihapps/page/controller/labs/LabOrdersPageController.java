@@ -7,7 +7,7 @@ import org.openmrs.TestOrder;
 import org.openmrs.api.OrderService;
 import org.openmrs.api.db.hibernate.HibernateUtil;
 import org.openmrs.module.emrapi.patient.PatientDomainWrapper;
-import org.openmrs.module.pihapps.PihAppsUtils;
+import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.InjectBeans;
 import org.openmrs.ui.framework.annotation.SpringBean;
@@ -26,7 +26,8 @@ public class LabOrdersPageController {
     public void get(PageModel model, UiUtils ui,
                       @InjectBeans PatientDomainWrapper patientDomainWrapper,
                       @RequestParam(value = "patient") Patient patient,
-                      @SpringBean("orderService") OrderService orderService) {
+                      @SpringBean("orderService") OrderService orderService,
+                      @SpringBean("pihAppsConfig") PihAppsConfig pihAppsConfig) {
 
         List<TestOrder> labOrders = new ArrayList<>();
         for (Order order : orderService.getAllOrdersByPatient(patient)) {
@@ -91,6 +92,7 @@ public class LabOrdersPageController {
         model.addAttribute("activeOrders", activeOrders);
         model.addAttribute("inactiveOrders", inactiveOrders);
         model.addAttribute("ordersToDiscontinueOrders", ordersToDiscontinueOrders);
-        model.addAttribute("pihAppsUtils", new PihAppsUtils());
+        model.addAttribute("pihAppsConfig", pihAppsConfig);
+        model.addAttribute("labOrderConfig", pihAppsConfig.getLabOrderConfig());
     }
 }

@@ -5,7 +5,7 @@ import org.apache.commons.logging.LogFactory;
 import org.openmrs.Patient;
 import org.openmrs.module.emrapi.patient.PatientDomainWrapper;
 import org.openmrs.module.pihapps.LabOrderConfig;
-import org.openmrs.module.pihapps.PihAppsUtils;
+import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.InjectBeans;
 import org.openmrs.ui.framework.annotation.SpringBean;
@@ -20,13 +20,14 @@ public class LabOrderPageController {
                       @InjectBeans PatientDomainWrapper patientDomainWrapper,
                       @RequestParam(value = "patient") Patient patient,
                       @RequestParam(value = "returnUrl", required = false) String returnUrl,
-                      @SpringBean("labOrderConfig") LabOrderConfig labOrderConfig) {
+                      @SpringBean("pihAppsConfig") PihAppsConfig pihAppsConfig) {
 
         patientDomainWrapper.setPatient(patient);
         model.addAttribute("patient", patientDomainWrapper);
-        model.addAttribute("labSet", labOrderConfig.getLabOrderablesConceptSet());
-        model.addAttribute("orderReasonsMap", labOrderConfig.getOrderReasonsMap());
+        model.addAttribute("labSet", pihAppsConfig.getLabOrderConfig().getLabOrderablesConceptSet());
+        model.addAttribute("orderReasonsMap", pihAppsConfig.getLabOrderConfig().getOrderReasonsMap());
         model.addAttribute("returnUrl", returnUrl);
-        model.addAttribute("pihAppsUtils", new PihAppsUtils());
+        model.addAttribute("pihAppsConfig", pihAppsConfig);
+        model.addAttribute("labOrderConfig", pihAppsConfig.getLabOrderConfig());
     }
 }
