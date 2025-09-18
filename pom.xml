@@ -58,7 +58,7 @@
         <uilibraryVersion>2.0.7</uilibraryVersion>
         <webservicesRestVersion>2.50.0</webservicesRestVersion>
 
-        <lombokVersion>1.18.40</lombokVersion>
+        <lombokVersion>1.18.42</lombokVersion>
 
         <pihMavenPluginVersion>1.6.0</pihMavenPluginVersion>
         <dependencyReportClassifier>dependencies</dependencyReportClassifier>
