@@ -267,7 +267,37 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
 </script>
 
 <style>
-    legend {
+.lab-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid darkgrey;
+}
+  .lab-order-entry h5{
+    font-size: 14px;
+    font-weight: 600;
+
+}
+.lab-buttons button {
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: 1px solid #fd7e14;
+    color: darkgrey;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.lab-buttons button:hover {
+    background-color: #0056b3;
+    transform: translateY(-2px);
+}
+
+legend {
         text-align: left;
         padding: 0 10px;
         font-weight: 300;
@@ -360,7 +390,29 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
 
             <% } else { %>
 
-                <div class="row">
+            <%
+                    // Check if there is at least one non-empty lab prescription
+                    def hasData = labPrescriptions.any { it?.trim() }
+                    if (hasData) {
+            %>
+
+            <fieldset class="lab-buttons">
+              <legend><h5>${ui.message("pihapps.addLabOrders.ExamstoOrder")}</h5></legend>
+                <% labPrescriptions.each { lab ->
+                    if (lab?.trim()) {
+                %>
+                <button  type="button">
+                    ${lab}
+                </button>
+                <% } } %>
+            </fieldset>
+            <%
+                    } // end if hasData
+            %>
+
+
+
+            <div class="row">
                     <div class="col-12 col-sm-4 col-md-5 lab-category">
                         <ul>
                             <% labSet.setMembers.each { category -> %>

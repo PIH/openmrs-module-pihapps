@@ -3,12 +3,13 @@ package org.openmrs.module.pihapps.page.controller.labs;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.openmrs.Concept;
-import org.openmrs.ConceptAnswer;
-import org.openmrs.Patient;
+import org.openmrs.*;
 import org.openmrs.api.ConceptService;
+import org.openmrs.api.ObsService;
 import org.openmrs.module.emrapi.patient.PatientDomainWrapper;
 import org.openmrs.module.pihapps.PihAppsUtils;
+import org.openmrs.module.pihapps.service.LabPrescriptionService;
+import org.openmrs.module.pihapps.service.impl.LabPrescriptionServiceImpl;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.InjectBeans;
 import org.openmrs.ui.framework.annotation.SpringBean;
@@ -16,10 +17,7 @@ import org.openmrs.ui.framework.page.PageModel;
 import org.openmrs.util.ConfigUtil;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class LabOrderPageController {
 
@@ -29,7 +27,9 @@ public class LabOrderPageController {
                       @InjectBeans PatientDomainWrapper patientDomainWrapper,
                       @RequestParam(value = "patient") Patient patient,
                       @RequestParam(value = "returnUrl", required = false) String returnUrl,
-                      @SpringBean("conceptService") ConceptService conceptService) {
+                      @SpringBean("conceptService") ConceptService conceptService,
+                      @SpringBean LabPrescriptionService labPrescriptionService
+                    ) {
 
         String labSetProp = ConfigUtil.getGlobalProperty("orderentryowa.labOrderablesConceptSet");
         Concept labSet = conceptService.getConceptByReference(labSetProp);
@@ -65,8 +65,10 @@ public class LabOrderPageController {
                 }
             }
         }
-
+        // Get lab prescriptions for this patient
+        List<String> labPrescriptions = labPrescriptionService.getLabPrescriptions(patient);
         patientDomainWrapper.setPatient(patient);
+        model.addAttribute("labPrescriptions", labPrescriptions);
         model.addAttribute("patient", patientDomainWrapper);
         model.addAttribute("labSet", labSet);
         model.addAttribute("orderReasonsMap", orderReasonsMap);
