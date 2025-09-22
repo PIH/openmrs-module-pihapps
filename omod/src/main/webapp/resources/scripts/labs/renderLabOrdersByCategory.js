@@ -36,28 +36,6 @@ function renderLabOrdersByCategory(config) {
         }
     });
 
-    // Create function that can be run at initial load or whenever a panel toggle is clicked
-    // If isOnLoad is true, we do not affect any existing data, so we allow orders within panels to be checked, even if panels are checked
-    const toggleTestsInPanel = function(labTest, isPanelSelected, isOnLoad) {
-        const $testInPanelSection = jq(".test-in-panel-" + labTest.conceptId);
-        if (isPanelSelected) {
-            if (isOnLoad) {
-                $testInPanelSection.find(".order-toggle:not(:checked)").css("display", "none");
-                $testInPanelSection.find(".order-toggle:not(:checked)").siblings(".order-toggle-readonly").html("[ X ]").css("display", "inline");
-            }
-            else {
-                $testInPanelSection.find(".order-toggle:checked").click();
-                $testInPanelSection.find(".order-toggle").css("display", "none");
-                $testInPanelSection.find(".order-toggle-readonly").html("[ X ]").css("display", "inline");
-            }
-        }
-        else {
-            // Enable the checkboxes within the panel for selection
-            $testInPanelSection.find(".order-toggle-readonly").css("display", "none");
-            $testInPanelSection.find(".order-toggle").css("display", "inline");
-        }
-    }
-
     config.labTestCategories.forEach(function(category) {
 
         // Create section for each category, with the category name, and the category tests
@@ -99,34 +77,10 @@ function renderLabOrdersByCategory(config) {
             configuredTests.set(test.conceptId, test);
         });
 
-        const testsWithinPanels = new Map();
-        category.labTests.forEach(function(panel) {
-            if (panel.testsInPanel) {
-                panel.testsInPanel.forEach(function (test) {
-                    testsWithinPanels.set(test.conceptId, panel);
-                });
-            }
-        });
-
-        let testsForCategory = [];
-        category.labTests.forEach(labTest => {
-            if (!testsWithinPanels.has(labTest.conceptId)) {
-                testsForCategory.push(labTest);
-            }
-            if (labTest.testsInPanel) {
-                labTest.testsInPanel.forEach(testInPanel => {
-                    if (configuredTests.has(testInPanel.conceptId)) {
-                        testsForCategory.push(testInPanel);
-                    }
-                });
-            }
-        });
-
         // Render the tests the given category
-        testsForCategory.forEach(function(labTest) {
+        configuredTests.forEach(function(labTest) {
 
             const testIsPanel = labTest.testsInPanel && labTest.testsInPanel.length > 0;
-            const panelContainingTest = testsWithinPanels.get(labTest.conceptId);
             const previousOrder = previousOrders.get(labTest.conceptId);
 
             if (previousOrder) {
@@ -136,9 +90,6 @@ function renderLabOrdersByCategory(config) {
             const idSuffix = '_' + labTest.conceptId;
 
             const $labSection = jq(document.createElement("div")).attr("id", "lab" + idSuffix).addClass("lab-test-section");
-            if (panelContainingTest) {
-                $labSection.addClass("test-in-panel").addClass("test-in-panel-" + panelContainingTest.conceptId);
-            }
             if (testIsPanel) {
                 $labSection.addClass("lab-panel-section");
             }
@@ -217,14 +168,14 @@ function renderLabOrdersByCategory(config) {
                         jq($actionInput).val(previousOrder ? "REVISE" : "NEW");
                         $labSection.find(".lab-fields").show();
                         if (testIsPanel) {
-                            toggleTestsInPanel(labTest, true, false);
+                            toggleTestsInPanels();
                         }
                     }
                     else {
                         jq($actionInput).val(previousOrder ? "DISCONTINUE" : "");
                         $labSection.find(".lab-fields").hide();
                         if (testIsPanel) {
-                            toggleTestsInPanel(labTest, false, false);
+                            toggleTestsInPanels();
                         }
                     }
                 });
@@ -322,14 +273,40 @@ function renderLabOrdersByCategory(config) {
             }
         });
 
-        // Once all tests have been rendered, run through and update those within panels to be read-only
-        testsForCategory.forEach(function(labTest) {
-            const testIsPanel = labTest.testsInPanel && labTest.testsInPanel.length > 0;
-            const previousOrder = previousOrders.get(labTest.conceptId);
-            if (testIsPanel) {
-                toggleTestsInPanel(labTest, previousOrder && true, true);
-            }
-        });
+        // Function that runs whenever a category is rendered or panels within it are toggled
+        const toggleTestsInPanels = function() {
+            const selectedWithinPanels = new Set();
 
+            // First iterate over any panels, and track any tests that are part of selected panels
+            category.labTests.forEach(function(test) {
+                const panelSelected = jq("#order_toggle_" + test.conceptId).prop("checked");
+                if (test.testsInPanel && panelSelected) {
+                    test.testsInPanel.forEach(function (test) {
+                        selectedWithinPanels.add(test.conceptId);
+                    });
+                }
+            });
+
+            // Next, iterate over non-panels, and render tests within those panels
+            category.labTests.forEach(function(test) {
+                if (!test.testsInPanel || test.testsInPanel.size === 0) {
+                    const $checkbox = jq("#order_toggle_" + test.conceptId);
+                    const $readOnlySection = $checkbox.siblings(".order-toggle-readonly");
+                    const testAlreadySelected = $checkbox.prop("checked");
+                    // If the test is already selected, or if is not in a selected panel, allow it to be edited
+                    if (testAlreadySelected || !selectedWithinPanels.has(test.conceptId)) {
+                        // Enable the checkboxes within the panel for selection
+                        $readOnlySection.css("display", "none");
+                        $checkbox.css("display", "inline");
+                    } else {
+                        $checkbox.css("display", "none");
+                        $readOnlySection.html("[ X ]").css("display", "inline");
+                    }
+                }
+            });
+        }
+        if (!isViewMode) {
+            toggleTestsInPanels();
+        }
     });
 }

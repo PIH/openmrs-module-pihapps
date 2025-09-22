@@ -35,11 +35,6 @@
     vertical-align: top;
 }
 
-/* Style the tooltip that displays tests within each panel */
-.lab-orders-by-category .test-in-panel {
-    padding-left: 20px;
-}
-
 .lab-orders-by-category .tooltip {
     position: relative;
     opacity: unset;
