@@ -149,7 +149,9 @@ function renderLabOrdersByCategory(config) {
             if (testIsPanel) {
                 const $toolTipButton = jq(document.createElement("i")).addClass("icon-info-sign").addClass("tooltip");
                 const $toolTipText = jq(document.createElement("span")).addClass("tooltip-text");
-                const $toolTipTitle = jq(document.createElement("p")).html(config.translations.testsIncludedInThisPanel);
+                const $titleText = jq(document.createElement("span")).html(config.translations.testsIncludedInThisPanel);
+                const $hideButton = jq(document.createElement("span")).html("X").addClass("hide-tooltip");
+                const $toolTipTitle = jq(document.createElement("p")).append($titleText).append($hideButton);
                 const $toolTipTests = jq(document.createElement("div"));
                 labTest.testsInPanel.forEach(function(test) {
                     $toolTipTests.append(jq(document.createElement("span")).html(test.displayName));
@@ -158,6 +160,15 @@ function renderLabOrdersByCategory(config) {
                 $toolTipText.append($toolTipTests);
                 $toolTipButton.append($toolTipText);
                 $toolTipSection.append($toolTipButton);
+
+                $toolTipButton.click(function () {
+                    if ($toolTipText.css("visibility") === "hidden") {
+                        $toolTipText.css("visibility", "visible").css("opacity", 1);
+                    }
+                    else {
+                        $toolTipText.css("visibility", "hidden").css("opacity", 0);
+                    }
+                });
             }
 
             // Set up action inputs.  These are only added in non-view mode

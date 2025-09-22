@@ -17,7 +17,7 @@ public class LabOrderWidgetConfig extends OrderWidgetConfig {
     }
 
     @Getter
-    private final Map<Concept, List<Concept>> orderablesByCategory = new HashMap<>();
+    private final Map<Concept, List<Concept>> orderablesByCategory = new LinkedHashMap<>();
 
     @Getter
     private final Map<Concept, List<Concept>> orderReasonsByOrderable = new HashMap<>();

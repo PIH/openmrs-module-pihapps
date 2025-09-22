@@ -44,20 +44,25 @@
     position: relative;
     opacity: unset;
     text-align: center;
+    z-index: unset;
+}
+.lab-orders-by-category .tooltip::before {
+    cursor: pointer;
 }
 .lab-orders-by-category .tooltip .tooltip-text {
     visibility: hidden;
     opacity: 0;
-    width: 300px;
+    width: 500px;
     background-color: white;
     border: 1px solid grey;
     border-radius: 6px;
     text-align: left;
     position: absolute;
-    z-index: 1;
+    z-index: 1500;
     margin-top: -1em;
     margin-left: 20px;
     transition: opacity 0.3s;
+    font-family: "Open Sans", sans-serif;
 }
 .lab-orders-by-category .tooltip .tooltip-text p {
     padding: 5px 0 0 8px;
@@ -84,7 +89,8 @@
     border-style: solid;
     border-color: transparent #555 transparent transparent;
 }
-.lab-orders-by-category .tooltip:hover .tooltip-text {
-    visibility: visible;
-    opacity: 1;
+.lab-orders-by-category .hide-tooltip {
+    float: right;
+    padding-right: 10px;
+    cursor: pointer;
 }
