@@ -7,6 +7,7 @@ import org.openmrs.CareSetting;
 import org.openmrs.Concept;
 import org.openmrs.ConceptAnswer;
 import org.openmrs.ConceptName;
+import org.openmrs.OrderType;
 import org.openmrs.api.ConceptNameType;
 import org.openmrs.api.ConceptService;
 import org.openmrs.api.OrderService;
@@ -42,6 +43,33 @@ public class LabOrderConfig {
 
     public String getOrderReasonsReferenceConfig() {
         return ConfigUtil.getGlobalProperty("orderentryowa.orderReasonsMap");
+    }
+
+    public String getLabTestOrderTypeReference() {
+        // First get value from this module
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.labOrderType");
+        // If not set, attempt configuration from labworkflow owa
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.testOrderType");
+        }
+        // If not set, attempt configuration from rwanda laboratorymanagement module
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("laboratorymanagement.orderType.labOrderTypeId");
+        }
+        // If still not set, use the default value from core
+        if (StringUtils.isBlank(configVal)) {
+            configVal = OrderType.TEST_ORDER_TYPE_UUID;
+        }
+        return configVal;
+    }
+
+    public OrderType getLabTestOrderType() {
+        String orderTypeRef = getLabTestOrderTypeReference();
+        OrderType orderType = orderService.getOrderTypeByUuid(orderTypeRef);
+        if (orderType == null) {
+            orderType = orderService.getOrderType(Integer.parseInt(orderTypeRef));
+        }
+        return orderType;
     }
 
     public Concept getLabOrderablesConceptSet() {

@@ -37,6 +37,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                                     previousOrder: orderUuid,
                                     patient: patient,
                                     orderer: orderer,
+                                    orderType: '${labOrderType.uuid}',
                                     concept: orderableUuid,
                                     urgency: 'ROUTINE',
                                     orderReasonNonCoded: discontinueReason,
@@ -112,7 +113,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             <td>${ ui.format(labOrder.orderer) }</td>
             <td>${ ui.message(status == "" ? "pihapps.ordered" : "pihapps.fulfillerStatus." + status) }</td>
             <td class="order-actions-btn" style="text-align: center;">
-                <% if (labOrder.orderType.name == 'Test Order' && status != 'IN_PROGRESS' && status != 'COMPLETED') { %>
+                <% if (labOrder.orderType == labOrderType && status != 'IN_PROGRESS' && status != 'COMPLETED') { %>
                     <span>
                         <a href="#" onclick="discontinueOrder('${labOrder.uuid}', '${labOrder.concept.uuid}')"><i class="icon-remove scale" title="${ui.message("pihapps.discontinue")}"></i></a>
                     </span>

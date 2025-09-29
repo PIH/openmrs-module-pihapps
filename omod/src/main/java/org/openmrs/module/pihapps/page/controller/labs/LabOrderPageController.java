@@ -4,7 +4,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Patient;
 import org.openmrs.module.emrapi.patient.PatientDomainWrapper;
-import org.openmrs.module.pihapps.LabOrderConfig;
 import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.InjectBeans;
@@ -29,5 +28,6 @@ public class LabOrderPageController {
         model.addAttribute("returnUrl", returnUrl);
         model.addAttribute("pihAppsConfig", pihAppsConfig);
         model.addAttribute("labOrderConfig", pihAppsConfig.getLabOrderConfig());
+        model.addAttribute("labOrderType", pihAppsConfig.getLabOrderConfig().getLabTestOrderType());
     }
 }

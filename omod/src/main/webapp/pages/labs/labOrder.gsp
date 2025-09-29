@@ -206,6 +206,7 @@
                 orderedTests.forEach(orderable => {
                     orders.push({
                         type: 'testorder',
+                        orderType: '${labOrderType.uuid}',
                         patient: patient,
                         orderer: orderer,
                         concept: orderable,

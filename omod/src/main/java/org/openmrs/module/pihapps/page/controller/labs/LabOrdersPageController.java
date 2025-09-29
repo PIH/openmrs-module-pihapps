@@ -94,5 +94,6 @@ public class LabOrdersPageController {
         model.addAttribute("ordersToDiscontinueOrders", ordersToDiscontinueOrders);
         model.addAttribute("pihAppsConfig", pihAppsConfig);
         model.addAttribute("labOrderConfig", pihAppsConfig.getLabOrderConfig());
+        model.addAttribute("labOrderType", pihAppsConfig.getLabOrderConfig().getLabTestOrderType());
     }
 }
