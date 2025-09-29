@@ -60,6 +60,22 @@
 
 		<dependency>
 			<groupId>org.openmrs.module</groupId>
+			<artifactId>appui-omod</artifactId>
+			<version>${appuiVersion}</version>
+			<type>jar</type>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.openmrs.module</groupId>
+			<artifactId>coreapps-omod</artifactId>
+			<version>${coreappsVersion}</version>
+			<type>jar</type>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.openmrs.module</groupId>
 			<artifactId>htmlformentry-api</artifactId>
 			<version>${htmlformentryVersion}</version>
 			<type>jar</type>
