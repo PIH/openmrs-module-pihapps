@@ -70,13 +70,43 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         });
         discontinueDialog.show();
     }
+    jq(document).ready(function() {
+        jq(".test-filter").change(function() {
+            jq("#test-filter-form").submit();
+        });
+    });
 </script>
 
+<style>
+    .filter-label {
+        float: left;
+        margin-top: 5px;
+        padding: 5px;
+    }
+    .test-filter {
+        min-width: unset;
+    }
+</style>
+
 <div class="row">
-    <div class="col-6">
+    <div class="col-3">
         <h3>${ ui.message("pihapps.labOrders.active") }</h3>
     </div>
-    <div class="col-6 text-right">
+    <div class="col-6">
+        <form method="get" id="test-filter-form">
+            <span class="filter-label">
+                ${ ui.message("pihapps.filterBy") }
+            </span>
+            <input type="hidden" name="patient" value="${patient.patient.uuid}"/>
+            <select name="testConcept" class="test-filter">
+                <option value="">${ ui.message("pihapps.labTest") }...</option>
+                <% testConcepts.forEach { c -> %>
+                    <option value="${c.id}"${c == testConcept ? " selected" : ""}>${labOrderConfig.formatConcept(c)}</option>
+                <% } %>
+            </select>
+        </form>
+    </div>
+    <div class="col-3 text-right">
         <a href="${ui.pageLink("pihapps", "labs/labOrder", ["patient": patient.patient.uuid])}">
             <input type="button" value="${ui.message("pihapps.addLabOrders")}" style="max-width: unset;"/>
         </a>
