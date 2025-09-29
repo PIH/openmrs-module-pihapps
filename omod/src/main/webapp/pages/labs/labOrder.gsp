@@ -375,37 +375,45 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                     <div class="col-12 col-sm-8 col-md-7">
                         <% labSet.setMembers.each { category -> %>
                             <div class="lab-selection-form" id="lab-selection-form-${category.uuid}">
-                                <fieldset class="fieldset">
+                                <%
+                                    def panels = []
+                                    def tests = []
+                                    category.setMembers.each { orderable ->
+                                        if (orderable.isSet()) {
+                                            panels.add(orderable)
+                                        }
+                                        else {
+                                            tests.add(orderable)
+                                        }
+                                    }
+                                %>
+                                <fieldset class="fieldset"${panels.isEmpty() ? "style=\"display:none;\"" : ""}>
                                     <legend>
                                         ${ui.message("pihapps.labOrder.panels")}
                                     </legend>
                                     <div class="panel-box">
-                                        <% category.setMembers.each { orderable -> %>
-                                            <% if (orderable.isSet()) { %>
-                                                <button id="panel-button-${orderable.uuid}" class="lab-tests-btn tooltip" type="button" onclick="toggleTest('${orderable.uuid}')">
-                                                    ${ labOrderConfig.formatConcept(orderable) }
-                                                    <span class="tooltip-text">
-                                                        <p>${ui.message("pihapps.testsIncludedInThisPanel")}:</p>
-                                                        <div>
-                                                            <% orderable.setMembers.each { setMember -> %>
-                                                                <span>${labOrderConfig.formatConcept(setMember)}</span>
-                                                            <% } %>
-                                                        </div>
-                                                    </span>
-                                                </button>
-                                            <% } %>
+                                        <% panels.each { orderable -> %>
+                                            <button id="panel-button-${orderable.uuid}" class="lab-tests-btn tooltip" type="button" onclick="toggleTest('${orderable.uuid}')">
+                                                ${ labOrderConfig.formatConcept(orderable) }
+                                                <span class="tooltip-text">
+                                                    <p>${ui.message("pihapps.testsIncludedInThisPanel")}:</p>
+                                                    <div>
+                                                        <% orderable.setMembers.each { setMember -> %>
+                                                            <span>${labOrderConfig.formatConcept(setMember)}</span>
+                                                        <% } %>
+                                                    </div>
+                                                </span>
+                                            </button>
                                         <% } %>
                                     </div>
                                 </fieldset>
-                                <fieldset class="fieldset">
+                                <fieldset class="fieldset"${tests.isEmpty() ? "style=\"display:none;\"" : ""}>
                                     <legend>${ui.message("pihapps.labOrder.tests")}</legend>
                                     <div class="panel-box">
-                                        <% category.setMembers.each { orderable -> %>
-                                            <% if (!orderable.isSet()) { %>
-                                                <button id="test-button-${orderable.uuid}" class="lab-tests-btn" type="button" onclick="toggleTest('${orderable.uuid}')">
-                                                    ${ labOrderConfig.formatConcept(orderable) }
-                                                </button>
-                                            <% } %>
+                                        <% tests.each { orderable -> %>
+                                            <button id="test-button-${orderable.uuid}" class="lab-tests-btn" type="button" onclick="toggleTest('${orderable.uuid}')">
+                                                ${ labOrderConfig.formatConcept(orderable) }
+                                            </button>
                                         <% } %>
                                     </div>
                                 </fieldset>
