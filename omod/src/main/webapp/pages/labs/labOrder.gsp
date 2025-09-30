@@ -24,8 +24,8 @@
     const encounterLocation = '${sessionContext.sessionLocation.uuid}'
     const defaultOrderDate = '${ui.dateToISOString(defaultOrderDate)}'
 
-    <% labSet.setMembers.each { category -> %>
-        <% category.setMembers.each { orderable -> %>
+    <% labTestsByCategory.keySet().each { category -> %>
+        <% labTestsByCategory.get(category).each { orderable -> %>
             testNames.set('${ orderable.uuid }', '${ ui.encodeJavaScript(labOrderConfig.formatConcept(orderable)) }');
             <% if (orderable.isSet()) { %>
                 testsByPanel.set('${ orderable.uuid }', new Set());
@@ -174,8 +174,8 @@
     jq(document).ready(function () {
 
         jq(".lab-selection-form").hide();
-        <% if (labSet && !labSet.setMembers.isEmpty()) { %>
-            changeCategory('${labSet.setMembers.get(0).uuid}');
+        <% if (!labTestsByCategory.isEmpty()) { %>
+            changeCategory('${labTestsByCategory.keySet().iterator().next().uuid}');
         <% } %>
 
         jq("#cancel-button").click(function () {
@@ -355,7 +355,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
         <div class="lab-order-entry">
             <h3>${ ui.message("pihapps.addLabOrders") }</h3>
 
-            <% if (!labSet) { %>
+            <% if (labTestsByCategory.isEmpty()) { %>
 
                 Lab Ordering is not configured properly, see your system administrator
 
@@ -364,7 +364,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                 <div class="row">
                     <div class="col-12 col-sm-4 col-md-5 lab-category">
                         <ul>
-                            <% labSet.setMembers.each { category -> %>
+                            <% labTestsByCategory.keySet().each { category -> %>
                                 <li>
                                     <a id="category-link-${category.uuid}" class="category-link" href="#" onclick="changeCategory('${category.uuid}')">
                                         ${ labOrderConfig.formatConcept(category) }
@@ -374,12 +374,12 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                         </ul>
                     </div>
                     <div class="col-12 col-sm-8 col-md-7">
-                        <% labSet.setMembers.each { category -> %>
+                        <% labTestsByCategory.keySet().each { category -> %>
                             <div class="lab-selection-form" id="lab-selection-form-${category.uuid}">
                                 <%
                                     def panels = []
                                     def tests = []
-                                    category.setMembers.each { orderable ->
+                                    labTestsByCategory.get(category).each { orderable ->
                                         if (orderable.isSet()) {
                                             panels.add(orderable)
                                         }

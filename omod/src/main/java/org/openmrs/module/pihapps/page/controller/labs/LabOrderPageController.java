@@ -23,7 +23,7 @@ public class LabOrderPageController {
 
         patientDomainWrapper.setPatient(patient);
         model.addAttribute("patient", patientDomainWrapper);
-        model.addAttribute("labSet", pihAppsConfig.getLabOrderConfig().getLabOrderablesConceptSet());
+        model.addAttribute("labTestsByCategory", pihAppsConfig.getLabOrderConfig().getAvailableLabTestsByCategory());
         model.addAttribute("orderReasonsMap", pihAppsConfig.getLabOrderConfig().getOrderReasonsMap());
         model.addAttribute("returnUrl", returnUrl);
         model.addAttribute("pihAppsConfig", pihAppsConfig);

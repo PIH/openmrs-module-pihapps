@@ -37,81 +37,20 @@ public class LabOrderConfig {
         this.orderService = orderService;
     }
 
+    // Lab Orderables Concept Set
+
     public String getLabOrderablesConceptSetReference() {
         return ConfigUtil.getGlobalProperty("orderentryowa.labOrderablesConceptSet");
-    }
-
-    public String getOrderReasonsReferenceConfig() {
-        return ConfigUtil.getGlobalProperty("orderentryowa.orderReasonsMap");
-    }
-
-    public String getLabTestOrderTypeReference() {
-        // First get value from this module
-        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.labOrderType");
-        // If not set, attempt configuration from labworkflow owa
-        if (StringUtils.isBlank(configVal)) {
-            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.testOrderType");
-        }
-        // If not set, attempt configuration from rwanda laboratorymanagement module
-        if (StringUtils.isBlank(configVal)) {
-            configVal = ConfigUtil.getGlobalProperty("laboratorymanagement.orderType.labOrderTypeId");
-        }
-        // If still not set, use the default value from core
-        if (StringUtils.isBlank(configVal)) {
-            configVal = OrderType.TEST_ORDER_TYPE_UUID;
-        }
-        return configVal;
-    }
-
-    public OrderType getLabTestOrderType() {
-        String orderTypeRef = getLabTestOrderTypeReference();
-        OrderType orderType = orderService.getOrderTypeByUuid(orderTypeRef);
-        if (orderType == null) {
-            orderType = orderService.getOrderType(Integer.parseInt(orderTypeRef));
-        }
-        return orderType;
     }
 
     public Concept getLabOrderablesConceptSet() {
         return conceptService.getConceptByReference(getLabOrderablesConceptSetReference());
     }
 
-    /**
-     * @return the display name for the given concept, based on global property configuration
-     */
-    public String formatConcept(Concept c) {
-        String format = ConfigUtil.getGlobalProperty("pihapps.labs.conceptDisplayFormat");
-        if ("shortest".equals(format)) {
-            return getBestShortName(c);
-        }
-        return c.getDisplayString();
-    }
+    // Lab Order Reasons by Concept
 
-    /**
-     * @return the default care setting for lab orders, defined as the first found care setting of type OUTPATIENT
-     */
-    public CareSetting getDefaultCareSetting() {
-        List<CareSetting> careSettings = orderService.getCareSettings(false);
-        for (CareSetting cs : careSettings) {
-            if (cs.getCareSettingType() == CareSetting.CareSettingType.OUTPATIENT) {
-                return cs;
-            }
-        }
-        return careSettings.isEmpty() ? null : careSettings.get(0);
-    }
-
-    /**
-     * TODO: Eventually this will allow restricting based on global property, etc
-     */
-    public Map<Concept, List<Concept>> getAvailableLabTestsByCategory() {
-        Map<Concept, List<Concept>> ret = new LinkedHashMap<>();
-        Concept labOrderablesConceptSet = getLabOrderablesConceptSet();
-        if (labOrderablesConceptSet != null) {
-            for (Concept category : labOrderablesConceptSet.getSetMembers()) {
-                ret.put(category, category.getSetMembers());
-            }
-        }
-        return ret;
+    public String getOrderReasonsReferenceConfig() {
+        return ConfigUtil.getGlobalProperty("orderentryowa.orderReasonsMap");
     }
 
     public Map<Concept, List<Concept>> getOrderReasonsMap() {
@@ -151,6 +90,57 @@ public class LabOrderConfig {
             }
         }
         return orderReasonsMap;
+    }
+
+    // Lab Order Type
+
+    public String getLabTestOrderTypeReference() {
+        // First get value from this module
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.labOrderType");
+        // If not set, attempt configuration from labworkflow owa
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.testOrderType");
+        }
+        // If not set, attempt configuration from rwanda laboratorymanagement module
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("laboratorymanagement.orderType.labOrderTypeId");
+        }
+        // If still not set, use the default value from core
+        if (StringUtils.isBlank(configVal)) {
+            configVal = OrderType.TEST_ORDER_TYPE_UUID;
+        }
+        return configVal;
+    }
+
+    public OrderType getLabTestOrderType() {
+        String orderTypeRef = getLabTestOrderTypeReference();
+        OrderType orderType = orderService.getOrderTypeByUuid(orderTypeRef);
+        if (orderType == null) {
+            orderType = orderService.getOrderType(Integer.parseInt(orderTypeRef));
+        }
+        return orderType;
+    }
+
+    // Lab Care Setting
+
+    public CareSetting getDefaultCareSetting() {
+        List<CareSetting> careSettings = orderService.getCareSettings(false);
+        for (CareSetting cs : careSettings) {
+            if (cs.getCareSettingType() == CareSetting.CareSettingType.OUTPATIENT) {
+                return cs;
+            }
+        }
+        return careSettings.isEmpty() ? null : careSettings.get(0);
+    }
+
+    // Lab Concept Display Name
+
+    public String formatConcept(Concept c) {
+        String format = ConfigUtil.getGlobalProperty("pihapps.labs.conceptDisplayFormat");
+        if ("shortest".equals(format)) {
+            return getBestShortName(c);
+        }
+        return c.getDisplayString();
     }
 
     /**
@@ -206,5 +196,50 @@ public class LabOrderConfig {
             return shortEnglish.getName();
         }
         return c.getDisplayString();
+    }
+
+    // Enabled Lab Tests By Category
+
+    public String getEnabledTestsConfig() {
+        // Support legacy laboratorymanagement configuration for Rwanda
+        return ConfigUtil.getGlobalProperty("laboratorymanagement.currentLabRequestFormConceptIDs");
+    }
+
+    public List<Concept> getEnabledLabTests() {
+        List<Concept> ret = new ArrayList<>();
+        String configVal = getEnabledTestsConfig();
+        if (StringUtils.isNotBlank(configVal)) {
+            for (String lookup : configVal.split(",")) {
+                lookup = lookup.trim();
+                Concept concept = conceptService.getConceptByReference(lookup);
+                if (concept == null) {
+                    log.warn("Invalid concept configured for enabled lab tests: " + lookup);
+                }
+                else {
+                    ret.add(concept);
+                }
+            }
+        }
+        return ret;
+    }
+
+    public Map<Concept, List<Concept>> getAvailableLabTestsByCategory() {
+        Map<Concept, List<Concept>> ret = new LinkedHashMap<>();
+        Concept labOrderablesConceptSet = getLabOrderablesConceptSet();
+        if (labOrderablesConceptSet != null) {
+            List<Concept> enabledLabTests = getEnabledLabTests();
+            for (Concept category : labOrderablesConceptSet.getSetMembers()) {
+                List<Concept> conceptsInCategory = new ArrayList<>();
+                for (Concept labTest : category.getSetMembers()) {
+                    if (enabledLabTests.isEmpty() || enabledLabTests.contains(labTest)) {
+                        conceptsInCategory.add(labTest);
+                    }
+                }
+                if (!conceptsInCategory.isEmpty()) {
+                    ret.put(category, conceptsInCategory);
+                }
+            }
+        }
+        return ret;
     }
 }
