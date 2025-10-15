@@ -159,7 +159,7 @@
         </p>
         <% locationsWithChildren.each{ visitLoc -> %>
             <div class="multi-department-login-location-section" id="multi-department-login-location-section-${visitLoc.id}">
-                <p>${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentLoginLocations") }</p>
+                <p>${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentLoginLocations", visitLoc.name) }</p>
                 <% visitLoc.childLocations.each{ loginLoc ->
                     def selected = systemType == locationTagConfig.MULTI_DEPARTMENT && configurationIsValid && validLoginLocations.contains(loginLoc) %>
                     <input type="checkbox" name="multiDepartmentLoginLocations" value="${loginLoc.id}" ${selected ? "checked": ""}>
