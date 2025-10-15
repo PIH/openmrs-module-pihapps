@@ -67,21 +67,21 @@ public class ConfigureLoginLocationsPageController {
 
             if (LocationTagConfig.SINGLE_LOCATION.equals(systemType)) {
                 if (singleLocation == null) {
-                    throw new IllegalArgumentException("You must specify a location");
+                    throw new IllegalArgumentException("pihapps.admin.configureLoginLocations.error.mustSpecifyLocation");
                 }
                 visitLocations = Collections.singletonList(singleLocation);
                 loginLocations = Collections.singletonList(singleLocation);
             }
             else if (LocationTagConfig.MULTI_DEPARTMENT.equals(systemType)) {
                 if (multiDepartmentVisitLocation == null) {
-                    throw new IllegalArgumentException("You must specify a single facility visit location");
+                    throw new IllegalArgumentException("pihapps.admin.configureLoginLocations.error.mustSpecifySingleVisitLocation");
                 }
                 if (multiDepartmentLoginLocations == null || multiDepartmentLoginLocations.isEmpty()) {
-                    throw new IllegalArgumentException("You must specify at least one login location");
+                    throw new IllegalArgumentException("pihapps.admin.configureLoginLocations.error.mustSpecifyLoginLocations");
                 }
                 for (Location location : multiDepartmentLoginLocations) {
                     if (location.getParentLocation() == null || !location.getParentLocation().equals(multiDepartmentVisitLocation)) {
-                        throw new IllegalArgumentException("You can only configure login locations that are children of the selected visit location");
+                        throw new IllegalArgumentException("pihapps.admin.configureLoginLocations.error.loginLocationsMustBeChildren");
                     }
                 }
                 visitLocations = Collections.singletonList(multiDepartmentVisitLocation);
@@ -89,10 +89,10 @@ public class ConfigureLoginLocationsPageController {
             }
             else if (LocationTagConfig.MULTI_FACILITY.equals(systemType)) {
                 if (multiFacilityVisitLocations == null || multiFacilityVisitLocations.isEmpty()) {
-                    throw new IllegalArgumentException("You must specify at least one facility visit location");
+                    throw new IllegalArgumentException("pihapps.admin.configureLoginLocations.error.mustSpecifyVisitLocations");
                 }
                 if (multiFacilityLoginLocations == null || multiFacilityLoginLocations.isEmpty()) {
-                    throw new IllegalArgumentException("You must specify at least one login location");
+                    throw new IllegalArgumentException("pihapps.admin.configureLoginLocations.error.mustSpecifyLoginLocations");
                 }
                 visitLocations = multiFacilityVisitLocations;
                 loginLocations = multiFacilityLoginLocations;
@@ -108,11 +108,11 @@ public class ConfigureLoginLocationsPageController {
                 }
             }
             else {
-                throw new IllegalArgumentException("You must specify a valid set of visit and login locations");
+                throw new IllegalArgumentException("pihapps.admin.configureLoginLocations.error.mustSpecifiyVisitAndLoginLocations");
             }
         }
         catch (Exception e) {
-            sessionContext.getSession().setAttribute(UiCommonsConstants.SESSION_ATTRIBUTE_ERROR_MESSAGE, e.getMessage());
+            sessionContext.getSession().setAttribute(UiCommonsConstants.SESSION_ATTRIBUTE_ERROR_MESSAGE, ui.message(e.getMessage()));
         }
 
         Map<String, Object> params = new HashMap<>();

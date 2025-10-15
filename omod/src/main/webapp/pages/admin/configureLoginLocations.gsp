@@ -86,14 +86,14 @@
         <div class="note" style="width: 100%;">
             <div class="text">
                 <i class="fas fa-fw fa-check-circle" style="vertical-align: middle;"></i>
-                Login Locations are currently valid.  You may change the configuration via the form below.
+                ${ ui.message("pihapps.admin.configureLoginLocations.loginLocationsValid") }
             </div>
         </div>
     <% } else { %>
         <div class="note warning" style="width: 100%;">
             <div class="text">
                 <i class="fas fa-fw fa-exclamation-circle" style="vertical-align: middle;"></i>
-                Login Locations are not properly configured in this system, please complete the form below to ensure a proper setup.
+                ${ ui.message("pihapps.admin.configureLoginLocations.loginLocationsInvalid") }
             </div>
         </div>
     <% } %>
@@ -101,58 +101,40 @@
 
 <div id="login-location-instructions">
     <p>
-        <b>Login Locations:</b>:  When users authenticate into the system, their session must be associated with a Login Location.
-        This location is used determine what functionality and workflows should be available, and is the default location
-        associated with any <b>encounters</b> and other data that this user records during this session.
-        A user can change their login location at any point in time by clicking on the name of their currently
-        selected location in the page header.  Specific locations are designated as <em>Login Locations</em> by associating them
-        with the <em>Login Location</em> tag.
+        <b>${ ui.message("pihapps.admin.configureLoginLocations.loginLocations") }:</b>:
+        ${ ui.message("pihapps.admin.configureLoginLocations.loginLocationsDescription") }
     </p>
     <p>
-        <b>Visit Locations:</b>:  Each login location must be associated with exactly one visit location. Visit locations are used to
-        determine what location to assign to any <b>visits</b> that are created during the user session.  In order to do this,
-        each location that is tagged as a "Login Location" must itself be tagged as a "Visit Location", or must be a descendent of
-        a location tagged as a Visit Location.
+        <b>${ ui.message("pihapps.admin.configureLoginLocations.visitLocations") }:</b>:
+        ${ ui.message("pihapps.admin.configureLoginLocations.visitLocationsDescription") }
     </p>
 </div>
 
 <form id="login-location-form" method="post" action="${ui.pageLink("pihapps", "admin/configureLoginLocations")}">
     <div id="choose-system-type"></div>
-    <b>Please choose the option that best reflects this system:</b>
+    <b>${ ui.message("pihapps.admin.configureLoginLocations.chooseSystemType") }:</b>
     <div class="system-type-option">
         <input name="systemType" value="${locationTagConfig.SINGLE_LOCATION}" type="radio" ${locationTagConfig.SINGLE_LOCATION == systemType ? "checked" : ""}/>
-        Single health center or small facility, all encounters and visits are associated with the overall facility location.
-        <a href="#" onclick="jq('#single-visit-single-login-description').toggle()">More info</a>
+        ${ ui.message("pihapps.admin.configureLoginLocations.singleLocationDescriptionShort") }
+        <a href="#" onclick="jq('#single-visit-single-login-description').toggle()">${ ui.message("pihapps.admin.configureLoginLocations.moreInfo") }</a>
         <p id="single-visit-single-login-description" class="system-type-option-description">
-            Health centers and similar smaller facilities will typically configure a location representing the overall facility
-            as the only Visit Location, and will also tag this location as the only Login Location.  This will eliminate the need
-            for users to choose their location after login, and will automatically assign all user sessions to this single login location.
-            All encounters, visits, and other data will be associated with this overall facility location.
-            and will configure this same location as the Visit Location.
+            ${ ui.message("pihapps.admin.configureLoginLocations.singleLocationDescriptionLong") }
         </p>
     </div>
     <div class="system-type-option">
         <input name="systemType" value="${locationTagConfig.MULTI_DEPARTMENT}" type="radio" ${locationTagConfig.MULTI_DEPARTMENT == systemType ? "checked" : ""}/>
-        Single hospital or multi-department facility, all visits at a single facility, with encounters at different departments within that facility
-        <a href="#" onclick="jq('#single-visit-multiple-login-description').toggle()">More info</a>
+        ${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentDescriptionShort") }
+        <a href="#" onclick="jq('#single-visit-multiple-login-description').toggle()">${ ui.message("pihapps.admin.configureLoginLocations.moreInfo") }</a>
         <p id="single-visit-multiple-login-description" class="system-type-option-description">
-            Hospitals and similar larger facilities will typically configure a location representing the overall facility
-            as the only Visit Location, but will then create locations representing each department/service that have this
-            Visit Location as their parent location.  They will tag the department/service locations as login locations, but
-            the overall facility visit location will not be tagged as a login location.
-            This will enable encounters to be associated with individual department locations, and for multiple encounters
-            at different departments within the facility to be associated with the same Visit at the parent visit location.
+            ${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentDescriptionLong") }
         </p>
     </div>
     <div class="system-type-option">
         <input name="systemType" value="${locationTagConfig.MULTI_FACILITY}" type="radio" ${locationTagConfig.MULTI_FACILITY == systemType ? "checked" : ""}/>
-        System serving multiple facilities.  Visits and encounters will be created at different facilities.
-        <a href="#" onclick="jq('#multiple-visit-multiple-description').toggle()">More info</a>
+        ${ ui.message("pihapps.admin.configureLoginLocations.multiFacilityDescriptionShort") }
+        <a href="#" onclick="jq('#multiple-visit-multiple-description').toggle()">${ ui.message("pihapps.admin.configureLoginLocations.moreInfo") }</a>
         <p id="multiple-visit-multiple-description" class="system-type-option-description">
-            Systems that are set up to serve multiple distinct facilities will typically configure a location representing each
-            of the supported facilities as a "Visit Location".  It would then configure the Login Locations associated with each
-            configured Visit Location based on one of the two preferred setups above.  All Login Locations must be associated
-            with only a single ancestor Visit Location.
+            ${ ui.message("pihapps.admin.configureLoginLocations.multiFacilityDescriptionLong") }
         </p>
     </div>
 
@@ -160,14 +142,14 @@
         ${ui.includeFragment("pihapps", "field/location", [
                 "id": "singleLocationWidget",
                 "formFieldName": "singleLocation",
-                "label": "Single Visit and Login Location"
+                "label": ui.message("pihapps.admin.configureLoginLocations.singleLocation")
         ])}
         <input type="submit" />
     </div>
 
     <div class="system-type-section" id="system-type-section-${locationTagConfig.MULTI_DEPARTMENT}">
         <p>
-            <label for="multiDepartmentVisitLocationWidget">Facility Location to associate with all visits</label>
+            <label for="multiDepartmentVisitLocationWidget">${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentVisitLocation") }</label>
             <select id="multiDepartmentVisitLocationWidget" name="multiDepartmentVisitLocation">
                 <option value=""></option>
                 <% locationsWithChildren.each{l -> %>
@@ -177,7 +159,7 @@
         </p>
         <% locationsWithChildren.each{ visitLoc -> %>
             <div class="multi-department-login-location-section" id="multi-department-login-location-section-${visitLoc.id}">
-                <p>Please select the departments/services within ${visitLoc.name} which users will log into and create encounters</p>
+                <p>${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentLoginLocations") }</p>
                 <% visitLoc.childLocations.each{ loginLoc ->
                     def selected = systemType == locationTagConfig.MULTI_DEPARTMENT && configurationIsValid && validLoginLocations.contains(loginLoc) %>
                     <input type="checkbox" name="multiDepartmentLoginLocations" value="${loginLoc.id}" ${selected ? "checked": ""}>
@@ -190,9 +172,7 @@
     </div>
 
     <div class="system-type-section" id="system-type-section-${locationTagConfig.MULTI_FACILITY}">
-        <p>
-            Please choose the locations that should be denoted as Visit Locations and Login Locations
-        </p>
+        <p>${ ui.message("pihapps.admin.configureLoginLocations.multiFacilityLocations") }</p>
         <% rootLocations.each{ l -> %>
             ${ui.includeFragment("pihapps", "field/admin/loginLocationCheckboxes", [
                     "location": l,
