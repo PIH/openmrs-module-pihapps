@@ -65,6 +65,7 @@
 </script>
 
 <% if (locationTagConfig.isLocationSetupRequired()) { %>
+
     <style>
     .setup-location-tag-link {
         color: blue;
@@ -85,39 +86,42 @@
             </div>
         </div>
     </div>
-<% } %>
 
-<form id="login-location-form" method="post">
-    <!-- only show visit location selector if there are multiple locations to choose from -->
-    <% if (visitLocations.size() > 1) { %>
-        <div class="clear" id="visit-location-section">
+<% } else { %>
+
+    <form id="login-location-form" method="post">
+        <!-- only show visit location selector if there are multiple locations to choose from -->
+        <% if (visitLocations.size() > 1) { %>
+            <div class="clear" id="visit-location-section">
+                <label>
+                    ${ ui.message("pihapps.login.chooseVisitLocation.title") }:
+                </label>
+                <ul class="select visit-location-select">
+                    <% visitLocations.each { visitLocation -> %>
+                        <li id="visit-location-select-item-${visitLocation.id}" class="location-list-item" value="${visitLocation.id}">${ui.format(visitLocation)}</li>
+                    <% } %>
+                </ul>
+            </div>
+        <% } %>
+
+        <% if (visitLocations.size() == 1) { %>
+            <h3>${ ui.format(visitLocations.iterator().next()) }</h3>
+        <% } %>
+        <div class="clear login-location-section" id="login-location-section">
             <label>
-                ${ ui.message("pihapps.login.chooseVisitLocation.title") }:
+                ${ ui.message("pihapps.login.chooseLoginLocation.title") }:
             </label>
-            <ul class="select visit-location-select">
-                <% visitLocations.each { visitLocation -> %>
-                    <li id="visit-location-select-item-${visitLocation.id}" class="location-list-item" value="${visitLocation.id}">${ui.format(visitLocation)}</li>
+            <ul id="login-location-select" class="select login-location-select">
+                <% visitLocations.each { visitLocation ->
+                    def loginLocations = visitAndLoginLocations.get(visitLocation)
+                    loginLocations.each { loginLocation -> %>
+                        <li class="location-list-item login-location-item login-location-item-${visitLocation.id}" value="${loginLocation.id}">${ui.format(loginLocation)}</li>
+                    <% } %>
                 <% } %>
             </ul>
         </div>
-    <% } %>
 
-    <% if (visitLocations.size() == 1) { %>
-        <h3>${ ui.format(visitLocations.iterator().next()) }</h3>
-    <% } %>
-    <div class="clear login-location-section" id="login-location-section">
-        <label>
-            ${ ui.message("pihapps.login.chooseLoginLocation.title") }:
-        </label>
-        <ul id="login-location-select" class="select login-location-select">
-            <% visitLocations.each { visitLocation ->
-                def loginLocations = visitAndLoginLocations.get(visitLocation)
-                loginLocations.each { loginLocation -> %>
-                    <li class="location-list-item login-location-item login-location-item-${visitLocation.id}" value="${loginLocation.id}">${ui.format(loginLocation)}</li>
-                <% } %>
-            <% } %>
-        </ul>
-    </div>
+        <input id="session-location-input" type="hidden" name="sessionLocation" />
+    </form>
 
-    <input id="session-location-input" type="hidden" name="sessionLocation" />
-</form>
+<% } %>
