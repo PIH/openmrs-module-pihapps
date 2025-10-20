@@ -55,8 +55,9 @@
                 <% if (systemType == locationTagConfig.SINGLE_LOCATION) { %>
                     jq("#singleLocationWidget-field").val('${validVisitLocations.get(0).id}');
                 <% } else if (systemType == locationTagConfig.MULTI_DEPARTMENT) { %>
-                    let visitLocationWidget = jq("#multiDepartmentVisitLocationWidget");
-                    jq(visitLocationWidget).val('${validVisitLocations.get(0).id}');
+                    const visitLocationWidget = jq("#multiDepartmentVisitLocationWidget");
+                    const initialVisitLocationId = '${validVisitLocations.get(0).id}';
+                    jq(visitLocationWidget).val(initialVisitLocationId);
                     jq(visitLocationWidget).change();
                 <% } %>
             <% } %>
@@ -71,8 +72,17 @@
 
         jq("#multiDepartmentVisitLocationWidget").change(function() {
             let value = jq(this).val();
+
+            // Hide all sections and uncheck all boxes
             jq(".multi-department-login-location-section").hide();
-            jq("#multi-department-login-location-section-" + value).show();
+            jq("input[type=checkbox][name=multiDepartmentLoginLocations]").removeAttr("checked");
+
+            // Get the section for the chosen visit location, set initial values, and show
+            const multiDepartmentLoginSection = jq("#multi-department-login-location-section-" + value);
+            <% validLoginLocations.each{l -> %>
+                jq(multiDepartmentLoginSection).find("input[type=checkbox][name=multiDepartmentLoginLocations][value=${l.id}]").prop("checked", "checked");
+            <% } %>
+            multiDepartmentLoginSection.show();
         });
 
         setupInitialValues();
@@ -123,7 +133,7 @@
     </div>
     <div class="system-type-option">
         <input name="systemType" value="${locationTagConfig.MULTI_DEPARTMENT}" type="radio" ${locationTagConfig.MULTI_DEPARTMENT == systemType ? "checked" : ""}/>
-        ${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentDescriptionShort") }
+        <span class="system-type-option-description-short">${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentDescriptionShort") }</span>
         <a href="#" onclick="jq('#single-visit-multiple-login-description').toggle()">${ ui.message("pihapps.admin.configureLoginLocations.moreInfo") }</a>
         <p id="single-visit-multiple-login-description" class="system-type-option-description">
             ${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentDescriptionLong") }
@@ -131,7 +141,7 @@
     </div>
     <div class="system-type-option">
         <input name="systemType" value="${locationTagConfig.MULTI_FACILITY}" type="radio" ${locationTagConfig.MULTI_FACILITY == systemType ? "checked" : ""}/>
-        ${ ui.message("pihapps.admin.configureLoginLocations.multiFacilityDescriptionShort") }
+        <span class="system-type-option-description-short">${ ui.message("pihapps.admin.configureLoginLocations.multiFacilityDescriptionShort") }</span>
         <a href="#" onclick="jq('#multiple-visit-multiple-description').toggle()">${ ui.message("pihapps.admin.configureLoginLocations.moreInfo") }</a>
         <p id="multiple-visit-multiple-description" class="system-type-option-description">
             ${ ui.message("pihapps.admin.configureLoginLocations.multiFacilityDescriptionLong") }
@@ -160,12 +170,11 @@
         <% locationsWithChildren.each{ visitLoc -> %>
             <div class="multi-department-login-location-section" id="multi-department-login-location-section-${visitLoc.id}">
                 <p>${ ui.message("pihapps.admin.configureLoginLocations.multiDepartmentLoginLocations", visitLoc.name) }</p>
-                <% visitLoc.childLocations.each{ loginLoc ->
-                    def selected = systemType == locationTagConfig.MULTI_DEPARTMENT && configurationIsValid && validLoginLocations.contains(loginLoc) %>
-                    <input type="checkbox" name="multiDepartmentLoginLocations" value="${loginLoc.id}" ${selected ? "checked": ""}>
-                    ${loginLoc.name}
-                    <br/>
-                <% } %>
+                ${ui.includeFragment("pihapps", "field/admin/loginLocationCheckboxes", [
+                        "locations": visitLoc.childLocations,
+                        "padding": 10,
+                        "loginLocationFormFieldName": "multiDepartmentLoginLocations"
+                ])}
                 <input type="submit" />
             </div>
         <% } %>
@@ -174,7 +183,7 @@
     <div class="system-type-section" id="system-type-section-${locationTagConfig.MULTI_FACILITY}">
         <p>${ ui.message("pihapps.admin.configureLoginLocations.multiFacilityLocations") }</p>
         <% rootLocations.each{ l -> %>
-            ${ui.includeFragment("pihapps", "field/admin/loginLocationCheckboxes", [
+            ${ui.includeFragment("pihapps", "field/admin/visitAndLoginLocationCheckboxes", [
                     "location": l,
                     "padding": 10,
                     "visitLocationFormFieldName": "multiFacilityVisitLocations",

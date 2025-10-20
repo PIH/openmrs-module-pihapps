@@ -18,9 +18,15 @@
     .login-location-section {
         display: none;
     }
-    ul.select li.visit-location-selected {
+    ul.select li.location-selected {
         background-color: #007FFF;
         color: white;
+    }
+    .login-location-section label {
+        font-weight: bold;
+    }
+    #login-location-select {
+        margin-top: 10px;
     }
 </style>
 
@@ -44,12 +50,15 @@
 
         <% if (visitLocations.size() == 1) { %>
             showLoginLocationSection('${visitLocations.iterator().next().id}');
+            <% if (currentLoginLocation) { %>
+                jq("#login-location-select-item-${currentLoginLocation.id}").addClass('location-selected');
+            <% } %>
         <% } %>
 
         jq(".visit-location-select .location-list-item").click(function() {
             let id = jq(this).attr('value');
-            jq(".visit-location-select li").removeClass('visit-location-selected');
-            jq(this).addClass('visit-location-selected');
+            jq(".visit-location-select li").removeClass('location-selected');
+            jq(this).addClass('location-selected');
             showLoginLocationSection(id);
         });
 
@@ -115,7 +124,7 @@
                 <% visitLocations.each { visitLocation ->
                     def loginLocations = visitAndLoginLocations.get(visitLocation)
                     loginLocations.each { loginLocation -> %>
-                        <li class="location-list-item login-location-item login-location-item-${visitLocation.id}" value="${loginLocation.id}">${ui.format(loginLocation)}</li>
+                        <li id="login-location-select-item-${loginLocation.id}" class="location-list-item login-location-item login-location-item-${visitLocation.id}" value="${loginLocation.id}">${ui.format(loginLocation)}</li>
                     <% } %>
                 <% } %>
             </ul>

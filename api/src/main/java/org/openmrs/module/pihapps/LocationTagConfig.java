@@ -92,9 +92,7 @@ public class LocationTagConfig {
     public boolean isValidLoginLocation(Location location) {
         if (isLoginLocation(location)) {
             List<Location> visitLocationsForLogin = getVisitLocationsForLocation(location);
-            List<Location> ancestorLoginLocations = getAncestorsWithTag(location, getLoginLocationTag());
-            List<Location> descendentLoginLocations = getDescendentsWithTag(location, getLoginLocationTag());
-            if (visitLocationsForLogin.size() == 1 && ancestorLoginLocations.isEmpty() && descendentLoginLocations.isEmpty()) {
+            if (visitLocationsForLogin.size() == 1) {
                 return isValidVisitLocation(visitLocationsForLogin.get(0));
             }
         }

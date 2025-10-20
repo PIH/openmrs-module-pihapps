@@ -79,11 +79,6 @@ public class ConfigureLoginLocationsPageController {
                 if (multiDepartmentLoginLocations == null || multiDepartmentLoginLocations.isEmpty()) {
                     throw new IllegalArgumentException("pihapps.admin.configureLoginLocations.error.mustSpecifyLoginLocations");
                 }
-                for (Location location : multiDepartmentLoginLocations) {
-                    if (location.getParentLocation() == null || !location.getParentLocation().equals(multiDepartmentVisitLocation)) {
-                        throw new IllegalArgumentException("pihapps.admin.configureLoginLocations.error.loginLocationsMustBeChildren");
-                    }
-                }
                 visitLocations = Collections.singletonList(multiDepartmentVisitLocation);
                 loginLocations = multiDepartmentLoginLocations;
             }

@@ -37,13 +37,23 @@ public class LoginLocationPageController {
 
         model.addAttribute("locationTagConfig", locationTagConfig);
         model.addAttribute("authenticatedUser", sessionContext.getCurrentUser());
-
+        Location currentVisitLocation = null;
+        Location currentLoginLocation = null;
         if (!locationTagConfig.isLocationSetupRequired()) {
             List<Location> loginLocations = locationTagConfig.getValidLoginLocations();
             if (loginLocations.size() == 1) {
                 return post(sessionContext, response, loginLocations.get(0));
             }
+            currentLoginLocation = sessionContext.getSessionLocation();
+            if (currentLoginLocation != null) {
+                List<Location> visitLocations = locationTagConfig.getVisitLocationsForLocation(currentLoginLocation);
+                if (visitLocations.size() == 1) {
+                    currentVisitLocation = visitLocations.get(0);
+                }
+            }
         }
+        model.addAttribute("currentVisitLocation", currentVisitLocation);
+        model.addAttribute("currentLoginLocation", currentLoginLocation);
         return "loginLocation";
     }
 
