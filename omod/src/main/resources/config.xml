@@ -45,4 +45,14 @@
 
     <activator>${project.parent.groupId}.${project.parent.artifactId}.PihAppsActivator</activator>
 
+    <filter>
+        <filter-name>RequireLoginLocationFilter</filter-name>
+        <filter-class>org.openmrs.module.pihapps.filter.RequireLoginLocationFilter</filter-class>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>RequireLoginLocationFilter</filter-name>
+        <url-pattern>*</url-pattern>
+    </filter-mapping>
+
 </module>
