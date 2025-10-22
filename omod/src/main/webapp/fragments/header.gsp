@@ -7,8 +7,8 @@
 <header>
     <nav class="navbar navbar-expand-lg navbar-dark navigation">
         <div class="logo">
-            <a href="/${contextPath}">
-                <img src="${ configSettings.get("logo-icon-url") }"/>
+            <a href="/${ contextPath }">
+                <img src="/${ contextPath }${ configSettings.get("logo-icon-url") }"/>
             </a>
         </div>
         <% if (context.authenticated) { %>
