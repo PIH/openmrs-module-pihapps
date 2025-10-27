@@ -12,7 +12,7 @@
  * Copyright (C) OpenMRS, LLC.  All Rights Reserved.
  */
 
-package org.openmrs.module.pihapps.fragment.controller;
+package org.openmrs.module.pihapps.fragment.controller.field;
 
 import org.openmrs.Location;
 import org.openmrs.module.appui.UiSessionContext;
