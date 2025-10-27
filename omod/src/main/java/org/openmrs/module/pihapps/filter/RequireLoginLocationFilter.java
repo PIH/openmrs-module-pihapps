@@ -44,7 +44,7 @@ public class RequireLoginLocationFilter implements Filter {
 
 	public static final List<String> EXCLUSION_EXTENSIONS = Arrays.asList(
 			"js", "css", "gif", "jpg", "jpeg", "png", ".ttf", ".woff", ".action", "/csrfguard",
-			"/pihapps/admin/configureLoginLocations.page"
+			"/pihapps/admin/configureLoginLocations.page", "/pihapps/account/termsAndConditions.page"
 	);
 
 	public boolean disabled = false;
