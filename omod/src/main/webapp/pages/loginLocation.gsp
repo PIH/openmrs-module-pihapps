@@ -15,6 +15,9 @@
     #visit-location-section {
         padding-bottom: 20px;
     }
+    #visit-location-section label {
+        font-weight: bold;
+    }
     .login-location-section {
         display: none;
     }
@@ -26,6 +29,9 @@
         font-weight: bold;
     }
     #login-location-select {
+        margin-top: 10px;
+    }
+    form ul.visit-location-select {
         margin-top: 10px;
     }
 </style>

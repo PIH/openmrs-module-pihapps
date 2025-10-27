@@ -143,7 +143,10 @@ public class LocationTagConfig {
         Map<Location, List<Location>> ret = new LinkedHashMap<>();
         List<Location> visitLocations = getValidVisitLocations();
         for (Location visitLocation : visitLocations) {
-            ret.put(visitLocation, getLoginLocationsForLocation(visitLocation));
+            List<Location> loginLocations = getLoginLocationsForLocation(visitLocation);
+            if (!loginLocations.isEmpty()) {
+                ret.put(visitLocation, loginLocations);
+            }
         }
         return ret;
     }
