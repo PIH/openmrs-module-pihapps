@@ -27,7 +27,7 @@
                         <li class="nav-item">
                             <a href="${ui.pageLink("pihapps", "loginLocation")}">
                                 <i class="icon-map-marker small"></i>
-                                <span>${ sessionContext.sessionLocation.name }</span>
+                                <span>${ ui.escapeJs(ui.encodeHtmlContent(ui.format(sessionContext.sessionLocation))) }</span>
                             </a>
                         </li>
                     <% } %>
