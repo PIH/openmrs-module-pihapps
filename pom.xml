@@ -50,6 +50,7 @@
 
         <appframeworkVersion>2.18.0</appframeworkVersion>
         <appuiVersion>1.18.0</appuiVersion>
+        <attachmentsVersion>3.8.0-SNAPSHOT</attachmentsVersion>
         <coreappsVersion>3.0.0</coreappsVersion>
         <emrapiVersion>2.4.0</emrapiVersion>
         <htmlformentryVersion>6.1.0-SNAPSHOT</htmlformentryVersion>
@@ -116,6 +117,13 @@
             <groupId>org.openmrs.module</groupId>
             <artifactId>appui-api</artifactId>
             <version>${appuiVersion}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openmrs.module</groupId>
+            <artifactId>attachments-api</artifactId>
+            <version>${attachmentsVersion}</version>
             <scope>provided</scope>
         </dependency>
 
