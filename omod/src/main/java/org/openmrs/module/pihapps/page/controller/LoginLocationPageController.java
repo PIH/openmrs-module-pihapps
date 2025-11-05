@@ -13,6 +13,7 @@
  */
 package org.openmrs.module.pihapps.page.controller;
 
+import org.apache.commons.lang.StringUtils;
 import org.openmrs.Location;
 import org.openmrs.module.appui.UiSessionContext;
 import org.openmrs.module.pihapps.LocationTagConfig;
@@ -23,6 +24,7 @@ import org.openmrs.ui.framework.page.PageModel;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 
@@ -32,8 +34,9 @@ import java.util.List;
 @Controller
 public class LoginLocationPageController {
 
-    public String get(PageModel model, UiUtils ui, UiSessionContext sessionContext, HttpServletResponse response,
-                    @SpringBean LocationTagConfig locationTagConfig) {
+    public String get(PageModel model, UiUtils ui, UiSessionContext sessionContext,
+                      HttpServletRequest request, HttpServletResponse response,
+                      @SpringBean LocationTagConfig locationTagConfig) {
 
         model.addAttribute("locationTagConfig", locationTagConfig);
         model.addAttribute("authenticatedUser", sessionContext.getCurrentUser());
@@ -42,7 +45,7 @@ public class LoginLocationPageController {
         if (!locationTagConfig.isLocationSetupRequired()) {
             List<Location> loginLocations = locationTagConfig.getValidLoginLocations();
             if (loginLocations.size() == 1) {
-                return post(sessionContext, response, loginLocations.get(0));
+                return post(sessionContext, response, loginLocations.get(0), getReferer(currentLoginLocation, request));
             }
             currentLoginLocation = sessionContext.getSessionLocation();
             if (currentLoginLocation != null) {
@@ -54,12 +57,29 @@ public class LoginLocationPageController {
         }
         model.addAttribute("currentVisitLocation", currentVisitLocation);
         model.addAttribute("currentLoginLocation", currentLoginLocation);
+        model.addAttribute("returnUrl", getReferer(currentLoginLocation, request));
         return "loginLocation";
     }
 
     public String post(UiSessionContext sessionContext, HttpServletResponse response,
-                       @RequestParam("sessionLocation") Location sessionLocation) {
+                       @RequestParam(value = "sessionLocation") Location sessionLocation,
+                       @RequestParam(value = "returnUrl", required = false, defaultValue = "/") String returnUrl) {
         LocationTagWebConfig.setLoginLocation(sessionLocation, sessionContext, response);
-        return "redirect:/";
+        return "redirect:" + returnUrl;
+    }
+
+    protected String getReferer(Location currentLoginLocation, HttpServletRequest request) {
+        String returnUrl = "/";
+        if (currentLoginLocation != null) {
+            String referer = request.getHeader("Referer");
+            if (StringUtils.isNotBlank(referer)) {
+                String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
+                String baseUrlAndContextPath = baseUrl + request.getContextPath();
+                if (referer.startsWith(baseUrlAndContextPath)) {
+                    returnUrl = referer.substring(baseUrlAndContextPath.length());
+                }
+            }
+        }
+        return returnUrl;
     }
 }

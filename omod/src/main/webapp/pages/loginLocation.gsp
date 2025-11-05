@@ -164,6 +164,7 @@
             </div>
         </div>
 
+        <input type="hidden" name="returnUrl" value="${returnUrl}"/>
         <input id="session-location-input" type="hidden" name="sessionLocation" />
     </form>
 
