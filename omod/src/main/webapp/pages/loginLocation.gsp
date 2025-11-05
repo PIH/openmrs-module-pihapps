@@ -51,6 +51,9 @@
         transform: translate(-50%,-50%);
         -ms-transform: translate(-50%,-50%);
     }
+    #cancel-button-section {
+        padding-top: 10px;
+    }
 </style>
 
 <script type="text/javascript">
@@ -163,5 +166,11 @@
 
         <input id="session-location-input" type="hidden" name="sessionLocation" />
     </form>
+
+    <% if (currentLoginLocation) { %>
+        <div id="cancel-button-section">
+            <input type="button" class="cancel" value="${ ui.message("coreapps.cancel") }" onclick="window.history.back()" />
+        </div>
+    <% } %>
 
 <% } %>
