@@ -21,10 +21,6 @@
     .login-location-section {
         display: none;
     }
-    ul.select li.location-selected {
-        background-color: #007FFF;
-        color: white;
-    }
     .login-location-section label {
         font-weight: bold;
     }
@@ -34,13 +30,33 @@
     form ul.visit-location-select {
         margin-top: 10px;
     }
+    #overlay {
+        position: fixed;
+        display: none;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 2;
+    }
+    #overlay-content{
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        font-size: 50px;
+        color: white;
+        transform: translate(-50%,-50%);
+        -ms-transform: translate(-50%,-50%);
+    }
 </style>
 
 <script type="text/javascript">
     jq(document).ready(function() {
 
         function showLoginLocationSection(visitLocationId) {
-            console.debug('Visit Location selected ' + visitLocationId);
             jq("#login-location-section").hide();
             jq(".login-location-item").hide();
             let loginLocationElements = jq(".login-location-item-"+visitLocationId);
@@ -48,34 +64,37 @@
                 jq(loginLocationElements[0]).click();
             }
             else {
-                console.debug('Showing ' + loginLocationElements.size() + " login locations");
                 jq(loginLocationElements).show();
                 jq("#login-location-section").show();
             }
         }
 
-        <% if (visitLocations.size() == 1) { %>
-            showLoginLocationSection('${visitLocations.iterator().next().id}');
-            <% if (currentLoginLocation) { %>
-                jq("#login-location-select-item-${currentLoginLocation.id}").addClass('location-selected');
-            <% } %>
-        <% } %>
-
         jq(".visit-location-select .location-list-item").click(function() {
-            let id = jq(this).attr('value');
-            jq(".visit-location-select li").removeClass('location-selected');
-            jq(this).addClass('location-selected');
+            const id = jq(this).attr('value');
+            jq(".visit-location-select .location-list-item").removeClass('selected');
+            jq(this).addClass('selected');
             showLoginLocationSection(id);
         });
 
         jq(".login-location-select .location-list-item").click(function() {
-            let id = jq(this).attr('value');
-            console.debug('Login Location selected ' + id);
+            const id = jq(this).attr('value');
+            jq(".login-location-select .location-list-item").removeClass('selected').addClass('location-disabled');
+            jq(this).addClass('selected');
             jq("#session-location-input").val(id);
             <% if (!locationTagConfig.isLocationSetupRequired()) { %>
+                jq("#overlay").show();
                 jq("#login-location-form").submit();
             <% } %>
         });
+
+        <% if (visitLocations.size() == 1) { %>
+            showLoginLocationSection('${visitLocations.iterator().next().id}');
+            <% if (currentLoginLocation) { %>
+                jq("#login-location-select-item-${currentLoginLocation.id}").addClass('selected');
+            <% } %>
+        <% } else if (currentVisitLocation && visitAndLoginLocations.get(currentVisitLocation).size() > 1) { %>
+            jq("#visit-location-select-item-${currentVisitLocation.id}").click();
+        <% } %>
     });
 </script>
 
@@ -134,6 +153,12 @@
                     <% } %>
                 <% } %>
             </ul>
+        </div>
+
+        <div id="overlay">
+            <div id="overlay-content">
+                <i class="icon-spinner icon-spin icon-2x"></i>
+            </div>
         </div>
 
         <input id="session-location-input" type="hidden" name="sessionLocation" />
