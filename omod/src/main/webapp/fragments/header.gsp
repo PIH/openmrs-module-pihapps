@@ -1,9 +1,56 @@
+<%
+    def useBootstrap = config.containsKey('useBootstrap') ? config.useBootstrap : true;  // use bootstrap unless specifically excluded
+%>
 <script type="text/javascript">
     var sessionLocationModel = {
         id: () => "${ sessionContext.sessionLocationId }",
         text: () => "${ ui.escapeJs(ui.encodeHtmlContent(ui.format(sessionContext.sessionLocation))) }"
     }
+    jq(document).ready(function () {
+        <% if (ui.convertTimezones()) { %>
+            var clientCurrentTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            data = { clientTimezone: clientCurrentTimezone };
+            emr.getFragmentActionWithCallback("appui", "header", "setClientTimezone", data , null , null);
+        <% } %>
+        if (jq("#clientTimezone").length) {
+            jq("#clientTimezone").val(Intl.DateTimeFormat().resolvedOptions().timeZone)
+        }
+    });
 </script>
+<% if (!useBootstrap) { %>
+    <script>
+        jq(document).ready(function () {
+            jq("#navbarSupportedContent").removeClass("collapse").removeClass("navbar-collapse");
+        });
+    </script>
+    <style>
+        .navbar-toggler {
+            display: none;
+        }
+        header:before {
+            display: unset;
+        }
+        header:after {
+            display: unset;
+        }
+        .navbar {
+            padding-left: 15px;
+            padding-right: 15px;
+            display: flex;
+            position: relative;
+            align-items: center;
+        }
+        #navbarSupportedContent {
+            width: 100%;
+        }
+        .user-options {
+            width: 100%;
+        }
+        .navbar-nav > li {
+            float: unset;
+        }
+    </style>
+<% } %>
 <header>
     <nav class="navbar navbar-expand-lg navbar-dark navigation">
         <div class="logo">
@@ -17,7 +64,7 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav ml-auto user-options">
-                    <li class="nav-item">
+                    <li class="nav-item identifier">
                         <a href="${ui.pageLink("authenticationui", "account/userAccount")}">
                             <i class="icon-user small"></i>
                             ${ context.authenticatedUser.username ?: context.authenticatedUser.systemId }
