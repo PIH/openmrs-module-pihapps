@@ -20,8 +20,10 @@
     const reasons = new Map();
     const orderedTestsFromPanel = [];
     const patient = '${patient.patient.uuid}';
-    const orderer = '${sessionContext.currentProvider.uuid}';
-    const encounterLocation = '${sessionContext.sessionLocation.uuid}'
+
+    // Defaults for order
+    const defaultOrderer = '${sessionContext.currentProvider.uuid}';
+    const defaultLocation = '${sessionContext.sessionLocation.uuid}'
     const defaultOrderDate = '${ui.dateToISOString(defaultOrderDate)}'
 
     <% labTestsByCategory.keySet().each { category -> %>
@@ -148,7 +150,7 @@
         jq("#num-draft-orders").html(orderedTests.length);
         const discardAllButton = jq("#draft-discard-all");
         const saveButton = jq("#draft-save-button");
-        const orderDateSection = jq("#order-date-section");
+        const orderInfoSection = jq(".order-info-section");
         if (orderedTests.length > 1) {
             discardAllButton.val('${ui.encodeJavaScript(ui.message("pihapps.discardAll"))}');
         }
@@ -157,16 +159,17 @@
             if (orderedTests.length === 0) {
                 discardAllButton.attr("disabled", "disabled");
                 saveButton.attr("disabled", "disabled");
-                orderDateSection.hide();
+                orderInfoSection.hide();
                 jq("#order-date-picker-display").val("");
                 jq("#order-date-picker-field").val("");
-                jq("#order-date-default").show();
-                jq("#order-date-custom").hide();
+                jq("#order-location-picker-field").val("${sessionContext.sessionLocation.id}");
+                jq(".order-info-default").show();
+                jq(".order-info-custom").hide();
             }
             else {
                 discardAllButton.removeAttr("disabled");
                 saveButton.removeAttr("disabled");
-                orderDateSection.show();
+                orderInfoSection.show();
             }
         }
     }
@@ -192,10 +195,10 @@
             updateDraftList();
         });
 
-        jq("#order-date-toggle").click(function () {
-            jq("#order-date-default").hide();
-            jq("#order-date-custom").show();
-        })
+        jq(".order-info-toggle").click(function () {
+            jq(this).closest(".order-info-section").find(".order-info-default").hide();
+            jq(this).closest(".order-info-section").find(".order-info-custom").show();
+        });
 
         jq("#draft-save-button").click(function () {
             const saveButton = jq("#draft-save-button");
@@ -203,6 +206,8 @@
             jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/labOrderConfig", function(labOrderConfig) {
                 const orders = [];
                 const orderDate = jq("#order-date-picker-field").val() || defaultOrderDate;
+                const orderer = jq("#order-provider-picker-field").val() || defaultOrderer;
+                const encounterLocation = jq("#order-location-picker-field").val() || defaultLocation;
                 orderedTests.forEach(orderable => {
                     orders.push({
                         type: 'testorder',
@@ -331,22 +336,29 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
         opacity: 1;
     }
 
-    #order-date-section {
+    .order-info-section {
         font-size: 80%;
         display: none;
+        margin-bottom: 5px;
     }
-    #order-date-label {
+    .order-info-label {
         font-weight: bold;
     }
-    #order-date-default {
+    .order-info-default {
         padding-left: 10px;
     }
-    #order-date-toggle {
+    .order-info-toggle {
         padding-left: 20px;
     }
-    #order-date-custom {
+    .order-info-custom {
         padding-left: 20px;
         display: none;
+    }
+    #order-provider-picker {
+        display: inline;
+    }
+    #order-location-picker {
+        display: inline;
     }
 </style>
 
@@ -451,22 +463,55 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                 <select class="order-reason-selector" name="orderReason"></select>
             </li>
         </ul>
-        <div id="order-date-section">
-            <span id="order-date-label">${ui.message("pihapps.orderDate")}:</span>
-            <span id="order-date-default">
-                ${ ui.format(defaultOrderDate) }
-                <a href="#" id="order-date-toggle">${ui.message("pihapps.change")}</a>
-            </span>
-            <span id="order-date-custom">
-                ${ui.includeFragment("uicommons", "field/datetimepicker", [
-                        id: "order-date-picker",
-                        label: "",
-                        formFieldName: "order_date",
-                        useTime: false,
-                        left: true,
-                        size: 20
-                ])}
-            </span>
+        <div id="order-info-sections container">
+            <div id="order-date-section" class="order-info-section row">
+                <span id="order-date-label" class="order-info-label col">${ui.message("pihapps.orderDate")}:</span>
+                <span id="order-date-default" class="order-info-default col">
+                    ${ ui.format(defaultOrderDate) }
+                    <a href="#" id="order-date-toggle" class="order-info-toggle">${ui.message("pihapps.change")}</a>
+                </span>
+                <span id="order-date-custom" class="order-info-custom col">
+                    ${ui.includeFragment("uicommons", "field/datetimepicker", [
+                            id: "order-date-picker",
+                            label: "",
+                            formFieldName: "order_date",
+                            useTime: false,
+                            left: true,
+                            size: 20
+                    ])}
+                </span>
+            </div>
+            <div id="order-provider-section" class="order-info-section row">
+                <span id="order-provider-label" class="order-info-label col">${ui.message("pihapps.testOrderedBy")}:</span>
+                <span id="order-provider-default" class="order-info-default col">
+                    ${ ui.format(sessionContext.currentProvider) }
+                    <a href="#" id="order-provider-toggle" class="order-info-toggle">${ui.message("pihapps.change")}</a>
+                </span>
+                <span id="order-provider-custom" class="order-info-custom col">
+                    ${ui.includeFragment("pihapps", "field/provider", [
+                            id: "order-provider-picker",
+                            initialValue: sessionContext.currentProvider,
+                            formFieldName: "order_location",
+                    ])}
+                </span>
+            </div>
+            <div id="order-location-section" class="order-info-section row">
+                <span id="order-location-label" class="order-info-label col">${ui.message("pihapps.orderLocation")}:</span>
+                <span id="order-location-default" class="order-info-default col">
+                    ${ ui.format(sessionContext.sessionLocation) }
+                    <a href="#" id="order-location-toggle" class="order-info-toggle">${ui.message("pihapps.change")}</a>
+                </span>
+                <span id="order-location-custom" class="order-info-custom col">
+                    ${ui.includeFragment("pihapps", "field/location", [
+                            id: "order-location-picker",
+                            label: "",
+                            valueField: "uuid",
+                            initialValue: sessionContext.sessionLocation,
+                            formFieldName: "order_location",
+                            "withTag": "Login Location"
+                    ])}
+                </span>
+            </div>
         </div>
         <br/>
         <input type="button" id="draft-discard-all" value="${ui.message('pihapps.discard')}" disabled="disabled" class="cancel modified-btn"/>

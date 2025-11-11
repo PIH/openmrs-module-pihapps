@@ -2,6 +2,8 @@
     config.require("label")
     config.require("formFieldName")
 
+    def valueField = config.valueField ?: "id" // Enables either id or uuid to be used for the hidden value
+
     // config supports initialValue that can be set on the form
     // config supports defaultValue that is used if the form value is not set
     // config supports withTag, which is a ; delimited list of location tags to include
@@ -16,7 +18,12 @@
         }
     }
     if (initialValue instanceof org.openmrs.Location) {
-        initialValue = ((org.openmrs.Location) initialValue).id.toString()
+        if (valueField == "uuid") {
+            initialValue = ((org.openmrs.Location) initialValue).uuid
+        }
+        else {
+            initialValue = ((org.openmrs.Location) initialValue).id.toString()
+        }
     }
 
     def options;
@@ -34,8 +41,8 @@
         options = context.locationService.allLocations
     }
     options = options.collect {
-        def selected = (it.id.toString() == initialValue);
-        [ label: ui.format(it), value: it.id, selected: selected ]
+        def selected = (valueField == "uuid" ? it.uuid == initialValue : it.id.toString() == initialValue)
+        [ label: ui.format(it), value: (valueField == "uuid" ? it.uuid : it.id), selected: selected ]
     }
     options = options.sort { a, b -> a.label <=> b.label }
 %>
