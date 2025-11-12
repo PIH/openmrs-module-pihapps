@@ -21,6 +21,8 @@ import org.openmrs.module.pihapps.LocationTagWebConfig;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.SpringBean;
 import org.openmrs.ui.framework.page.PageModel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -33,6 +35,8 @@ import java.util.List;
  */
 @Controller
 public class LoginLocationPageController {
+
+    private static Logger log = LoggerFactory.getLogger(LoginLocationPageController.class);
 
     public String get(PageModel model, UiUtils ui, UiSessionContext sessionContext,
                       HttpServletRequest request, HttpServletResponse response,
@@ -70,16 +74,20 @@ public class LoginLocationPageController {
 
     protected String getReferer(Location currentLoginLocation, HttpServletRequest request) {
         String returnUrl = "/";
+        log.warn("Current login location: {}", currentLoginLocation);
         if (currentLoginLocation != null) {
             String referer = request.getHeader("Referer");
+            log.warn("Referer: {}", referer);
             if (StringUtils.isNotBlank(referer)) {
                 String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
                 String baseUrlAndContextPath = baseUrl + request.getContextPath();
+                log.warn("baseUrlAndContextPath: {}", baseUrlAndContextPath);
                 if (referer.startsWith(baseUrlAndContextPath)) {
                     returnUrl = referer.substring(baseUrlAndContextPath.length());
                 }
             }
         }
+        log.warn("returnUrl: {}", returnUrl);
         return returnUrl;
     }
 }
