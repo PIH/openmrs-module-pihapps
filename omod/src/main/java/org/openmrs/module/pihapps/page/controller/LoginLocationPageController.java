@@ -74,20 +74,24 @@ public class LoginLocationPageController {
 
     protected String getReferer(Location currentLoginLocation, HttpServletRequest request) {
         String returnUrl = "/";
-        log.warn("Current login location: {}", currentLoginLocation);
+        log.debug("Current login location: {}", currentLoginLocation);
         if (currentLoginLocation != null) {
             String referer = request.getHeader("Referer");
-            log.warn("Referer: {}", referer);
+            log.debug("Referer: {}", referer);
             if (StringUtils.isNotBlank(referer)) {
-                String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
+                String baseUrl = request.getScheme() + "://" + request.getServerName();
+                String port = ":" + request.getServerPort();
+                if (referer.contains(port)) {
+                    baseUrl = baseUrl + port;
+                }
                 String baseUrlAndContextPath = baseUrl + request.getContextPath();
-                log.warn("baseUrlAndContextPath: {}", baseUrlAndContextPath);
+                log.debug("baseUrlAndContextPath: {}", baseUrlAndContextPath);
                 if (referer.startsWith(baseUrlAndContextPath)) {
                     returnUrl = referer.substring(baseUrlAndContextPath.length());
                 }
             }
         }
-        log.warn("returnUrl: {}", returnUrl);
+        log.debug("returnUrl: {}", returnUrl);
         return returnUrl;
     }
 }
