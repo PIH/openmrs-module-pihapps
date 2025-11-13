@@ -28,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.List;
 
 /**
@@ -61,7 +63,7 @@ public class LoginLocationPageController {
         }
         model.addAttribute("currentVisitLocation", currentVisitLocation);
         model.addAttribute("currentLoginLocation", currentLoginLocation);
-        model.addAttribute("returnUrl", getReferer(currentLoginLocation, request));
+        model.addAttribute("returnUrl", encodeUrl(getReferer(currentLoginLocation, request)));
         return "loginLocation";
     }
 
@@ -69,6 +71,7 @@ public class LoginLocationPageController {
                        @RequestParam(value = "sessionLocation") Location sessionLocation,
                        @RequestParam(value = "returnUrl", required = false, defaultValue = "/") String returnUrl) {
         LocationTagWebConfig.setLoginLocation(sessionLocation, sessionContext, response);
+        returnUrl = decodeUrl(returnUrl);
         return "redirect:" + returnUrl;
     }
 
@@ -93,5 +96,23 @@ public class LoginLocationPageController {
         }
         log.debug("returnUrl: {}", returnUrl);
         return returnUrl;
+    }
+
+    protected String encodeUrl(String url) {
+        try {
+            return URLEncoder.encode(url, "UTF-8");
+        }
+        catch (Exception e) {
+            return url;
+        }
+    }
+
+    protected String decodeUrl(String url) {
+        try {
+            return URLDecoder.decode(url, "UTF-8");
+        }
+        catch (Exception e) {
+            return url;
+        }
     }
 }
