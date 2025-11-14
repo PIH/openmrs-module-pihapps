@@ -19,7 +19,7 @@ angular.module('att.widget.gallery').directive(
                             module.getPartialsPath(OPENMRS_CONTEXT_PATH);
 
                             // Loading i18n messages
-                            var msgCodes = [ module.getProvider() + ".gallery.loadMore",
+                            var msgCodes = [ module.getProvider() + ".attachments.gallery.loadMore",
                                     module.getProvider() + ".gallery.noDocuments" ]
                             emr.loadMessages(msgCodes.toString(), function(msgs) {
                                 $scope.msgs = msgs;

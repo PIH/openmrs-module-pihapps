@@ -91,29 +91,29 @@
 <att-modal-webcam visible="showWebcam" disabled="isWebcamDisabled()"></att-modal-webcam>
 
 <div ng-show="visitUuid && closedVisit" class="att_past-visit">
-  <p><i class="icon-warning-sign small"></i>{{msgs["attachments.fileUpload.attentionPastVisit"]}}</p>
+  <p><i class="icon-warning-sign small"></i>{{msgs["pihapps.attachments.fileUpload.attentionPastVisit"]}}</p>
 </div>
 
 <div ng-show="!visitUuid && associateWithVisit" class="att_no-active-visit">
-    <p><i class="icon-warning-sign small"></i>{{msgs["attachments.noActiveVisit"]}}</p>
+    <p><i class="icon-warning-sign small"></i>{{msgs["pihapps.attachments.noActiveVisit"]}}</p>
 </div>
 
 <div ng-show="visitUuid || !associateWithVisit" class="att_file-upload-container" ng-init="init()">
   <div class="att_upload-container">
     <div class="att_upload-element att_dropzone-element">
-      <h3>{{msgs["attachments.attachmentspage.fileTitle"]}}</h3>
+      <h3>{{msgs["pihapps.attachments.attachmentspage.fileTitle"]}}</h3>
       <form action="" dropzone-directive="dropzoneConfig" class="dropzone" id="visit-documents-dropzone">
         <div class="dz-error-message"><span data-dz-errormessage></span></div>
-        <div class="dz-default dz-message">{{msgs["attachments.dropzone.innerlabel"]}}</div>
+        <div class="dz-default dz-message">{{msgs["pihapps.attachments.dropzone.innerlabel"]}}</div>
       </form>
     </div>
     <div class="att_upload-element att_caption-element">
-      <h3>{{msgs["attachments.attachmentspage.commentTitle"]}}</h3>
-      <textarea ng-model="typedText.fileCaption" placeholder="{{msgs['attachments.misc.label.enterCaption']}}"></textarea>
+      <h3>{{msgs["pihapps.attachments.attachmentspage.commentTitle"]}}</h3>
+      <textarea ng-model="typedText.fileCaption" placeholder="{{msgs['pihapps.attachments.misc.label.enterCaption']}}"></textarea>
       <a class="button left" ng-hide="isWebcamDisabled()" ng-click="showWebcam = true" style="margin-top: 4%"><i class="icon-camera"></i></a>
       <span class="right" style="margin-top: 4%">
-        <button class="confirm" ng-click="uploadFile()" ng-disabled="isUploadBtnDisabled()">{{msgs["attachments.attachmentspage.uploadButton"]}}</button>
-        <button ng-click="clearForms()">{{msgs["attachments.attachmentspage.clearFormsButton"]}}</button>
+        <button class="confirm" ng-click="uploadFile()" ng-disabled="isUploadBtnDisabled()">{{msgs["pihapps.attachments.attachmentspage.uploadButton"]}}</button>
+        <button ng-click="clearForms()">{{msgs["pihapps.attachments.attachmentspage.clearFormsButton"]}}</button>
       </span>
     </div>
   </div>

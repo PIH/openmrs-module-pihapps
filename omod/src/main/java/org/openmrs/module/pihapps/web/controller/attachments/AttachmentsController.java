@@ -115,8 +115,7 @@ public class AttachmentsController {
 
 		// Getting the Core/Platform complex data object
 		Obs obs = context.getObsService().getObsByUuid(obsUuid);
-		Obs complexObs = context.getObsService().getComplexObs(obs.getObsId(), complexViewHelper.getView(obs, view));
-		ComplexData complexData = complexObs.getComplexData();
+		ComplexData complexData = obs.getComplexData();
 
 		// Switching to our complex data object
 		ValueComplex valueComplex = new ValueComplex(obs.getValueComplex());
@@ -139,8 +138,8 @@ public class AttachmentsController {
 		} catch (IOException e) {
 			response.setStatus(500);
 			log.error("Could not write to HTTP response for when fetching obs with" + " VALUE_COMPLEX='"
-					+ complexObs.getValueComplex() + "'," + " OBS_ID='" + complexObs.getId() + "'," + " OBS_UUID='"
-					+ complexObs.getUuid() + "'", e);
+					+ obs.getValueComplex() + "'," + " OBS_ID='" + obs.getId() + "'," + " OBS_UUID='"
+					+ obs.getUuid() + "'", e);
 		}
 	}
 

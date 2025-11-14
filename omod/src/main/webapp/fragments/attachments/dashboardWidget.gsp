@@ -26,7 +26,7 @@
 <div class="info-section">
 	<div class="info-header">
 		<i class="icon-paper-clip"></i>
-		<h3>${ ui.message("attachments.visitactions.label").toUpperCase() }</h3>
+		<h3>${ ui.message("pihapps.attachments.visitactions.label").toUpperCase() }</h3>
 
 <% if (context.hasPrivilege("App: attachments.attachments.page")) { %>
 

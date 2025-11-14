@@ -23,7 +23,7 @@ ui.includeFragment("pihapps", "attachments/dependenciesGallery")
   { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
   { label: "${ ui.escapeJs(ui.format(patient)) }" ,
   link: '${ ui.pageLink( "coreapps", "clinicianfacing/patient", [patientId: patient.id] ) }'},
-  { label: "${ ui.message("attachments.breadcrumbs.label") }"}
+  { label: "${ ui.message("pihapps.attachments.breadcrumbs.label") }"}
   ];
 
   // Getting the config from the Spring Java controller.

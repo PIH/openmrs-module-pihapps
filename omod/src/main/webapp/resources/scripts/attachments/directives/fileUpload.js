@@ -52,16 +52,16 @@ angular
                                 controller : function($scope, $rootScope) {
 
                                     // Loading i18n messages
-                                    var msgCodes = [ module.getProvider() + ".fileUpload.success",
-                                            module.getProvider() + ".fileUpload.error",
-                                            module.getProvider() + ".fileUpload.attentionPastVisit",
-                                            module.getProvider() + ".attachmentspage.fileTitle",
-                                            module.getProvider() + ".dropzone.innerlabel",
-                                            module.getProvider() + ".attachmentspage.commentTitle",
-                                            module.getProvider() + ".misc.label.enterCaption",
-                                            module.getProvider() + ".attachmentspage.uploadButton",
-                                            module.getProvider() + ".attachmentspage.clearFormsButton",
-                                            module.getProvider() + ".noActiveVisit" ]
+                                    var msgCodes = [ module.getProvider() + ".attachments.fileUpload.success",
+                                            module.getProvider() + ".attachments.fileUpload.error",
+                                            module.getProvider() + ".attachments.fileUpload.attentionPastVisit",
+                                            module.getProvider() + ".attachments.attachmentspage.fileTitle",
+                                            module.getProvider() + ".attachments.dropzone.innerlabel",
+                                            module.getProvider() + ".attachments.attachmentspage.commentTitle",
+                                            module.getProvider() + ".attachments.misc.label.enterCaption",
+                                            module.getProvider() + ".attachments.attachmentspage.uploadButton",
+                                            module.getProvider() + ".attachments.attachmentspage.clearFormsButton",
+                                            module.getProvider() + ".attachments.noActiveVisit" ]
                                     emr.loadMessages(msgCodes.toString(), function(msgs) {
                                         $scope.msgs = msgs;
                                     });
@@ -138,7 +138,7 @@ angular
                                                 $().toastmessage('showToast', {
                                                     type : 'success',
                                                     position : 'top-right',
-                                                    text : emr.message(module.getProvider() + ".fileUpload.success")
+                                                    text : emr.message(module.getProvider() + ".attachments.fileUpload.success")
                                                 });
                                                 $scope.clearForms();
                                             },
@@ -149,7 +149,7 @@ angular
                                                             type : 'error',
                                                             position : 'top-right',
                                                             text : emr.message(module.getProvider()
-                                                                    + ".fileUpload.error")
+                                                                    + ".attachments.fileUpload.error")
                                                                     + " " + response
                                                         });
                                                 console.log(response);

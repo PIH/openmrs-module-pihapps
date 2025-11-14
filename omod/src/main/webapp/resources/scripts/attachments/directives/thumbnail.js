@@ -43,14 +43,14 @@ angular.module('att.widget.thumbnail')
     controller: function($scope) {
 
       var msgCodes = [
-        module.getProvider() + ".misc.label.enterCaption",
-        module.getProvider() + ".thumbail.get.error",
-        module.getProvider() + ".thumbail.save.success",
-        module.getProvider() + ".thumbail.save.error",
-        module.getProvider() + ".thumbail.delete.success",
-        module.getProvider() + ".thumbail.delete.error",
-        module.getProvider() + ".attachmentspage.delete.title",
-        module.getProvider() + ".attachmentspage.delete.confirm",
+        module.getProvider() + ".attachments.misc.label.enterCaption",
+        module.getProvider() + ".attachments.thumbail.get.error",
+        module.getProvider() + ".attachments.thumbail.save.success",
+        module.getProvider() + ".attachments.thumbail.save.error",
+        module.getProvider() + ".attachments.thumbail.delete.success",
+        module.getProvider() + ".attachments.thumbail.delete.error",
+        module.getProvider() + ".attachments.attachmentspage.delete.title",
+        module.getProvider() + ".attachments.attachmentspage.delete.confirm",
         "coreapps.yes",
         "coreapps.no"
       ]
@@ -128,10 +128,10 @@ angular.module('att.widget.thumbnail')
         saved.$promise.then(function(attachment) {
           $scope.obs.uuid = attachment.uuid;
           $scope.toggleEditMode(false);
-          emr.successMessage(module.getProvider() + ".thumbail.save.success");
+          emr.successMessage(module.getProvider() + ".attachments.thumbail.save.success");
         }, function(err) {
           $scope.obs.comment = caption;
-          emr.errorMessage(module.getProvider() + ".thumbail.save.error");
+          emr.errorMessage(module.getProvider() + ".attachments.thumbail.save.error");
           console.log(err);
         });
       }
@@ -159,14 +159,14 @@ angular.module('att.widget.thumbnail')
         .$promise.then(function(res) {
           scope.toggleVisible(false);
           scope.closeThisDialog();
-          emr.successMessage(module.getProvider() + ".thumbail.delete.success");
+          emr.successMessage(module.getProvider() + ".attachments.thumbail.delete.success");
         }, function(err) {
           scope.closeThisDialog();
           if (purge === true) { // We should only do this if error 500 is the cause: https://github.com/openmrs/openmrs-core/blob/1.11.x/api/src/main/java/org/openmrs/api/impl/ObsServiceImpl.java#L213
             scope.purge(null, scope);
           }
           else {
-            emr.errorMessage(module.getProvider() + ".thumbail.delete.error");
+            emr.errorMessage(module.getProvider() + ".attachments.thumbail.delete.error");
             console.log(err);
           }
         }); 
@@ -214,7 +214,7 @@ angular.module('att.widget.thumbnail')
           setIconHtml($scope.obs);
         }, function(err) {
           $scope.loading = false;
-          emr.errorMessage(module.getProvider() + ".thumbail.get.error");
+          emr.errorMessage(module.getProvider() + ".attachments.thumbail.get.error");
           console.log(err);
         });
       }
@@ -242,7 +242,7 @@ angular.module('att.widget.thumbnail')
           }
         }, function(err) {
           $scope.loading = false;
-          emr.errorMessage(module.getProvider() + ".thumbail.get.error");
+          emr.errorMessage(module.getProvider() + ".attachments.thumbail.get.error");
           console.log(err);
         });
       }

@@ -3,7 +3,7 @@ angular.module('att.fragment.dashboardWidget').controller('DashboardWidgetCtrl',
             $scope.obsQuery = {
                 limit : $window.config.thumbnailCount,
                 patient : $window.config.patient.uuid,
-                conceptList : $window.config.conceptComplexUuidList.toString()
+                concepts : $window.config.conceptComplexUuidList.toString()
             // http://stackoverflow.com/a/202247/321797
             };
         } ]);

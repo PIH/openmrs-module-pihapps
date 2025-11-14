@@ -161,7 +161,7 @@
       <p ng-show="obs.comment">{{obs.comment}}</p>
     </div>
     <div ng-show="editMode" att-escape-key-down="toggleEditMode(false)">
-      <input ng-model="typedText.newCaption" class="left" type="text" placeholder="{{msgs['attachments.misc.label.enterCaption']}}" att-enter-key-down="saveCaption()"/>
+      <input ng-model="typedText.newCaption" class="left" type="text" placeholder="{{msgs['pihapps.attachments.misc.label.enterCaption']}}" att-enter-key-down="saveCaption()"/>
       <span class="right">
         <i class="icon-ok att_click-pointer" ng-click="saveCaption()"></i>
         <i class="icon-remove att_click-pointer" ng-click="toggleEditMode(false)"></i>
