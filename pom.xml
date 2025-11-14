@@ -50,7 +50,7 @@
 
         <appframeworkVersion>2.18.0</appframeworkVersion>
         <appuiVersion>1.18.0</appuiVersion>
-        <attachmentsVersion>3.8.0-SNAPSHOT</attachmentsVersion>
+        <attachmentsVersion>4.0.0-SNAPSHOT</attachmentsVersion>
         <coreappsVersion>3.0.0</coreappsVersion>
         <emrapiVersion>2.4.0</emrapiVersion>
         <htmlformentryVersion>6.1.0-SNAPSHOT</htmlformentryVersion>
