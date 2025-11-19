@@ -14,13 +14,18 @@
 package org.openmrs.module.pihapps;
 
 import org.openmrs.Location;
+import org.openmrs.OrderType;
 import org.openmrs.api.OpenmrsService;
+import org.openmrs.module.pihapps.labs.LabOrderSearchCriteria;
+import org.openmrs.module.pihapps.labs.LabOrderSearchResult;
 
-import javax.transaction.Transactional;
 import java.util.List;
 
-@Transactional
 public interface PihAppsService extends OpenmrsService {
 
 	void updateVisitAndLoginLocations(List<Location> visitLocations, List<Location> loginLocations);
+
+	List<OrderType> getLabOrderTypes(boolean includeRetired);
+
+	LabOrderSearchResult getLabOrders(LabOrderSearchCriteria searchCriteria);
 }

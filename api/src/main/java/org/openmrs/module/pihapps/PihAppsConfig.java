@@ -1,15 +1,10 @@
 package org.openmrs.module.pihapps;
 
 import lombok.Getter;
-import org.openmrs.Concept;
-import org.openmrs.ConceptName;
-import org.openmrs.api.ConceptNameType;
-import org.openmrs.api.context.Context;
+import org.openmrs.module.pihapps.labs.LabOrderConfig;
 import org.openmrs.util.ConfigUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.Locale;
 
 @Component
 public class PihAppsConfig {

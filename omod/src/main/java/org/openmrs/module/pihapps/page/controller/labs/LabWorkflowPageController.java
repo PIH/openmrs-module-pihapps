@@ -1,7 +1,7 @@
 package org.openmrs.module.pihapps.page.controller.labs;
 
 import org.openmrs.Order;
-import org.openmrs.module.pihapps.LabOrderConfig;
+import org.openmrs.module.pihapps.labs.LabOrderConfig;
 import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.SpringBean;
