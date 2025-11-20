@@ -20,6 +20,65 @@
     const primaryIdentifierType = '${pihAppsConfig.primaryIdentifierType?.uuid ?: ""}';
     const conceptUtils = new PihAppsConceptUtils(jq);
 
+    const ordersTableInfo = {
+
+        pageNumber: 0,
+        pageSize: 10,
+        totalCount: 0,
+
+        setTotalCount(totalCount) {
+            this.totalCount = totalCount;
+        },
+
+        hasPreviousRecords() {
+            return this.pageNumber > 0;
+        },
+
+        hasNextRecords() {
+            return this.getLastNumberForPage() < this.totalCount;
+        },
+
+        nextPage() {
+            if (this.hasNextRecords()) {
+                this.pageNumber++;
+            }
+        },
+
+        previousPage() {
+            if (this.hasPreviousRecords()) {
+                this.pageNumber--;
+            }
+        },
+
+        lastPage() {
+            this.pageNumber = Math.ceil(this.totalCount / this.pageSize) - 1;
+        },
+
+        firstPage() {
+            this.pageNumber = 0;
+        },
+
+        getPageNumber() {
+            return this.startIndex / this.limit;
+        },
+
+        getFirstNumberForPage() {
+            return this.pageNumber * this.pageSize + 1;
+        },
+
+        getLastNumberForPage() {
+            const lastNumber = this.getFirstNumberForPage() + this.pageSize - 1
+            return lastNumber > this.totalCount ? this.totalCount : lastNumber;
+        },
+
+        getInfoText() {
+            return '${ ui.message("uicommons.dataTable.info") }'
+                .replace('_START_', this.getFirstNumberForPage())
+                .replace('_END_', this.getLastNumberForPage())
+                .replace('_TOTAL_', this.totalCount);
+        }
+    };
+
     <% orderStatuses.each{ s -> %>
         window.translations['${s}'] = '${ui.message("pihapps.orderStatus." + s)}';
     <% } %>
@@ -33,32 +92,16 @@
             {
                 bFilter: false,
                 bJQueryUI: true,
-                bLengthChange: true,
-                iDisplayLength: 10,
-                sPaginationType: 'full_numbers',
+                iDisplayLength: ordersTableInfo.pageSize,
                 bSort: false,
                 bAutoWidth: false,
-                sDom: 'ft<\"fg-toolbar ui-toolbar ui-corner-bl ui-corner-br ui-helper-clearfix datatables-info-and-pg \"ip>',
+                sDom: 'ft<\"fg-toolbar ui-toolbar ui-corner-bl ui-corner-br ui-helper-clearfix datatables-info-and-pg \">',
                 oLanguage: {
-                    oPaginate: {
-                        sFirst: "${ ui.message("uicommons.dataTable.first") }",
-                        sLast: "${ ui.message("uicommons.dataTable.last") }",
-                        sNext: "${ ui.message("uicommons.dataTable.next") }",
-                        sPrevious: "${ ui.message("uicommons.dataTable.previous") }"
-                    },
-                    sInfo: "${ ui.message("uicommons.dataTable.info") }",
-                    sSearch: "${ ui.message("uicommons.dataTable.search") }",
                     sZeroRecords: "${ ui.message("uicommons.dataTable.zeroRecords") }",
                     sEmptyTable: "${ ui.message("uicommons.dataTable.emptyTable") }",
-                    sInfoFiltered: "${ ui.message("uicommons.dataTable.infoFiltered") }",
                     sInfoEmpty: "${ ui.message("uicommons.dataTable.infoEmpty") }",
-                    sLengthMenu: "${ ui.message("uicommons.dataTable.lengthMenu") }",
                     sLoadingRecords: "${ ui.message("uicommons.dataTable.loadingRecords") }",
-                    sProcessing: "${ ui.message("uicommons.dataTable.processing") }",
-                    oAria: {
-                        sSortAscending: "${ ui.message("uicommons.dataTable.sortAscending") }",
-                        sSortDescending: "${ ui.message("uicommons.dataTable.sortDescending") }"
-                    }
+                    sProcessing: "${ ui.message("uicommons.dataTable.processing") }"
                 }
             }
         );
@@ -145,6 +188,8 @@
                 ...filterParams,
                 "totalCount": true,
                 "v": orderRepresentation,
+                "startIndex": ordersTableInfo.pageNumber * ordersTableInfo.pageSize,
+                "limit": ordersTableInfo.pageSize,
                 "sortBy": "dateActivated-desc" // TODO: Adding this to match existing labworkflow behavior, but shouldn't this order by urgency and asc?
             }
             // TODO: Look at paging, also updating only changed values, etc
@@ -164,12 +209,58 @@
                         tableRows.push(orderRow);
                     });
                 }
+                addInfoToOrdersTable(data);
                 ordersTable.fnAddData(tableRows);
                 ordersTable.fnDraw();
             });
+        };
+
+        const addInfoToOrdersTable = function(data) {
+            if (!data || !data.results || data.results.length === 0) {
+                ordersTableInfo.setTotalCount(0);
+                ordersTableInfo.firstPage();
+                jq("#orders-table-info-and-paging").hide();
+                return;
+            }
+            ordersTableInfo.setTotalCount(data.totalCount);
+            jq("#orders-table_info").html(ordersTableInfo.getInfoText());
+            if (ordersTableInfo.hasPreviousRecords()) {
+                jq("#orders-table_first").removeClass("ui-state-disabled");
+                jq("#orders-table_previous").removeClass("ui-state-disabled");
+            }
+            else {
+                jq("#orders-table_first").addClass("ui-state-disabled");
+                jq("#orders-table_previous").addClass("ui-state-disabled");
+            }
+            if (ordersTableInfo.hasNextRecords()) {
+                jq("#orders-table_next").removeClass("ui-state-disabled");
+                jq("#orders-table_last").removeClass("ui-state-disabled");
+            }
+            else {
+                jq("#orders-table_next").addClass("ui-state-disabled");
+                jq("#orders-table_last").addClass("ui-state-disabled");
+            }
+            jq("#orders-table-info-and-paging").show();
         }
 
-        jq("#test-filter-form").find(":input").change(function() {
+        jq("#test-filter-form").find(":input").change(function () {
+            fetchOrderData();
+        });
+
+        jq("#orders-table_first").on("click", function() {
+            ordersTableInfo.firstPage();
+            fetchOrderData();
+        });
+        jq("#orders-table_previous").on("click", function() {
+            ordersTableInfo.previousPage();
+            fetchOrderData();
+        });
+        jq("#orders-table_next").on("click", function() {
+            ordersTableInfo.nextPage();
+            fetchOrderData();
+        });
+        jq("#orders-table_last").on("click", function() {
+            ordersTableInfo.lastPage();
             fetchOrderData();
         });
 
@@ -286,3 +377,13 @@
 
     </tbody>
 </table>
+<div id="orders-table-info-and-paging" class="fg-toolbar ui-toolbar ui-corner-bl ui-corner-br ui-helper-clearfix datatables-info-and-pg">
+    <div class="dataTables_info" id="orders-table_info">
+    </div>
+    <div class="dataTables_paginate fg-buttonset ui-buttonset fg-buttonset-multi ui-buttonset-multi paging_full_numbers" id="orders-table_paginate">
+        <a id="orders-table_first" class="first ui-corner-tl ui-corner-bl fg-button ui-button ui-state-default">${ ui.message("uicommons.dataTable.first") }</a>
+        <a id="orders-table_previous" class="previous fg-button ui-button ui-state-default">${ ui.message("uicommons.dataTable.previous") }</a>
+        <a id="orders-table_next" class="next fg-button ui-button ui-state-default">${ ui.message("uicommons.dataTable.next") }</a>
+        <a id="orders-table_last" class="last ui-corner-tr ui-corner-br fg-button ui-button ui-state-default">${ ui.message("uicommons.dataTable.last") }</a>
+    </div>
+</div>
