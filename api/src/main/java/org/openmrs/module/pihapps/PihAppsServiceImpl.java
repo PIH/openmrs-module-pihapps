@@ -14,6 +14,7 @@
 package org.openmrs.module.pihapps;
 
 import lombok.Setter;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hibernate.Criteria;
@@ -140,7 +141,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (searchCriteria.getLabTest() != null) {
 			c.add(eq("concept", searchCriteria.getLabTest()));
 		}
-		if (searchCriteria.getAccessionNumber() != null) {
+		if (StringUtils.isNotBlank(searchCriteria.getAccessionNumber())) {
 			c.add(eq("accessionNumber", searchCriteria.getAccessionNumber()).ignoreCase());
 		}
 		if (searchCriteria.getActivatedOnOrBefore() != null) {

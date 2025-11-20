@@ -102,18 +102,15 @@
             const params = {
                 ...filterParams,
                 "totalCount": true,
-                "v": orderRepresentation
+                "v": orderRepresentation,
+                "sortBy": "dateActivated-desc" // TODO: Adding this to match existing labworkflow behavior, but shouldn't this order by urgency and asc?
             }
-            console.debug("Fetching order data...");
-            console.debug(endpoint);
-            console.debug(params);
             // TODO: Look at paging, also updating only changed values, etc
             jq.get(endpoint, params, function(data) {
                 ordersTable.fnClearTable();
                 const tableRows = [];
                 if (data && data.results) {
                     data.results.forEach((order) => {
-                        console.debug(order);
                         const orderRow = [];
                         orderRow.push(getEmrId(order));
                         orderRow.push(getPatientName(order));
@@ -123,7 +120,6 @@
                         tableRows.push(orderRow);
                     });
                 }
-                console.debug(tableRows);
                 ordersTable.fnAddData(tableRows);
                 ordersTable.fnDraw();
             });

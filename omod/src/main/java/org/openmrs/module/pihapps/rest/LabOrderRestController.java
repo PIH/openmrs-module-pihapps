@@ -7,6 +7,7 @@ import org.openmrs.Concept;
 import org.openmrs.Order;
 import org.openmrs.Patient;
 import org.openmrs.module.pihapps.PihAppsService;
+import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.labs.LabOrderSearchCriteria;
 import org.openmrs.module.pihapps.labs.LabOrderSearchResult;
 import org.openmrs.module.pihapps.labs.OrderStatus;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -38,8 +40,12 @@ public class LabOrderRestController {
 
     protected final Log log = LogFactory.getLog(getClass());
 
+    private final PihAppsService pihAppsService;
+
     @Autowired
-    PihAppsService pihAppsService;
+    public LabOrderRestController(PihAppsService pihAppsService) {
+        this.pihAppsService = pihAppsService;
+    }
 
     @RequestMapping(value = "/rest/v1/pihapps/labOrder", method = RequestMethod.GET)
     @ResponseBody
@@ -50,7 +56,8 @@ public class LabOrderRestController {
                                @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
                                @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
                                @RequestParam(value = "orderStatus", required = false) List<OrderStatus> orderStatus,
-                               @RequestParam(value = "fulfillerStatus", required = false) List<Order.FulfillerStatus> fulfillerStatus
+                               @RequestParam(value = "fulfillerStatus", required = false) List<Order.FulfillerStatus> fulfillerStatus,
+                               @RequestParam(value = "sortBy", required = false) List<String> sortBy
                                ) throws ResponseException {
 
         RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
@@ -67,6 +74,24 @@ public class LabOrderRestController {
         searchCriteria.setFulfillerStatuses(fulfillerStatus);
         searchCriteria.setStartIndex(requestContext.getStartIndex());
         searchCriteria.setLimit(requestContext.getLimit());
+
+        List<SortCriteria> sortCriteriaList = new ArrayList<>();
+        if (sortBy != null && !sortBy.isEmpty()) {
+            for (String sortByValue : sortBy) {
+                if (StringUtils.isNotBlank(sortByValue)) {
+                    String[] components = sortByValue.split("-", 2);
+                    String field = components[0];
+                    SortCriteria.Direction direction = SortCriteria.Direction.ASC;
+                    if (components.length > 1) {
+                        direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+                    }
+                    sortCriteriaList.add(new SortCriteria(field, direction));
+                }
+            }
+        }
+        if (!sortCriteriaList.isEmpty()) {
+            searchCriteria.setSortCriteria(sortCriteriaList);
+        }
 
         LabOrderSearchResult result = pihAppsService.getLabOrders(searchCriteria);
 
