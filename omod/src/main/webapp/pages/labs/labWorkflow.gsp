@@ -1,7 +1,8 @@
 <%
     ui.decorateWith("appui", "standardEmrPage")
     ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
-    ui.includeJavascript("uicommons", "moment.min.js")
+    ui.includeJavascript("uicommons", "moment-with-locales.min.js")
+    ui.includeJavascript("pihapps", "conceptUtils.js")
 
     def testsByCategory = labOrderConfig.getAvailableLabTestsByCategory()
     def now = new Date()
@@ -13,7 +14,18 @@
         { label: "${ ui.encodeJavaScript(ui.message("pihapps.labWorkflow")) }" , link: '${ui.pageLink("pihapps", "labs/labWorkflow")}'}
     ];
 
+    moment.locale(window.sessionContext?.locale ?? 'en');
+    const dateFormat = '${pihAppsConfig.getGlobalProperty("uiframework.formatter.JSdateFormat", "DD-MMM-YYYY")}';
+    const dateTimeFormat = '${pihAppsConfig.getGlobalProperty("uiframework.formatter.JSdateAndTimeFormat", "DD-MMM-YYYY HH:mm")}';
     const primaryIdentifierType = '${pihAppsConfig.primaryIdentifierType?.uuid ?: ""}';
+    const conceptUtils = new PihAppsConceptUtils(jq);
+
+    <% orderStatuses.each{ s -> %>
+        window.translations['${s}'] = '${ui.message("pihapps.orderStatus." + s)}';
+    <% } %>
+    <% fulfillerStatuses.each{ s -> %>
+        window.translations['${s}'] = '${ui.message("pihapps.fulfillerStatus." + s)}';
+    <% } %>
 
     jq(document).ready(function() {
         // Create a datatable of the encounter data
@@ -25,6 +37,7 @@
                 iDisplayLength: 10,
                 sPaginationType: 'full_numbers',
                 bSort: false,
+                bAutoWidth: false,
                 sDom: 'ft<\"fg-toolbar ui-toolbar ui-corner-bl ui-corner-br ui-helper-clearfix datatables-info-and-pg \"ip>',
                 oLanguage: {
                     oPaginate: {
@@ -91,8 +104,37 @@
             return order.patient.person.display;
         }
 
-        const formatDate = function(dateString) {
-            return moment(dateString).format("DD-MMM-YYYY");
+        const getOrderDate = function(order) {
+            const m = moment(order.dateActivated);
+            if ( m.hour() === 0 && m.minute() === 0 && m.second() === 0 && m.millisecond() === 0) {
+                return m.format(dateFormat);
+            }
+            return m.format(dateTimeFormat);
+        }
+
+        const getFulfillerStatus = function(order) {
+            if (order.fulfillerStatus) {
+                return window.translations[order.fulfillerStatus];
+            }
+            return null;
+        }
+
+        const getOrderStatus = function(order) {
+            if (order.dateStopped) {
+                return window.translations['STOPPED'];
+            }
+            if (order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date())) {
+                return window.translations['EXPIRED'];
+            }
+            return window.translations['ACTIVE'];
+        }
+
+        const getStatus = function(order) {
+            return getFulfillerStatus(order) ?? getOrderStatus(order);
+        }
+
+        const getLabTest = function(order) {
+            return conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
         }
 
         // TODO: Review this endpoint for correctness, and fix/update as needed.  For now, the goal is consistency with legacy owa
@@ -115,8 +157,10 @@
                         orderRow.push(getEmrId(order));
                         orderRow.push(getPatientName(order));
                         orderRow.push(order.orderNumber);
-                        orderRow.push(formatDate(order.dateActivated));
+                        orderRow.push(getOrderDate(order));
                         orderRow.push(order.accessionNumber);
+                        orderRow.push(getStatus(order));
+                        orderRow.push(getLabTest(order));
                         tableRows.push(orderRow);
                     });
                 }
@@ -136,6 +180,7 @@
 <style>
     #test-filter-form {
         padding-bottom: 20px;
+        table-layout: fixed;
     }
     #test-filter-form input {
         min-width: unset;
@@ -233,6 +278,8 @@
             <th>${ ui.message("pihapps.orderNumber") }</th>
             <th>${ ui.message("pihapps.orderDate") }</th>
             <th>${ ui.message("pihapps.labId") }</th>
+            <th>${ ui.message("pihapps.status") }</th>
+            <th>${ ui.message("pihapps.labTest") }</th>
         </tr>
     </thead>
     <tbody>

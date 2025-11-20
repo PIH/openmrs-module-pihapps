@@ -31,4 +31,8 @@ public class PihAppsConfig {
     public PatientIdentifierType getPrimaryIdentifierType() {
         return emrApiProperties.getPrimaryIdentifierType();
     }
+
+    public String getGlobalProperty(String propertyName, String defaultValue) {
+        return ConfigUtil.getProperty(propertyName, defaultValue);
+    }
 }
