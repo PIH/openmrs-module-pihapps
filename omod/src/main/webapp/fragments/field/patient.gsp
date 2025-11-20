@@ -5,17 +5,20 @@
     def id = config.id
     def formFieldName = config.formFieldName
     def initialValue = config.initialValue // optional, should be of type Patient
-    def size = config.size ?: 40  // Optional size of text field
+    def size = config.size ?: 50  // Optional size of text field
     def placeholder = config.placeholder ?: "coreapps.searchPatientHeading"
 %>
 
 <div id="${id}">
     <input type="text"
            id="${ id }-display"
-           class="form-control w-${size} autoCompleteText"
+           class="autoCompleteText"
+           style="display:inline;"
+           size="${size}"
            placeholder="${ ui.message(placeholder)}"
            value="${ initialValue ? ui.format( initialValue ) : ""}"
     />
+    <i id="${ id }-clear" class="icon-remove small" style="font-size: unset;"></i>
     <input type="hidden" id="${ id }-field" name="${ formFieldName }" class="autoCompleteHidden" value="${ initialValue ? initialValue.uuid : ""}"/>
 </div>
 
@@ -23,6 +26,7 @@
     jq(document).ready(function() {
         const hiddenField = jq("#${ id }-field");
         const textField = jq("#${ id }-display");
+        const clearElement = jq("#${ id }-clear");
         textField.on("focus", function() {
             textField.autocomplete({
                 "source": function (req, add) {
@@ -48,7 +52,7 @@
                     return false;
                 },
                 "select": function (event, ui) {
-                    hiddenField.val(ui.item.value);
+                    hiddenField.val(ui.item.value).change();
                     textField.val(ui.item.label);
                     textField.css('color', 'black');
                     textField.blur();
@@ -59,20 +63,15 @@
 
         textField.on("change", function () {
             if (textField.val() === "") {
-                hiddenField.val("");
+                hiddenField.val("").change();
             }
         });
 
-        textField.on("blur", function () {
-            if (hiddenField.val() === "" || hiddenField.val() === "ERROR") {
-                if (textField.val() !== ""){
-                    hiddenField.val("ERROR");
-                    textField.css('color', 'red');
-                }
-                else if (textField.val() === "") {
-                    hiddenField.val("");
-                }
+        clearElement.click(function () {
+            if (hiddenField.val() !== "") {
+                textField.val("");
+                hiddenField.val("").change();
             }
-        });
+        })
     });
 </script>
