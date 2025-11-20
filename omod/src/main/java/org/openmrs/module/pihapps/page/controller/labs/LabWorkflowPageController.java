@@ -3,6 +3,7 @@ package org.openmrs.module.pihapps.page.controller.labs;
 import org.openmrs.Order;
 import org.openmrs.module.pihapps.labs.LabOrderConfig;
 import org.openmrs.module.pihapps.PihAppsConfig;
+import org.openmrs.module.pihapps.labs.OrderStatus;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.SpringBean;
 import org.openmrs.ui.framework.page.PageModel;
@@ -28,5 +29,6 @@ public class LabWorkflowPageController {
             }
         }
         model.addAttribute("fulfillerStatuses", fulfillerStatuses);
+        model.addAttribute("orderStatuses", OrderStatus.values());
     }
 }
