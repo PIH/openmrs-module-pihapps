@@ -12,9 +12,8 @@
 <div id="${id}">
     <input type="text"
            id="${ id }-display"
-           class="autoCompleteText"
+           class="autoCompleteText w-75"
            style="display:inline;"
-           size="${size}"
            placeholder="${ ui.message(placeholder)}"
            value="${ initialValue ? ui.format( initialValue ) : ""}"
     />
