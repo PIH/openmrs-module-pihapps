@@ -22,12 +22,39 @@
 
     const ordersTableInfo = {
 
+        ordersTable: null,
         pageNumber: 0,
         pageSize: 10,
         totalCount: 0,
 
+        recreateOrdersTable() {
+            if (this.ordersTable) {
+              this.ordersTable.fnDestroy();
+            }
+            this.ordersTable = jq("#orders-table").dataTable({
+                bFilter: false,
+                bJQueryUI: true,
+                iDisplayLength: this.pageSize,
+                bSort: false,
+                bAutoWidth: false,
+                sDom: 'ft<\"fg-toolbar ui-toolbar ui-corner-bl ui-corner-br ui-helper-clearfix\">',
+                oLanguage: {
+                    sZeroRecords: "${ ui.message("uicommons.dataTable.zeroRecords") }",
+                    sEmptyTable: "${ ui.message("uicommons.dataTable.emptyTable") }",
+                    sInfoEmpty: "${ ui.message("uicommons.dataTable.infoEmpty") }",
+                    sLoadingRecords: "${ ui.message("uicommons.dataTable.loadingRecords") }",
+                    sProcessing: "${ ui.message("uicommons.dataTable.processing") }"
+                }
+            });
+            return this.ordersTable;
+        },
+
         setTotalCount(totalCount) {
             this.totalCount = totalCount;
+        },
+
+        setPageSize(pageSize) {
+            this.pageSize = pageSize;
         },
 
         hasPreviousRecords() {
@@ -63,11 +90,11 @@
         },
 
         getFirstNumberForPage() {
-            return this.pageNumber * this.pageSize + 1;
+            return (this.pageNumber * this.pageSize) + 1;
         },
 
         getLastNumberForPage() {
-            const lastNumber = this.getFirstNumberForPage() + this.pageSize - 1
+            const lastNumber = Number(this.getFirstNumberForPage()) + Number(this.pageSize) - 1
             return lastNumber > this.totalCount ? this.totalCount : lastNumber;
         },
 
@@ -87,26 +114,8 @@
     <% } %>
 
     jq(document).ready(function() {
-        // Create a datatable of the encounter data
-        const ordersTable = jq("#orders-table").dataTable(
-            {
-                bFilter: false,
-                bJQueryUI: true,
-                iDisplayLength: ordersTableInfo.pageSize,
-                bSort: false,
-                bAutoWidth: false,
-                sDom: 'ft<\"fg-toolbar ui-toolbar ui-corner-bl ui-corner-br ui-helper-clearfix datatables-info-and-pg \">',
-                oLanguage: {
-                    sZeroRecords: "${ ui.message("uicommons.dataTable.zeroRecords") }",
-                    sEmptyTable: "${ ui.message("uicommons.dataTable.emptyTable") }",
-                    sInfoEmpty: "${ ui.message("uicommons.dataTable.infoEmpty") }",
-                    sLoadingRecords: "${ ui.message("uicommons.dataTable.loadingRecords") }",
-                    sProcessing: "${ ui.message("uicommons.dataTable.processing") }"
-                }
-            }
-        );
 
-        const orderRepresentation = "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
+        ordersTableInfo.recreateOrdersTable();
 
         const getFilters = function() {
             return {
@@ -173,9 +182,10 @@
             return conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
         }
 
-        // TODO: Review this endpoint for correctness, and fix/update as needed.  For now, the goal is consistency with legacy owa
         const fetchOrderData = function() {
+            const ordersTable = ordersTableInfo.ordersTable;
             const endpoint = openmrsContextPath + "/ws/rest/v1/pihapps/labOrder";
+            const orderRepresentation = "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
             const filterParams = getFilters();
             const params = {
                 ...filterParams,
@@ -185,9 +195,7 @@
                 "limit": ordersTableInfo.pageSize,
                 "sortBy": "dateActivated-desc" // TODO: Adding this to match existing labworkflow behavior, but shouldn't this order by urgency and asc?
             }
-            // TODO: Look at paging, also updating only changed values, etc
             jq.get(endpoint, params, function(data) {
-                ordersTable.fnClearTable();
                 const tableRows = [];
                 if (data && data.results) {
                     data.results.forEach((order) => {
@@ -203,6 +211,7 @@
                         tableRows.push(orderRow);
                     });
                 }
+                ordersTable.fnClearTable();
                 addInfoToOrdersTable(data);
                 ordersTable.fnAddData(tableRows);
                 ordersTable.fnDraw();
@@ -258,6 +267,19 @@
             fetchOrderData();
         });
 
+        const pagingSizes = [10, 15, 20, 25, 50, 100];
+        jq("#orders-table_length").html('${ ui.message("uicommons.dataTable.lengthMenu") }'.replace('_MENU_', '<select id="page-size-select"></select>'));
+        pagingSizes.forEach(size => {
+            jq("#page-size-select").append('<option value="' + size + '">' + size + '</option>');
+        });
+        jq("#page-size-select").val(ordersTableInfo.pageSize);
+        jq("#page-size-select").on("change", function() {
+            ordersTableInfo.setPageSize(this.value);
+            ordersTableInfo.firstPage();
+            ordersTableInfo.recreateOrdersTable();
+            fetchOrderData();
+        });
+
         fetchOrderData();
     });
 </script>
@@ -275,6 +297,13 @@
     }
     .col {
         white-space: nowrap;
+    }
+    .info-and-paging-row {
+        padding-top: 5px;
+    }
+    .paging-navigation {
+        padding-left: 10px;
+        cursor: pointer;
     }
 </style>
 
@@ -372,13 +401,17 @@
 
     </tbody>
 </table>
-<div id="orders-table-info-and-paging" class="fg-toolbar ui-toolbar ui-corner-bl ui-corner-br ui-helper-clearfix datatables-info-and-pg">
-    <div class="dataTables_info" id="orders-table_info">
+<div id="orders-table-info-and-paging" style="font-size: .9em">
+    <div class="row justify-content-between info-and-paging-row">
+        <div id="orders-table_info" class="col"></div>
+        <div id="orders-table_paginate" class="col text-right">
+            <a id="orders-table_first" class="first paging-navigation">${ ui.message("uicommons.dataTable.first") }</a>
+            <a id="orders-table_previous" class="previous paging-navigation">${ ui.message("uicommons.dataTable.previous") }</a>
+            <a id="orders-table_next" class="next paging-navigation">${ ui.message("uicommons.dataTable.next") }</a>
+            <a id="orders-table_last" class="last paging-navigation">${ ui.message("uicommons.dataTable.last") }</a>
+        </div>
     </div>
-    <div class="dataTables_paginate fg-buttonset ui-buttonset fg-buttonset-multi ui-buttonset-multi paging_full_numbers" id="orders-table_paginate">
-        <a id="orders-table_first" class="first ui-corner-tl ui-corner-bl fg-button ui-button ui-state-default">${ ui.message("uicommons.dataTable.first") }</a>
-        <a id="orders-table_previous" class="previous fg-button ui-button ui-state-default">${ ui.message("uicommons.dataTable.previous") }</a>
-        <a id="orders-table_next" class="next fg-button ui-button ui-state-default">${ ui.message("uicommons.dataTable.next") }</a>
-        <a id="orders-table_last" class="last ui-corner-tr ui-corner-br fg-button ui-button ui-state-default">${ ui.message("uicommons.dataTable.last") }</a>
+    <div class="row justify-content-between info-and-paging-row">
+        <div id="orders-table_length" class="col"></div>
     </div>
 </div>
