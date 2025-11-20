@@ -297,7 +297,7 @@
 <form method="get" id="test-filter-form">
     <div class="row justify-content-start align-items-end">
         <div class="col">
-            ${ ui.includeFragment("uicommons", "field/datetimepicker", [
+            ${ ui.includeFragment("pihapps", "field/datetimepicker", [
                     id: "orderedFrom-filter",
                     formFieldName: "orderedFrom",
                     label: "pihapps.orderedFrom",
@@ -308,7 +308,7 @@
             ])}
         </div>
         <div class="col">
-            ${ ui.includeFragment("uicommons", "field/datetimepicker", [
+            ${ ui.includeFragment("pihapps", "field/datetimepicker", [
                     id: "orderedTo-filter",
                     formFieldName: "orderedTo",
                     label: "pihapps.orderedTo",
