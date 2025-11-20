@@ -5,14 +5,14 @@
     def id = config.id
     def formFieldName = config.formFieldName
     def initialValue = config.initialValue // optional, should be of type Patient
-    def size = config.size ?: 50  // Optional size of text field
+    def size = config.size ?: 75  // Optional size of text field
     def placeholder = config.placeholder ?: "coreapps.searchPatientHeading"
 %>
 
 <div id="${id}">
     <input type="text"
            id="${ id }-display"
-           class="autoCompleteText w-75"
+           class="autoCompleteText w-${size}"
            style="display:inline;"
            placeholder="${ ui.message(placeholder)}"
            value="${ initialValue ? ui.format( initialValue ) : ""}"
