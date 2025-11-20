@@ -156,10 +156,7 @@
         }
 
         const getFulfillerStatus = function(order) {
-            if (order.fulfillerStatus) {
-                return window.translations[order.fulfillerStatus];
-            }
-            return null;
+            return window.translations[order.fulfillerStatus ?? 'RECEIVED'];
         }
 
         const getOrderStatus = function(order) {
@@ -170,10 +167,6 @@
                 return window.translations['EXPIRED'];
             }
             return window.translations['ACTIVE'];
-        }
-
-        const getStatus = function(order) {
-            return getFulfillerStatus(order) ?? getOrderStatus(order);
         }
 
         const getLabTest = function(order) {
@@ -204,7 +197,8 @@
                         orderRow.push(order.orderNumber);
                         orderRow.push(getOrderDate(order));
                         orderRow.push(order.accessionNumber);
-                        orderRow.push(getStatus(order));
+                        orderRow.push(getOrderStatus(order));
+                        orderRow.push(getFulfillerStatus(order));
                         orderRow.push(getLabTest(order));
                         tableRows.push(orderRow);
                     });
@@ -369,7 +363,8 @@
             <th>${ ui.message("pihapps.orderNumber") }</th>
             <th>${ ui.message("pihapps.orderDate") }</th>
             <th>${ ui.message("pihapps.labId") }</th>
-            <th>${ ui.message("pihapps.status") }</th>
+            <th>${ ui.message("pihapps.orderStatus") }</th>
+            <th>${ ui.message("pihapps.fulfillerStatus") }</th>
             <th>${ ui.message("pihapps.labTest") }</th>
         </tr>
     </thead>
