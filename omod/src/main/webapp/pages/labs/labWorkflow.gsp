@@ -102,9 +102,7 @@
             const params = {
                 ...filterParams,
                 "totalCount": true,
-                "v": orderRepresentation,
-                //"limit": pageSize,
-                //"startIndex": pageNumber
+                "v": orderRepresentation
             }
             console.debug("Fetching order data...");
             console.debug(endpoint);
@@ -130,6 +128,10 @@
                 ordersTable.fnDraw();
             });
         }
+
+        jq("#test-filter-form").find(":input").change(function() {
+            fetchOrderData();
+        });
 
         fetchOrderData();
     });

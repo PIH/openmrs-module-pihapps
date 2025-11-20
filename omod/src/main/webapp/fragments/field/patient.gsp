@@ -51,6 +51,7 @@
                     hiddenField.val(ui.item.value);
                     textField.val(ui.item.label);
                     textField.css('color', 'black');
+                    textField.blur();
                     return false;
                 }
             });
