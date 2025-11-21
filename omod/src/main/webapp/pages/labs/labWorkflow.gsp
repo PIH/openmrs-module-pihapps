@@ -246,15 +246,15 @@
 </table>
 <div id="orders-table-info-and-paging" style="font-size: .9em">
     <div class="row justify-content-between info-and-paging-row">
-        <div id="orders-table_info" class="col paging-info"></div>
-        <div id="orders-table_paginate" class="col text-right">
-            <a id="orders-table_first" class="first paging-navigation">${ ui.message("uicommons.dataTable.first") }</a>
-            <a id="orders-table_previous" class="previous paging-navigation">${ ui.message("uicommons.dataTable.previous") }</a>
-            <a id="orders-table_next" class="next paging-navigation">${ ui.message("uicommons.dataTable.next") }</a>
-            <a id="orders-table_last" class="last paging-navigation">${ ui.message("uicommons.dataTable.last") }</a>
+        <div class="col paging-info"></div>
+        <div class="col text-right">
+            <a class="first paging-navigation">${ ui.message("uicommons.dataTable.first") }</a>
+            <a class="previous paging-navigation">${ ui.message("uicommons.dataTable.previous") }</a>
+            <a class="next paging-navigation">${ ui.message("uicommons.dataTable.next") }</a>
+            <a class="last paging-navigation">${ ui.message("uicommons.dataTable.last") }</a>
         </div>
     </div>
     <div class="row justify-content-between info-and-paging-row">
-        <div id="orders-table_length" class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
+        <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
     </div>
 </div>
