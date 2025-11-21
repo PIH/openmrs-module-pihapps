@@ -7,7 +7,7 @@ import org.openmrs.module.htmlformentry.FormEntryContext;
 import org.openmrs.module.htmlformentry.util.JsonObject;
 import org.openmrs.module.htmlformentry.widget.OrderWidget;
 import org.openmrs.module.htmlformentry.widget.OrderWidgetConfig;
-import org.openmrs.module.pihapps.LabOrderConfig;
+import org.openmrs.module.pihapps.labs.LabOrderConfig;
 
 import java.util.List;
 

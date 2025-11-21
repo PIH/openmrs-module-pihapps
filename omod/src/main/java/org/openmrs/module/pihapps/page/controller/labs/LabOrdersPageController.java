@@ -8,7 +8,7 @@ import org.openmrs.TestOrder;
 import org.openmrs.api.OrderService;
 import org.openmrs.api.db.hibernate.HibernateUtil;
 import org.openmrs.module.emrapi.patient.PatientDomainWrapper;
-import org.openmrs.module.pihapps.LabOrderConfig;
+import org.openmrs.module.pihapps.labs.LabOrderConfig;
 import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.InjectBeans;

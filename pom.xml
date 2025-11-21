@@ -53,6 +53,7 @@
         <coreappsVersion>3.0.0</coreappsVersion>
         <emrapiVersion>2.4.0</emrapiVersion>
         <htmlformentryVersion>6.1.0-SNAPSHOT</htmlformentryVersion>
+        <metadatamappingVersion>1.7.0</metadatamappingVersion>
         <uicommonsVersion>2.26.0</uicommonsVersion>
         <uiframeworkVersion>4.0.0</uiframeworkVersion>
         <uilibraryVersion>2.0.7</uilibraryVersion>
@@ -104,12 +105,6 @@
             <artifactId>appframework-api</artifactId>
             <version>${appframeworkVersion}</version>
             <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.antlr</groupId>
-                    <artifactId>antlr4-runtime</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -139,6 +134,13 @@
             <version>${emrapiVersion}</version>
             <type>test-jar</type>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openmrs.module</groupId>
+            <artifactId>metadatamapping-api</artifactId>
+            <version>${metadatamappingVersion}</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
