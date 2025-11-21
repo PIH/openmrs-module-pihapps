@@ -116,7 +116,12 @@
             ],
             datatableOptions: {
                 oLanguage: {
-                    sInfo: "${ ui.message("uicommons.dataTable.info") }"
+                    sInfo: "${ ui.message("uicommons.dataTable.info") }",
+                    sZeroRecords: "${ ui.message("uicommons.dataTable.zeroRecords") }",
+                    sEmptyTable: "${ ui.message("uicommons.dataTable.emptyTable") }",
+                    sInfoEmpty:  "${ ui.message("uicommons.dataTable.infoEmpty") }",
+                    sLoadingRecords:  "${ ui.message("uicommons.dataTable.loadingRecords") }",
+                    sProcessing:  "${ ui.message("uicommons.dataTable.processing") }",
                 }
             }
         });
