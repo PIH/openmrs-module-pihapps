@@ -29,14 +29,11 @@ class PagingDataTable {
         this.representation = options.representation;
         this.columnTransformFunctions = options.columnTransformFunctions;
         this.pagingSizes = options.pagingSizes || [10, 15, 20, 25, 50, 100];
-        this.defaultPageSize = options.defaultPageSize || 10;
+        this.pageSize = options.defaultPageSize || 10;
         this.parameters = options.parameters || {};
-
-        // Instance data
-        this.pagedTable = null;
         this.pageNumber = 0;
-        this.pageSize = 10;
         this.totalCount = 0;
+        this.pagedTable = null;
     }
 
     initialize() {
@@ -65,11 +62,19 @@ class PagingDataTable {
         return this.pageSize;
     }
 
+    setPageSize(pageSize) {
+        this.pageSize = pageSize;
+    }
+
+    setTotalCount(totalCount) {
+        this.totalCount = totalCount;
+    }
+
     getDefaultDataTableOptions() {
         return {
             bFilter: false,
             bJQueryUI: true,
-            iDisplayLength: this.pageSize,
+            iDisplayLength: this.getPageSize(),
             bSort: false,
             bAutoWidth: false,
             sDom: 'ft<\"fg-toolbar ui-toolbar ui-corner-bl ui-corner-br ui-helper-clearfix\">',
@@ -80,7 +85,8 @@ class PagingDataTable {
         if (this.pagedTable) {
             this.pagedTable.fnDestroy();
         }
-        this.pagedTable = this.getTableElement().dataTable(this.datatableOptions);
+        const newDataTableOptions = {...this.datatableOptions, iDisplayLength: this.getPageSize()};
+        this.pagedTable = this.getTableElement().dataTable(newDataTableOptions);
     }
 
     setParameters(parameters) {
@@ -153,20 +159,12 @@ class PagingDataTable {
         this.pagingSizes.forEach(size => {
             pageSizeSelector.append('<option value="' + size + '">' + size + '</option>');
         });
-        pageSizeSelector.val(this.defaultPageSize);
+        pageSizeSelector.val(this.pageSize);
         pageSizeSelector.on("change", () => {
-            this.setPageSize(this.value);
+            this.setPageSize(pageSizeSelector.val());
             this.recreateTable();
             this.goToFirstPage();
         });
-    }
-
-    setTotalCount(totalCount) {
-        this.totalCount = totalCount;
-    }
-
-    setPageSize(pageSize) {
-        this.pageSize = pageSize;
     }
 
     hasPreviousRecords() {

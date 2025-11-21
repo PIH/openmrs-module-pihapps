@@ -256,6 +256,6 @@
         </div>
     </div>
     <div class="row justify-content-between info-and-paging-row">
-        <div id="orders-table_length" class="col paging-size"></div>
+        <div id="orders-table_length" class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
     </div>
 </div>
