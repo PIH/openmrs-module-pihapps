@@ -40,17 +40,17 @@ public class PihAppsServiceTest extends BaseModuleContextSensitiveTest {
     }
 
     void printResult(LabOrderSearchResult result) {
-        log.info("Total count: {}", result.getTotalCount());
+        log.debug("Total count: {}", result.getTotalCount());
         for (Order order : result.getOrders()) {
-            log.info("Order: {}", order.getId());
-            log.info("======================");
-            log.info("  Order Type: {}", order.getOrderType().getName());
-            log.info("  Concept: {}", order.getConcept().getDisplayString());
-            log.info("  Date Activated: {}", order.getDateActivated());
-            log.info("  AutoExpire Date: {}", order.getAutoExpireDate());
-            log.info("  Date Stopped: {}", order.getDateStopped());
-            log.info("  Fulfiller Status: {}", order.getFulfillerStatus());
-            log.info("  ");
+            log.debug("Order: {}", order.getId());
+            log.debug("======================");
+            log.debug("  Order Type: {}", order.getOrderType().getName());
+            log.debug("  Concept: {}", order.getConcept().getDisplayString());
+            log.debug("  Date Activated: {}", order.getDateActivated());
+            log.debug("  AutoExpire Date: {}", order.getAutoExpireDate());
+            log.debug("  Date Stopped: {}", order.getDateStopped());
+            log.debug("  Fulfiller Status: {}", order.getFulfillerStatus());
+            log.debug("  ");
         }
     }
 }

@@ -241,9 +241,7 @@
             <th>${ ui.message("pihapps.labTest") }</th>
         </tr>
     </thead>
-    <tbody>
-
-    </tbody>
+    <tbody></tbody>
 </table>
 <div id="orders-table-info-and-paging" style="font-size: .9em">
     <div class="row justify-content-between info-and-paging-row">
