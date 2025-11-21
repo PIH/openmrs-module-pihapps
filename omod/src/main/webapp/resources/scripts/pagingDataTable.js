@@ -1,27 +1,28 @@
 /**
  * Wraps a jQuery dataTable and customizes it to allow for server-side paging of results
- * options: {
- *     tableSelector:  The page is expected to have a table in place, with columns defined.  This is the selector for that table.
- *     tableInfoSelector:  The page is expected to have a div in place with appropriately classed elements for displaying result and paging info
- *     datatableOptions:   If any overrides or additional configuration should be passed to the wrapped dataTable, define them here
- *     endpoint:  The endpointUrl to hit to retrieve results
- *     representation:  The endpoint representation to use
- *     parameters: Any initial parameters to configure for the endpoint
- *     columnTransformFunctions:  An array of functions that can transform one result returned from the endpoint to the column value at the appropriate index
- *     pagingSizes: An array of page sizes to support
- *     defaultPageSize: The default page size
- * }
  */
 class PagingDataTable {
 
     /**
      * @param jq the jQuery instance
      * @param options these are the configuration options
+     *
+     * options: {
+     *     tableSelector:  The page is expected to have a table in place, with columns defined.  This is the selector for that table.
+     *     tableInfoSelector:  The page is expected to have a div in place with appropriately classed elements for displaying result and paging info
+     *     datatableOptions:   If any overrides or additional configuration should be passed to the wrapped dataTable, define them here
+     *     endpoint:  The endpointUrl to hit to retrieve results
+     *     representation:  The endpoint representation to use
+     *     parameters: Any initial parameters to configure for the endpoint
+     *     columnTransformFunctions:  An array of functions that can transform one result returned from the endpoint to the column value at the appropriate index
+     *     pagingSizes: An array of page sizes to support
+     *     defaultPageSize: The default page size
+     * }
      */
     constructor(jq, options) {
         this.jq = jq;
 
-        // Configuration
+        // Configuration and default values
         this.tableSelector = options.tableSelector;
         this.tableInfoSelector = options.tableInfoSelector;
         this.datatableOptions = { ...this.getDefaultDataTableOptions(), ...options.datatableOptions || {} };
@@ -36,8 +37,32 @@ class PagingDataTable {
         this.pagedTable = null;
     }
 
+    /**
+     * This method should be called object creation to set up the necessary dom elements and event handlers and
+     * activate the datatable and render the first page of table contents
+     */
     initialize() {
-        this.initializePagingElements();
+        // Set up the event handlers for navigating between pages
+        this.getTableInfoElement().find(".first").click(() => this.goToFirstPage());
+        this.getTableInfoElement().find(".previous").click(() => this.goToPreviousPage());
+        this.getTableInfoElement().find(".next").click(() => this.goToNextPage());
+        this.getTableInfoElement().find(".last").click(() => this.goToLastPage());
+
+        // Set up the selector and event handler for changing the page size
+        const pagingSizeElement = this.getTableInfoElement().find(".paging-size");
+        pagingSizeElement.html(pagingSizeElement.html().replace('_MENU_', '<select class="page-size-selector"></select>'));
+        const pageSizeSelector = jq(".page-size-selector");
+        this.pagingSizes.forEach(size => {
+            pageSizeSelector.append('<option value="' + size + '">' + size + '</option>');
+        });
+        pageSizeSelector.val(this.pageSize);
+        pageSizeSelector.on("change", () => {
+            this.setPageSize(pageSizeSelector.val());
+            this.recreateTable();
+            this.goToFirstPage();
+        });
+
+        // Render the table and start at the first page
         this.recreateTable();
         this.goToFirstPage();
     }
@@ -144,26 +169,6 @@ class PagingDataTable {
 
             this.pagedTable.fnDraw();
             this.getTableInfoElement().show();
-        });
-    }
-
-    initializePagingElements() {
-        this.getTableInfoElement().find(".first").click(() => this.goToFirstPage());
-        this.getTableInfoElement().find(".previous").click(() => this.goToPreviousPage());
-        this.getTableInfoElement().find(".next").click(() => this.goToNextPage());
-        this.getTableInfoElement().find(".last").click(() => this.goToLastPage());
-
-        const pagingSizeElement = this.getTableInfoElement().find(".paging-size");
-        pagingSizeElement.html(pagingSizeElement.html().replace('_MENU_', '<select class="page-size-selector"></select>'));
-        const pageSizeSelector = jq(".page-size-selector");
-        this.pagingSizes.forEach(size => {
-            pageSizeSelector.append('<option value="' + size + '">' + size + '</option>');
-        });
-        pageSizeSelector.val(this.pageSize);
-        pageSizeSelector.on("change", () => {
-            this.setPageSize(pageSizeSelector.val());
-            this.recreateTable();
-            this.goToFirstPage();
         });
     }
 
