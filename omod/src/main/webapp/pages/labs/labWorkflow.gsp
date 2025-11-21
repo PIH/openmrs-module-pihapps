@@ -86,7 +86,8 @@
     }
 
     const getLabTest = function(order) {
-        return conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
+        const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
+        return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
     }
 
     jq(document).ready(function() {
