@@ -112,7 +112,7 @@
             representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))",
             parameters: { ...getFilterParameterValues(), "sortBy": "dateActivated-desc" },
             columnTransformFunctions: [
-                getEmrId, getPatientName, getOrderNumber, getOrderDate, getAccessionNumber, getFulfillerStatus, getOrderStatus, getLabTest
+                getEmrId, getPatientName, getOrderNumber, getOrderDate, getAccessionNumber, getOrderStatus, getFulfillerStatus, getLabTest
             ],
             datatableOptions: {
                 oLanguage: {
