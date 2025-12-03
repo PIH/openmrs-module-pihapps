@@ -1,4 +1,4 @@
-package org.openmrs.module.pihapps.labs;
+package org.openmrs.module.pihapps.orders;
 
 public enum OrderStatus {
     ACTIVE, EXPIRED, STOPPED

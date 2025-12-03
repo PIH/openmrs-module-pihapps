@@ -2,13 +2,16 @@ package org.openmrs.module.pihapps;
 
 import org.junit.jupiter.api.Test;
 import org.openmrs.Order;
-import org.openmrs.module.pihapps.labs.LabOrderSearchCriteria;
-import org.openmrs.module.pihapps.labs.LabOrderSearchResult;
+import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
+import org.openmrs.module.pihapps.orders.OrderSearchResult;
 import org.openmrs.test.jupiter.BaseModuleContextSensitiveTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+
+import java.util.Collections;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -21,25 +24,29 @@ public class PihAppsServiceTest extends BaseModuleContextSensitiveTest {
     @Qualifier("pihappsService")
     private PihAppsService pihAppsService;
 
+    @Autowired
+    LabOrderConfig labOrderConfig;
+
     @Test
     public void shouldGetPagedLabOrders() {
-        LabOrderSearchCriteria searchCriteria = new LabOrderSearchCriteria();
-        LabOrderSearchResult result = pihAppsService.getLabOrders(searchCriteria);
+        OrderSearchCriteria searchCriteria = new OrderSearchCriteria();
+        searchCriteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
+        OrderSearchResult result = pihAppsService.getOrders(searchCriteria);
         assertThat(result.getTotalCount(), equalTo(3L));
         assertThat(result.getOrders().size(), equalTo(3));
         printResult(result);
         searchCriteria.setStartIndex(0);
         searchCriteria.setLimit(2);
-        result = pihAppsService.getLabOrders(searchCriteria);
+        result = pihAppsService.getOrders(searchCriteria);
         assertThat(result.getTotalCount(), equalTo(3L));
         assertThat(result.getOrders().size(), equalTo(2));
         searchCriteria.setStartIndex(2);
-        result = pihAppsService.getLabOrders(searchCriteria);
+        result = pihAppsService.getOrders(searchCriteria);
         assertThat(result.getTotalCount(), equalTo(3L));
         assertThat(result.getOrders().size(), equalTo(1));
     }
 
-    void printResult(LabOrderSearchResult result) {
+    void printResult(OrderSearchResult result) {
         log.debug("Total count: {}", result.getTotalCount());
         for (Order order : result.getOrders()) {
             log.debug("Order: {}", order.getId());

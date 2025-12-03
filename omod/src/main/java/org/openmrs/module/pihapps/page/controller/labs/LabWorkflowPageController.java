@@ -1,9 +1,9 @@
 package org.openmrs.module.pihapps.page.controller.labs;
 
 import org.openmrs.Order;
-import org.openmrs.module.pihapps.labs.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.module.pihapps.PihAppsConfig;
-import org.openmrs.module.pihapps.labs.OrderStatus;
+import org.openmrs.module.pihapps.orders.OrderStatus;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.SpringBean;
 import org.openmrs.ui.framework.page.PageModel;
@@ -17,18 +17,7 @@ public class LabWorkflowPageController {
         LabOrderConfig labOrderConfig = pihAppsConfig.getLabOrderConfig();
         model.addAttribute("pihAppsConfig", pihAppsConfig);
         model.addAttribute("labOrderConfig", labOrderConfig);
-
-        // Add fulfiller statuses in the order we want them displayed
-        List<Order.FulfillerStatus> fulfillerStatuses = new ArrayList<>();
-        fulfillerStatuses.add(Order.FulfillerStatus.RECEIVED);
-        fulfillerStatuses.add(Order.FulfillerStatus.IN_PROGRESS);
-        fulfillerStatuses.add(Order.FulfillerStatus.COMPLETED);
-        for (Order.FulfillerStatus fulfillerStatus : Order.FulfillerStatus.values()) {
-            if (!fulfillerStatuses.contains(fulfillerStatus)) {
-                fulfillerStatuses.add(fulfillerStatus);
-            }
-        }
-        model.addAttribute("fulfillerStatuses", fulfillerStatuses);
         model.addAttribute("orderStatuses", OrderStatus.values());
+        model.addAttribute("fulfillerStatuses", Order.FulfillerStatus.values());
     }
 }

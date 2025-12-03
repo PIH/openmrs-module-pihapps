@@ -3,7 +3,7 @@ package org.openmrs.module.pihapps;
 import lombok.Getter;
 import org.openmrs.PatientIdentifierType;
 import org.openmrs.module.emrapi.EmrApiProperties;
-import org.openmrs.module.pihapps.labs.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.util.ConfigUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;

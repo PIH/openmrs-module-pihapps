@@ -23,18 +23,15 @@ import org.hibernate.criterion.Projections;
 import org.openmrs.Location;
 import org.openmrs.LocationTag;
 import org.openmrs.Order;
-import org.openmrs.OrderType;
-import org.openmrs.TestOrder;
 import org.openmrs.annotation.Authorized;
 import org.openmrs.api.LocationService;
 import org.openmrs.api.OrderService;
-import org.openmrs.api.context.Context;
 import org.openmrs.api.db.hibernate.DbSessionFactory;
 import org.openmrs.api.impl.BaseOpenmrsService;
 import org.openmrs.module.emrapi.EmrApiConstants;
-import org.openmrs.module.pihapps.labs.LabOrderSearchCriteria;
-import org.openmrs.module.pihapps.labs.LabOrderSearchResult;
-import org.openmrs.module.pihapps.labs.OrderStatus;
+import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
+import org.openmrs.module.pihapps.orders.OrderSearchResult;
+import org.openmrs.module.pihapps.orders.OrderStatus;
 import org.openmrs.util.OpenmrsUtil;
 import org.openmrs.util.PrivilegeConstants;
 import org.springframework.transaction.annotation.Transactional;
@@ -103,43 +100,26 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 
 	@Override
 	@Transactional(readOnly = true)
-	@Authorized(PrivilegeConstants.GET_ORDER_TYPES)
-	public List<OrderType> getLabOrderTypes(boolean includeRetired) {
-		List<OrderType> orderTypes = new ArrayList<>();
-		for (OrderType orderType : orderService.getOrderTypes(includeRetired)) {
-			try {
-				Class<?> orderClass = Context.loadClass(orderType.getJavaClassName());
-				if (TestOrder.class.isAssignableFrom(orderClass)) {
-					orderTypes.add(orderType);
-				}
-			}
-			catch (ClassNotFoundException e) {
-				log.warn("Could not load class " + orderType.getJavaClassName());
-			}
-		}
-		return orderTypes;
-	}
-
-	@Override
-	@Transactional(readOnly = true)
 	@Authorized(PrivilegeConstants.GET_ORDERS)
 	@SuppressWarnings({ "unchecked", "deprecation" })
-	public LabOrderSearchResult getLabOrders(LabOrderSearchCriteria searchCriteria) {
-		LabOrderSearchResult result = new LabOrderSearchResult();
+	public OrderSearchResult getOrders(OrderSearchCriteria searchCriteria) {
+		OrderSearchResult result = new OrderSearchResult();
 		result.setCriteria(searchCriteria);
 
 		Date now = new Date();
 
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Order.class);
 		c.add(eq("voided", false));
-		c.add(in("orderType", getLabOrderTypes(true))); // Limit to lab order types
+		if (searchCriteria.getOrderTypes() != null && !searchCriteria.getOrderTypes().isEmpty()) {
+			c.add(in("orderType", searchCriteria.getOrderTypes()));
+		}
 		c.add(in("action", Order.Action.NEW, Order.Action.REVISE, Order.Action.RENEW)); // Exclude DC orders
 
 		if (searchCriteria.getPatient() != null) {
 			c.add(eq("patient", searchCriteria.getPatient()));
 		}
-		if (searchCriteria.getLabTest() != null) {
-			c.add(eq("concept", searchCriteria.getLabTest()));
+		if (searchCriteria.getConcept() != null) {
+			c.add(eq("concept", searchCriteria.getConcept()));
 		}
 		if (StringUtils.isNotBlank(searchCriteria.getAccessionNumber())) {
 			c.add(eq("accessionNumber", searchCriteria.getAccessionNumber()).ignoreCase());
@@ -174,11 +154,13 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (searchCriteria.getFulfillerStatuses() != null && !searchCriteria.getFulfillerStatuses().isEmpty()) {
 			for (Order.FulfillerStatus fulfillerStatus : searchCriteria.getFulfillerStatuses()) {
 				fulfillerStatusCriteria.add(eq("fulfillerStatus", fulfillerStatus));
-				// TODO: For all intents and purposes, we equate a null fulfillerStatus and a RECEIVED fulfillerStatus to mean ordered but not in progress
-				if (fulfillerStatus == Order.FulfillerStatus.RECEIVED) {
-					fulfillerStatusCriteria.add(isNull("fulfillerStatus"));
-				}
 			}
+		}
+		if (searchCriteria.getIncludeNullFulfillerStatus() == Boolean.TRUE) {
+			fulfillerStatusCriteria.add(isNull("fulfillerStatus"));
+		}
+		else if (searchCriteria.getIncludeNullFulfillerStatus() == Boolean.FALSE) {
+			fulfillerStatusCriteria.add(isNotNull("fulfillerStatus"));
 		}
 		if (!fulfillerStatusCriteria.isEmpty()) {
 			c.add(or(fulfillerStatusCriteria.toArray(new Criterion[0])));

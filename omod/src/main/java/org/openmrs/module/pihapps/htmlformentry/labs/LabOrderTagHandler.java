@@ -12,7 +12,7 @@ import org.openmrs.module.htmlformentry.handler.OrderTagHandler;
 import org.openmrs.module.htmlformentry.widget.Option;
 import org.openmrs.module.htmlformentry.widget.OrderWidget;
 import org.openmrs.module.htmlformentry.widget.OrderWidgetConfig;
-import org.openmrs.module.pihapps.labs.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

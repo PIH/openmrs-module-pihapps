@@ -1,4 +1,4 @@
-package org.openmrs.module.pihapps.labs;
+package org.openmrs.module.pihapps.orders;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;

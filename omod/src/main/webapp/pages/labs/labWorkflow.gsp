@@ -82,7 +82,7 @@
     }
 
     const getFulfillerStatus = function(order) {
-        return window.translations[order.fulfillerStatus ?? 'RECEIVED'];
+        return order.fulfillerStatus ? window.translations[order.fulfillerStatus] : "${ ui.message('pihapps.none') }";
     }
 
     const getLabTest = function(order) {
@@ -93,6 +93,7 @@
     jq(document).ready(function() {
 
         const getFilterParameterValues = function() {
+            const fulfillerStatus = jq("#fulfillerStatus-filter").val();
             return {
                 "patient": jq("#patient-filter-field").val(),
                 "labTest": jq("#testConcept-filter").val(),
@@ -100,7 +101,9 @@
                 "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
                 "accessionNumber": jq("#lab-id-filter").val(),
                 "orderStatus": jq("#orderStatus-filter").val(),
-                "fulfillerStatus": jq("#fulfillerStatus-filter").val()
+                "fulfillerStatus": fulfillerStatus === "none" ? "" : fulfillerStatus,
+                "includeNullFulfillerStatus": fulfillerStatus === "none" ? "true" : "",
+                "sortBy": "dateActivated-desc"
             }
         }
 
@@ -110,7 +113,7 @@
             tableInfoSelector: "#orders-table-info-and-paging",
             endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
             representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))",
-            parameters: { ...getFilterParameterValues(), "sortBy": "dateActivated-desc" },
+            parameters: { ...getFilterParameterValues() },
             columnTransformFunctions: [
                 getEmrId, getPatientName, getOrderNumber, getOrderDate, getAccessionNumber, getOrderStatus, getFulfillerStatus, getLabTest
             ],
@@ -227,8 +230,9 @@
             <label for="fulfillerStatus-filter">${ ui.message("pihapps.fulfillerStatus") }</label>
             <select id="fulfillerStatus-filter" name="fulfillerStatus" class="form-control">
                 <option value="">${ ui.message("pihapps.all") }</option>
-                <% fulfillerStatuses.each { fulfillerStatus -> %>
-                    <option value="${fulfillerStatus.name()}">${ ui.message("pihapps.fulfillerStatus." + fulfillerStatus)}</option>
+                <option value="none">${ ui.message("pihapps.none") }</option>
+                <% ["RECEIVED", "IN_PROGRESS", "COMPLETED", "ON_HOLD", "DECLINED", "EXCEPTION"].each { status -> %>
+                    <option value="${ status }">${ ui.message("pihapps.fulfillerStatus." + status) }</option>
                 <% } %>
             </select>
         </div>

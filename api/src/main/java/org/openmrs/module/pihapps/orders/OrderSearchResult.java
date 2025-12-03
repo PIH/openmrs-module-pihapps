@@ -1,4 +1,4 @@
-package org.openmrs.module.pihapps.labs;
+package org.openmrs.module.pihapps.orders;
 
 import lombok.Data;
 import org.openmrs.Order;
@@ -6,8 +6,8 @@ import org.openmrs.Order;
 import java.util.List;
 
 @Data
-public class LabOrderSearchResult {
-    LabOrderSearchCriteria criteria;
+public class OrderSearchResult {
+    OrderSearchCriteria criteria;
     Long totalCount;
     List<Order> orders;
 }
