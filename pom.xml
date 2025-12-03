@@ -52,7 +52,7 @@
         <appuiVersion>1.18.0</appuiVersion>
         <coreappsVersion>3.0.0</coreappsVersion>
         <emrapiVersion>2.4.0</emrapiVersion>
-        <htmlformentryVersion>6.1.0-SNAPSHOT</htmlformentryVersion>
+        <htmlformentryVersion>6.1.0</htmlformentryVersion>
         <uicommonsVersion>2.26.0</uicommonsVersion>
         <uiframeworkVersion>4.0.0</uiframeworkVersion>
         <uilibraryVersion>2.0.7</uilibraryVersion>
@@ -194,6 +194,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.14.1</version>
 					<configuration>
                         <target>1.8</target>
                         <source>1.8</source>
