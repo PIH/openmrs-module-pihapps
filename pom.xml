@@ -50,8 +50,8 @@
 
         <appframeworkVersion>2.18.0</appframeworkVersion>
         <appuiVersion>1.18.0</appuiVersion>
-        <coreappsVersion>3.0.0</coreappsVersion>
-        <emrapiVersion>2.4.0</emrapiVersion>
+        <coreappsVersion>3.1.0</coreappsVersion>
+        <emrapiVersion>3.2.1</emrapiVersion>
         <htmlformentryVersion>6.1.0</htmlformentryVersion>
         <uicommonsVersion>2.26.0</uicommonsVersion>
         <uiframeworkVersion>4.0.0</uiframeworkVersion>
