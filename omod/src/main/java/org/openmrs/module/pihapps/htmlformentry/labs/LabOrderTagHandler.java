@@ -12,7 +12,9 @@ import org.openmrs.module.htmlformentry.handler.OrderTagHandler;
 import org.openmrs.module.htmlformentry.widget.Option;
 import org.openmrs.module.htmlformentry.widget.OrderWidget;
 import org.openmrs.module.htmlformentry.widget.OrderWidgetConfig;
+import org.openmrs.module.pihapps.PihAppsUtils;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.LabTestCategory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -32,6 +34,9 @@ public class LabOrderTagHandler extends OrderTagHandler {
 
 	@Autowired
 	LabOrderConfig labOrderConfig;
+
+	@Autowired
+	PihAppsUtils pihAppsUtils;
 
 	@Override
 	protected OrderWidgetConfig createOrderWidgetConfig() {
@@ -107,25 +112,25 @@ public class LabOrderTagHandler extends OrderTagHandler {
 
 	protected void processLabTestOptions(OrderWidgetConfig config, String prop) throws BadFormDesignException {
 		LabOrderWidgetConfig labOrderWidgetConfig = (LabOrderWidgetConfig) config;
-		Map<Concept, List<Concept>> labOrderables = labOrderConfig.getAvailableLabTestsByCategory();
+		List<LabTestCategory> labTestCategories = labOrderConfig.getAvailableLabTestsByCategory();
 		Map<Concept, List<Concept>> orderReasonMap = labOrderConfig.getOrderReasonsMap();
 
 		Set<Concept> conceptsConfigured = new HashSet<>(config.getConceptsAndDrugsConfigured().keySet());
 		List<Option> orderPropertyOptions = config.getOrderPropertyOptions("concept");
 		boolean conceptsAreConfigured = !orderPropertyOptions.isEmpty();
 
-		for (Concept category : labOrderables.keySet()) {
-			for (Concept orderable : labOrderables.get(category)) {
+		for (LabTestCategory labTestCategory : labTestCategories) {
+			for (Concept orderable : labTestCategory.getLabTests()) {
 				boolean supported = !conceptsAreConfigured || conceptsConfigured.remove(orderable);
 				if (supported) {
 					if (!conceptsAreConfigured) {
 						Option option = new Option();
-						option.setLabel(labOrderConfig.formatConcept(orderable));
+						option.setLabel(pihAppsUtils.formatLabTest(orderable));
 						option.setValue(orderable.getConceptId().toString());
 						orderPropertyOptions.add(option);
 						config.getConceptsAndDrugsConfigured().put(orderable, new ArrayList<>());
 					}
-					labOrderWidgetConfig.getOrderablesByCategory().computeIfAbsent(category, k -> new ArrayList<>()).add(orderable);
+					labOrderWidgetConfig.getOrderablesByCategory().computeIfAbsent(labTestCategory.getCategory(), k -> new ArrayList<>()).add(orderable);
 					labOrderWidgetConfig.getOrderReasonsByOrderable().put(orderable, orderReasonMap.getOrDefault(orderable, new ArrayList<>()));
 				}
 			}

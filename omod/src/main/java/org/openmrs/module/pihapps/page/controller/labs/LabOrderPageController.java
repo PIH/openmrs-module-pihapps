@@ -18,16 +18,10 @@ public class LabOrderPageController {
     public void get(PageModel model, UiUtils ui,
                       @InjectBeans PatientDomainWrapper patientDomainWrapper,
                       @RequestParam(value = "patient") Patient patient,
-                      @RequestParam(value = "returnUrl", required = false) String returnUrl,
-                      @SpringBean("pihAppsConfig") PihAppsConfig pihAppsConfig) {
+                      @RequestParam(value = "returnUrl", required = false) String returnUrl) {
 
         patientDomainWrapper.setPatient(patient);
         model.addAttribute("patient", patientDomainWrapper);
-        model.addAttribute("labTestsByCategory", pihAppsConfig.getLabOrderConfig().getAvailableLabTestsByCategory());
-        model.addAttribute("orderReasonsMap", pihAppsConfig.getLabOrderConfig().getOrderReasonsMap());
         model.addAttribute("returnUrl", returnUrl);
-        model.addAttribute("pihAppsConfig", pihAppsConfig);
-        model.addAttribute("labOrderConfig", pihAppsConfig.getLabOrderConfig());
-        model.addAttribute("labOrderType", pihAppsConfig.getLabOrderConfig().getLabTestOrderType());
     }
 }

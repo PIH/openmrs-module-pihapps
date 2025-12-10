@@ -7,7 +7,7 @@ import org.openmrs.module.htmlformentry.FormEntryContext;
 import org.openmrs.module.htmlformentry.util.JsonObject;
 import org.openmrs.module.htmlformentry.widget.OrderWidget;
 import org.openmrs.module.htmlformentry.widget.OrderWidgetConfig;
-import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.PihAppsUtils;
 
 import java.util.List;
 
@@ -58,11 +58,11 @@ public class LabOrderWidget extends OrderWidget {
 	void populateJsonConcept(JsonObject jsonConcept, Concept concept) {
 		jsonConcept.addString("conceptId", concept.getId().toString());
 		jsonConcept.addString("conceptUuid", concept.getUuid());
-		jsonConcept.addString("shortName", getLabOrderConfig().getBestShortName(concept));
-		jsonConcept.addString("displayName", getLabOrderConfig().formatConcept(concept));
+		jsonConcept.addString("shortName", getPihAppsUtils().getBestShortName(concept));
+		jsonConcept.addString("displayName", getPihAppsUtils().formatLabTest(concept));
 	}
 
-	LabOrderConfig getLabOrderConfig() {
-		return Context.getRegisteredComponents(LabOrderConfig.class).get(0);
+	PihAppsUtils getPihAppsUtils() {
+		return Context.getRegisteredComponents(PihAppsUtils.class).get(0);
 	}
 }
