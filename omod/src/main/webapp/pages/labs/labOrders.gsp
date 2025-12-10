@@ -23,13 +23,14 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     const discontinueDate = moment().format('YYYY-MM-DDTHH:mm:ss.SSS');
                     const patient = '${patient.patient.uuid}';
                     const orderer = '${sessionContext.currentProvider.uuid}';
-                    jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/labOrderConfig", function(labOrderConfig) {
+                    jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config", function(pihAppsConfig) {
+                        const labOrderConfig = pihAppsConfig.labOrderConfig;
                         const encounterPayload = {
                             patient: patient,
-                            encounterType: labOrderConfig.encounterType,
+                            encounterType: labOrderConfig.labOrderEncounterType,
                             encounterDatetime: discontinueDate,
                             location: '${sessionContext.sessionLocation.uuid}',
-                            encounterProviders: [ { encounterRole: labOrderConfig.encounterRole, provider: orderer } ],
+                            encounterProviders: [ { encounterRole: labOrderConfig.labOrderEncounterRole, provider: orderer } ],
                             orders: [
                                 {
                                     type: 'testorder',
@@ -41,7 +42,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                                     concept: orderableUuid,
                                     urgency: 'ROUTINE',
                                     orderReasonNonCoded: discontinueReason,
-                                    careSetting: labOrderConfig.careSetting.INPATIENT,
+                                    careSetting: labOrderConfig.defaultCareSetting?.uuid,
                                     dateActivated: discontinueDate,
                                 }
                             ]
@@ -103,7 +104,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             <select name="testConcept" class="test-filter float-right">
                 <option value="">${ ui.message("pihapps.allTests") }</option>
                 <% testConcepts.forEach { c -> %>
-                    <option value="${c.id}"${c == testConcept ? " selected" : ""}>${labOrderConfig.formatConcept(c)}</option>
+                    <option value="${c.id}"${c == testConcept ? " selected" : ""}>${pihAppsUtils.formatLabTest(c)}</option>
                 <% } %>
             </select>
         </div>
@@ -135,7 +136,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 <% if (ui.format(labOrder.urgency) == 'STAT') { %>
                     <i class="fas fa-fw fa-exclamation" style="color: red;"></i>
                 <% } %>
-                ${ labOrderConfig.formatConcept(labOrder.concept) }</td>
+                ${ pihAppsUtils.formatLabTest(labOrder.concept) }</td>
             <td>${ ui.format(labOrder.orderer) }</td>
             <td>${ ui.message(status == "" ? "pihapps.ordered" : "pihapps.fulfillerStatus." + status) }</td>
             <td class="order-actions-btn" style="text-align: center;">
@@ -175,7 +176,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     <tr>
         <td>${ ui.formatDatePretty(labOrder.effectiveStartDate) }</td>
         <td>${ ui.format(labOrder.orderNumber) }</td>
-        <td>${ labOrderConfig.formatConcept(labOrder.concept) }</td>
+        <td>${ pihAppsUtils.formatLabTest(labOrder.concept) }</td>
         <td>${ ui.format(labOrder.orderer) }</td>
         <td>${ ui.message("pihapps." + (status == "" ? labOrder.isDiscontinuedRightNow() ? "discontinued" : "expired" : "fulfillerStatus." + status)) }</td>
     </tr>
