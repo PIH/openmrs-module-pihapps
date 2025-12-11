@@ -85,19 +85,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
     const pagingDataTable = new PagingDataTable(jq);
 
-    const getFilterParameterValues = function() {
-        const fulfillerStatus = jq("#fulfillerStatus-filter").val();
-        return {
-            "patient": patientUuid,
-            "labTest": jq("#testConcept-filter").val(),
-            "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
-            "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
-            "accessionNumber": jq("#lab-id-filter").val(),
-            "orderFulfillmentStatus": jq("#orderFulfillmentStatus-filter").val(),
-            "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?
-        }
-    }
-
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
@@ -133,6 +120,18 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     return '<span class="order-actions-btn" style="text-align: center;">' + discontinueLink + '</span>'
                 }
                 return "";
+            }
+
+            const getFilterParameterValues = function() {
+                return {
+                    "patient": patientUuid,
+                    "labTest": jq("#testConcept-filter").val(),
+                    "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
+                    "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
+                    "accessionNumber": jq("#lab-id-filter").val(),
+                    "orderFulfillmentStatus": jq("#orderFulfillmentStatus-filter").val(),
+                    "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?
+                }
             }
 
             pagingDataTable.initialize({
