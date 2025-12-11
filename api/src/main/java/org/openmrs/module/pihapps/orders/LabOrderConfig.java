@@ -1,8 +1,6 @@
 package org.openmrs.module.pihapps.orders;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.openmrs.CareSetting;
 import org.openmrs.Concept;
 import org.openmrs.ConceptAnswer;
@@ -10,11 +8,15 @@ import org.openmrs.EncounterRole;
 import org.openmrs.EncounterType;
 import org.openmrs.Order;
 import org.openmrs.OrderType;
+import org.openmrs.TestOrder;
 import org.openmrs.api.ConceptService;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.OrderService;
+import org.openmrs.api.context.Context;
 import org.openmrs.messagesource.MessageSourceService;
 import org.openmrs.util.ConfigUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +29,7 @@ import java.util.Map;
 @Component
 public class LabOrderConfig {
 
-    private static final Log log = LogFactory.getLog(LabOrderConfig.class);
+    private static final Logger log = LoggerFactory.getLogger(LabOrderConfig.class);
 
     final ConceptService conceptService;
     final OrderService orderService;
@@ -145,6 +147,22 @@ public class LabOrderConfig {
             orderType = orderService.getOrderType(Integer.parseInt(orderTypeRef));
         }
         return orderType;
+    }
+
+    public List<OrderType> getTestOrderTypes() {
+        List<OrderType> orderTypes = new ArrayList<>();
+        for (OrderType orderType : orderService.getOrderTypes(false)) {
+            try {
+                Class<?> clazz = Context.loadClass(orderType.getJavaClassName());
+                if (TestOrder.class.isAssignableFrom(clazz)) {
+                    orderTypes.add(orderType);
+                }
+            }
+            catch (ClassNotFoundException e) {
+                log.warn("Unable to load order type class {}", orderType.getJavaClassName());
+            }
+        }
+        return orderTypes;
     }
 
     // Lab Order Encounter Type

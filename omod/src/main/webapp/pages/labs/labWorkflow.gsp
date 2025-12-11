@@ -20,21 +20,6 @@
 
     const pagingDataTable = new PagingDataTable(jq);
 
-    const getFilterParameterValues = function() {
-        const fulfillerStatus = jq("#fulfillerStatus-filter").val();
-        return {
-            "patient": jq("#patient-filter-field").val(),
-            "labTest": jq("#testConcept-filter").val(),
-            "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
-            "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
-            "accessionNumber": jq("#lab-id-filter").val(),
-            "orderStatus": jq("#orderStatus-filter").val(),
-            "fulfillerStatus": fulfillerStatus === "none" ? "" : fulfillerStatus,
-            "includeNullFulfillerStatus": fulfillerStatus === "none" ? "true" : "",
-            "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?
-        }
-    }
-
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
@@ -63,6 +48,22 @@
             const getLabTest = function(order) {
                 const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
                 return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
+            }
+
+            const getFilterParameterValues = function() {
+                const fulfillerStatus = jq("#fulfillerStatus-filter").val();
+                return {
+                    "orderType": pihAppsConfig.labOrderConfig.labTestOrderType,
+                    "patient": jq("#patient-filter-field").val(),
+                    "labTest": jq("#testConcept-filter").val(),
+                    "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
+                    "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
+                    "accessionNumber": jq("#lab-id-filter").val(),
+                    "orderStatus": jq("#orderStatus-filter").val(),
+                    "fulfillerStatus": fulfillerStatus === "none" ? "" : fulfillerStatus,
+                    "includeNullFulfillerStatus": fulfillerStatus === "none" ? "true" : "",
+                    "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?
+                }
             }
 
             pagingDataTable.initialize({

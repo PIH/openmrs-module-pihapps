@@ -5,6 +5,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Concept;
 import org.openmrs.Order;
+import org.openmrs.OrderType;
 import org.openmrs.Patient;
 import org.openmrs.module.pihapps.PihAppsService;
 import org.openmrs.module.pihapps.SortCriteria;
@@ -57,6 +58,7 @@ public class LabOrderRestController {
     public Object getLabOrders(HttpServletRequest request, HttpServletResponse response,
                                @RequestParam(value = "patient", required = false) Patient patient,
                                @RequestParam(value = "labTest", required = false) Concept labTest,
+                               @RequestParam(value = "orderType", required = false) List<OrderType> orderType,
                                @RequestParam(value = "activatedOnOrBefore", required = false) String activatedOnOrBefore,
                                @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
                                @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
@@ -71,7 +73,7 @@ public class LabOrderRestController {
         Integer limit = requestContext.getLimit();
 
         OrderSearchCriteria searchCriteria = new OrderSearchCriteria();
-        searchCriteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
+        searchCriteria.setOrderTypes(orderType == null ? labOrderConfig.getTestOrderTypes() : orderType);
         searchCriteria.setPatient(patient);
         searchCriteria.setConcept(labTest);
         searchCriteria.setAccessionNumber(accessionNumber);
