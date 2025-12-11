@@ -10,9 +10,9 @@ import org.openmrs.Patient;
 import org.openmrs.module.pihapps.PihAppsService;
 import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentStatus;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
-import org.openmrs.module.pihapps.orders.OrderStatus;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
@@ -62,9 +62,7 @@ public class LabOrderRestController {
                                @RequestParam(value = "activatedOnOrBefore", required = false) String activatedOnOrBefore,
                                @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
                                @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
-                               @RequestParam(value = "orderStatus", required = false) List<OrderStatus> orderStatus,
-                               @RequestParam(value = "fulfillerStatus", required = false) List<Order.FulfillerStatus> fulfillerStatus,
-                               @RequestParam(value = "includeNullFulfillerStatus", required = false) Boolean includeNullFulfillerStatus,
+                               @RequestParam(value = "orderFulfillmentStatus", required = false) OrderFulfillmentStatus orderFulfillmentStatus,
                                @RequestParam(value = "sortBy", required = false) List<String> sortBy
                                ) throws ResponseException {
 
@@ -79,9 +77,13 @@ public class LabOrderRestController {
         searchCriteria.setAccessionNumber(accessionNumber);
         searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
         searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
-        searchCriteria.setOrderStatus(orderStatus);
-        searchCriteria.setFulfillerStatuses(fulfillerStatus);
-        searchCriteria.setIncludeNullFulfillerStatus(includeNullFulfillerStatus);
+        if (orderFulfillmentStatus != null) {
+            if (orderFulfillmentStatus.getOrderStatus() != null) {
+                searchCriteria.setOrderStatus(Collections.singletonList(orderFulfillmentStatus.getOrderStatus()));
+            }
+            searchCriteria.setFulfillerStatuses(orderFulfillmentStatus.getFulfillerStatuses());
+            searchCriteria.setIncludeNullFulfillerStatus(orderFulfillmentStatus.getIncludeNullFulfillerStatus());
+        }
         searchCriteria.setStartIndex(requestContext.getStartIndex());
         searchCriteria.setLimit(requestContext.getLimit());
 

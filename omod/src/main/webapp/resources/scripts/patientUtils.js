@@ -43,4 +43,27 @@ class PihAppsPatientUtils {
     getFulfillerStatusOption(order, fulfillerStatusOptions) {
         return fulfillerStatusOptions.filter((option) => option.status === (order.fulfillerStatus ?? "none"))[0];
     }
+
+    getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions) {
+        if (order.fulfillerStatus) {
+            if (order.fulfillerStatus === 'IN_PROGRESS' || order.fulfillerStatus === 'ON_HOLD') {
+                return orderFulfillmentStatusOptions.filter((option) => option.status === 'IN_FULFILLMENT')[0];
+            }
+            else if (order.fulfillerStatus === 'COMPLETED') {
+                return orderFulfillmentStatusOptions.filter((option) => option.status === 'COMPLETED_FULFILLMENT')[0];
+            }
+            else if (order.fulfillerStatus === 'EXCEPTION' || order.fulfillerStatus === 'DECLINED') {
+                return orderFulfillmentStatusOptions.filter((option) => option.status === 'UNABLE_TO_COMPLETE_FULFILLMENT')[0];
+            }
+        }
+        else {
+            if (order.dateStopped) {
+                return orderFulfillmentStatusOptions.filter((option) => option.status === 'CANCELLED_BEFORE_FULFILLMENT')[0];
+            }
+            else if (order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date())) {
+                return orderFulfillmentStatusOptions.filter((option) => option.status === 'EXPIRED_BEFORE_FULFILLMENT')[0];
+            }
+        }
+        return orderFulfillmentStatusOptions.filter((option) => option.status === 'AWAITING_FULFILLMENT')[0];
+    }
 }

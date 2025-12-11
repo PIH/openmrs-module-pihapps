@@ -65,6 +65,16 @@ public class LabOrderConfig {
         return l;
     }
 
+    public List<Map<String, String>> getOrderFulfillmentStatusOptions() {
+        List<Map<String, String>> l = new ArrayList<>();
+        l.add(map("status", "", "display", messageSourceService.getMessage("pihapps.all")));
+        for (OrderFulfillmentStatus s : OrderFulfillmentStatus.values()) {
+            String display = messageSourceService.getMessage("pihapps.orderFulfillmentStatus." + s.name());
+            l.add(map("status", s.name(), "display", display));
+        }
+        return l;
+    }
+
     // Lab Orderables Concept Set
 
     public String getLabOrderablesConceptSetReference() {

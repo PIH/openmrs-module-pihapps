@@ -93,9 +93,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
             "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
             "accessionNumber": jq("#lab-id-filter").val(),
-            "orderStatus": jq("#orderStatus-filter").val(),
-            "fulfillerStatus": fulfillerStatus === "none" ? "" : fulfillerStatus,
-            "includeNullFulfillerStatus": fulfillerStatus === "none" ? "true" : "",
+            "orderFulfillmentStatus": jq("#orderFulfillmentStatus-filter").val(),
             "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?
         }
     }
@@ -103,7 +101,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
-        const labOrderConfigRep = "(availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display))";
+        const labOrderConfigRep = "(availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
@@ -115,6 +113,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const dateUtils = new PihAppsDateUtils(moment);
             const orderStatusOptions = pihAppsConfig.labOrderConfig.orderStatusOptions;
             const fulfillerStatusOptions = pihAppsConfig.labOrderConfig.fulfillerStatusOptions;
+            const orderFulfillmentStatusOptions = pihAppsConfig.labOrderConfig.orderFulfillmentStatusOptions;
 
             // Column functions
             const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated, dateFormat, dateTimeFormat); };
@@ -122,6 +121,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const getOrderer = (order) => { return order.orderer.person.display; }
             const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };
             const getFulfillerStatus = (order) => { return patientUtils.getFulfillerStatusOption(order, fulfillerStatusOptions).display; };
+            const getOrderFulfillmentStatus = (order) => { return patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display; };
             const getLabTest = function(order) {
                 const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
                 return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
@@ -142,7 +142,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 representation: "custom:(id,uuid,display,orderNumber,orderer:(person:(display)),dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getOrderDate, getOrderNumber, getLabTest, getOrderer, getOrderStatus, getFulfillerStatus, getActions
+                    getOrderDate, getOrderNumber, getLabTest, getOrderer, getOrderFulfillmentStatus, getActions
                 ],
                 datatableOptions: {
                     oLanguage: {
@@ -165,14 +165,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 jq("#testConcept-filter").append(optGroup);
             });
 
-            orderStatusOptions.forEach((statusOption) => {
+            orderFulfillmentStatusOptions.forEach((statusOption) => {
                 const option = jq("<option>").attr("value", statusOption.status).html(statusOption.display);
-                jq("#orderStatus-filter").append(option);
-            });
-
-            fulfillerStatusOptions.forEach((statusOption) => {
-                const option = jq("<option>").attr("value", statusOption.status).html(statusOption.display);
-                jq("#fulfillerStatus-filter").append(option);
+                jq("#orderFulfillmentStatus-filter").append(option);
             });
 
             jq("#test-filter-form").find(":input").change(function () {
@@ -251,24 +246,14 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             ])}
         </div>
         <div class="col">
-            <label for="lab-id-filter">${ ui.message("pihapps.labId") }:</label>
-            <input id="lab-id-filter" type="text" name="labId" value=""/>
+            <label for="orderFulfillmentStatus-filter">${ ui.message("pihapps.orderStatus") }</label>
+            <select id="orderFulfillmentStatus-filter" name="orderFulfillmentStatus" class="form-control"></select>
         </div>
         <div class="col">
             <label for="testConcept-filter">${ ui.message("pihapps.labTest") }</label>
             <select id="testConcept-filter" name="testConcept" class="form-control">
                 <option value=""></option>
             </select>
-        </div>
-    </div>
-    <div class="row justify-content-start align-items-end">
-        <div class="col">
-            <label for="orderStatus-filter">${ ui.message("pihapps.orderStatus") }</label>
-            <select id="orderStatus-filter" name="orderStatus" class="form-control"></select>
-        </div>
-        <div class="col">
-            <label for="fulfillerStatus-filter">${ ui.message("pihapps.fulfillerStatus") }</label>
-            <select id="fulfillerStatus-filter" name="fulfillerStatus" class="form-control"></select>
         </div>
     </div>
 </form>
@@ -280,8 +265,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             <th>${ ui.message("pihapps.orderNumber") }</th>
             <th>${ ui.message("pihapps.labTest") }</th>
             <th>${ ui.message("pihapps.testOrderedBy") }</th>
-            <th>${ ui.message("pihapps.orderStatus") }</th>
-            <th>${ ui.message("pihapps.fulfillerStatus") }</th>
+            <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>
             <th></th>
         </tr>
     </thead>
