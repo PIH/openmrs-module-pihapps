@@ -29,4 +29,18 @@ class PihAppsPatientUtils {
         });
         return sortedIdentifiers && sortedIdentifiers.length > 0 ? sortedIdentifiers[0].identifier : "";
     };
+
+    getOrderStatusOption(order, orderStatusOptions) {
+        if (order.dateStopped) {
+            return orderStatusOptions.filter((option) => option.status === 'STOPPED')[0];
+        }
+        if (order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date())) {
+            return orderStatusOptions.filter((option) => option.status === 'EXPIRED')[0];
+        }
+        return orderStatusOptions.filter((option) => option.status === 'ACTIVE')[0];
+    }
+
+    getFulfillerStatusOption(order, fulfillerStatusOptions) {
+        return fulfillerStatusOptions.filter((option) => option.status === (order.fulfillerStatus ?? "none"))[0];
+    }
 }

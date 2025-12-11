@@ -18,13 +18,6 @@
 
     moment.locale(window.sessionContext?.locale ?? 'en');
 
-    <% orderStatuses.each{ s -> %>
-        window.translations['pihapps.orderStatus.${s}'] = '${ui.message("pihapps.orderStatus." + s)}';
-    <% } %>
-    <% fulfillerStatuses.each{ s -> %>
-        window.translations['pihapps.fulfillerStatus.${s}'] = '${ui.message("pihapps.fulfillerStatus." + s)}';
-    <% } %>
-
     const pagingDataTable = new PagingDataTable(jq);
 
     const getFilterParameterValues = function() {
@@ -45,7 +38,7 @@
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
-        const labOrderConfigRep = "(availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "))";
+        const labOrderConfigRep = "(availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
@@ -56,6 +49,8 @@
             const conceptUtils = new PihAppsConceptUtils(jq);
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment);
+            const orderStatusOptions = pihAppsConfig.labOrderConfig.orderStatusOptions;
+            const fulfillerStatusOptions = pihAppsConfig.labOrderConfig.fulfillerStatusOptions;
 
             // Column functions
             const getEmrId = (order) => { return patientUtils.getPreferredIdentifier(order.patient, primaryIdentifierType); };
@@ -63,21 +58,8 @@
             const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated, dateFormat, dateTimeFormat); };
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getAccessionNumber = (order) => { return order.accessionNumber; }
-
-            const getOrderStatus = function(order) {
-                if (order.dateStopped) {
-                    return window.translations['pihapps.orderStatus.STOPPED'];
-                }
-                if (order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date())) {
-                    return window.translations['pihapps.orderStatus.EXPIRED'];
-                }
-                return window.translations['pihapps.orderStatus.ACTIVE'];
-            }
-
-            const getFulfillerStatus = function(order) {
-                return order.fulfillerStatus ? window.translations['pihapps.fulfillerStatus.' + order.fulfillerStatus] : "${ ui.message('pihapps.none') }";
-            }
-
+            const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };
+            const getFulfillerStatus = (order) => { return patientUtils.getFulfillerStatusOption(order, fulfillerStatusOptions).display; };
             const getLabTest = function(order) {
                 const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
                 return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
@@ -111,6 +93,16 @@
                     optGroup.append(labOpt);
                 });
                 jq("#testConcept-filter").append(optGroup);
+            });
+
+            orderStatusOptions.forEach((statusOption) => {
+                const option = jq("<option>").attr("value", statusOption.status).html(statusOption.display);
+                jq("#orderStatus-filter").append(option);
+            });
+
+            fulfillerStatusOptions.forEach((statusOption) => {
+                const option = jq("<option>").attr("value", statusOption.status).html(statusOption.display);
+                jq("#fulfillerStatus-filter").append(option);
             });
 
             jq("#test-filter-form").find(":input").change(function () {
@@ -196,22 +188,11 @@
         </div>
         <div class="col">
             <label for="orderStatus-filter">${ ui.message("pihapps.orderStatus") }</label>
-            <select id="orderStatus-filter" name="orderStatus" class="form-control">
-                <option value="">${ ui.message("pihapps.all") }</option>
-                <% orderStatuses.each { orderStatus -> %>
-                    <option value="${orderStatus.name()}">${ ui.message("pihapps.orderStatus." + orderStatus)}</option>
-                <% } %>
-            </select>
+            <select id="orderStatus-filter" name="orderStatus" class="form-control"></select>
         </div>
         <div class="col">
             <label for="fulfillerStatus-filter">${ ui.message("pihapps.fulfillerStatus") }</label>
-            <select id="fulfillerStatus-filter" name="fulfillerStatus" class="form-control">
-                <option value="">${ ui.message("pihapps.all") }</option>
-                <option value="none">${ ui.message("pihapps.none") }</option>
-                <% ["RECEIVED", "IN_PROGRESS", "COMPLETED", "ON_HOLD", "DECLINED", "EXCEPTION"].each { status -> %>
-                    <option value="${ status }">${ ui.message("pihapps.fulfillerStatus." + status) }</option>
-                <% } %>
-            </select>
+            <select id="fulfillerStatus-filter" name="fulfillerStatus" class="form-control"></select>
         </div>
     </div>
 </form>

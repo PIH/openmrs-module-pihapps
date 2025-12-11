@@ -13,13 +13,14 @@ import org.openmrs.OrderType;
 import org.openmrs.api.ConceptService;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.OrderService;
+import org.openmrs.messagesource.MessageSourceService;
 import org.openmrs.util.ConfigUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,20 +32,35 @@ public class LabOrderConfig {
     final ConceptService conceptService;
     final OrderService orderService;
     final EncounterService encounterService;
+    final MessageSourceService messageSourceService;
 
     @Autowired
-    public LabOrderConfig(ConceptService conceptService, OrderService orderService,  EncounterService encounterService) {
+    public LabOrderConfig(ConceptService conceptService, OrderService orderService,  EncounterService encounterService, MessageSourceService messageSourceService) {
         this.conceptService = conceptService;
         this.orderService = orderService;
         this.encounterService = encounterService;
+        this.messageSourceService = messageSourceService;
     }
 
-    public List<OrderStatus> getOrderStatuses() {
-        return Arrays.asList(OrderStatus.values());
+    public List<Map<String, String>> getOrderStatusOptions() {
+        List<Map<String, String>> l = new ArrayList<>();
+        l.add(map("status", "", "display", messageSourceService.getMessage("pihapps.all")));
+        for (OrderStatus s : OrderStatus.values()) {
+            String display = messageSourceService.getMessage("pihapps.orderStatus." + s.name());
+            l.add(map("status", s.name(), "display", display));
+        }
+        return l;
     }
 
-    public List<Order.FulfillerStatus> getFulfillerStatuses() {
-        return Arrays.asList(Order.FulfillerStatus.values());
+    public List<Map<String, String>> getFulfillerStatusOptions() {
+        List<Map<String, String>> l = new ArrayList<>();
+        l.add(map("status", "", "display", messageSourceService.getMessage("pihapps.all")));
+        l.add(map("status", "none", "display", messageSourceService.getMessage("pihapps.none")));
+        for (Order.FulfillerStatus s : Order.FulfillerStatus.values()) {
+            String display = messageSourceService.getMessage("pihapps.fulfillerStatus." + s.name());
+            l.add(map("status", s.name(), "display", display));
+        }
+        return l;
     }
 
     // Lab Orderables Concept Set
@@ -266,6 +282,14 @@ public class LabOrderConfig {
                     ret.add(c);
                 }
             }
+        }
+        return ret;
+    }
+
+    private Map<String, String> map(String... keysAndValues) {
+        Map<String, String> ret = new LinkedHashMap<>();
+        for (int i = 0; i < keysAndValues.length; i += 2) {
+            ret.put(keysAndValues[i], keysAndValues[i + 1]);
         }
         return ret;
     }
