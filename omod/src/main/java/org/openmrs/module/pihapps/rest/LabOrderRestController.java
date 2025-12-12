@@ -5,13 +5,14 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Concept;
 import org.openmrs.Order;
+import org.openmrs.OrderType;
 import org.openmrs.Patient;
 import org.openmrs.module.pihapps.PihAppsService;
 import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentStatus;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
-import org.openmrs.module.pihapps.orders.OrderStatus;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
@@ -57,12 +58,11 @@ public class LabOrderRestController {
     public Object getLabOrders(HttpServletRequest request, HttpServletResponse response,
                                @RequestParam(value = "patient", required = false) Patient patient,
                                @RequestParam(value = "labTest", required = false) Concept labTest,
+                               @RequestParam(value = "orderType", required = false) List<OrderType> orderType,
                                @RequestParam(value = "activatedOnOrBefore", required = false) String activatedOnOrBefore,
                                @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
                                @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
-                               @RequestParam(value = "orderStatus", required = false) List<OrderStatus> orderStatus,
-                               @RequestParam(value = "fulfillerStatus", required = false) List<Order.FulfillerStatus> fulfillerStatus,
-                               @RequestParam(value = "includeNullFulfillerStatus", required = false) Boolean includeNullFulfillerStatus,
+                               @RequestParam(value = "orderFulfillmentStatus", required = false) OrderFulfillmentStatus orderFulfillmentStatus,
                                @RequestParam(value = "sortBy", required = false) List<String> sortBy
                                ) throws ResponseException {
 
@@ -71,15 +71,19 @@ public class LabOrderRestController {
         Integer limit = requestContext.getLimit();
 
         OrderSearchCriteria searchCriteria = new OrderSearchCriteria();
-        searchCriteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
+        searchCriteria.setOrderTypes(orderType == null ? labOrderConfig.getTestOrderTypes() : orderType);
         searchCriteria.setPatient(patient);
         searchCriteria.setConcept(labTest);
         searchCriteria.setAccessionNumber(accessionNumber);
         searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
         searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
-        searchCriteria.setOrderStatus(orderStatus);
-        searchCriteria.setFulfillerStatuses(fulfillerStatus);
-        searchCriteria.setIncludeNullFulfillerStatus(includeNullFulfillerStatus);
+        if (orderFulfillmentStatus != null) {
+            if (orderFulfillmentStatus.getOrderStatus() != null) {
+                searchCriteria.setOrderStatus(Collections.singletonList(orderFulfillmentStatus.getOrderStatus()));
+            }
+            searchCriteria.setFulfillerStatuses(orderFulfillmentStatus.getFulfillerStatuses());
+            searchCriteria.setIncludeNullFulfillerStatus(orderFulfillmentStatus.getIncludeNullFulfillerStatus());
+        }
         searchCriteria.setStartIndex(requestContext.getStartIndex());
         searchCriteria.setLimit(requestContext.getLimit());
 

@@ -5,6 +5,14 @@ class PagingDataTable {
 
     /**
      * @param jq the jQuery instance
+     */
+    constructor(jq) {
+        this.jq = jq;
+    }
+
+    /**
+     * This method should be called object creation to set up the necessary dom elements and event handlers and
+     * activate the datatable and render the first page of table contents
      * @param options these are the configuration options
      *
      * options: {
@@ -19,8 +27,7 @@ class PagingDataTable {
      *     defaultPageSize: The default page size
      * }
      */
-    constructor(jq, options) {
-        this.jq = jq;
+    initialize(options) {
 
         // Configuration and default values
         this.tableSelector = options.tableSelector;
@@ -35,13 +42,7 @@ class PagingDataTable {
         this.pageNumber = 0;
         this.totalCount = 0;
         this.pagedTable = null;
-    }
 
-    /**
-     * This method should be called object creation to set up the necessary dom elements and event handlers and
-     * activate the datatable and render the first page of table contents
-     */
-    initialize() {
         // Set up the event handlers for navigating between pages
         this.getTableInfoElement().find(".first").click(() => this.goToFirstPage());
         this.getTableInfoElement().find(".previous").click(() => this.goToPreviousPage());

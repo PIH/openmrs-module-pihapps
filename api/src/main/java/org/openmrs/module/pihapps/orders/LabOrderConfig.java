@@ -1,18 +1,22 @@
 package org.openmrs.module.pihapps.orders;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.openmrs.CareSetting;
 import org.openmrs.Concept;
 import org.openmrs.ConceptAnswer;
-import org.openmrs.ConceptName;
+import org.openmrs.EncounterRole;
+import org.openmrs.EncounterType;
+import org.openmrs.Order;
 import org.openmrs.OrderType;
-import org.openmrs.api.ConceptNameType;
+import org.openmrs.TestOrder;
 import org.openmrs.api.ConceptService;
+import org.openmrs.api.EncounterService;
 import org.openmrs.api.OrderService;
 import org.openmrs.api.context.Context;
+import org.openmrs.messagesource.MessageSourceService;
 import org.openmrs.util.ConfigUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -20,21 +24,55 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @Component
 public class LabOrderConfig {
 
-    private static final Log log = LogFactory.getLog(LabOrderConfig.class);
+    private static final Logger log = LoggerFactory.getLogger(LabOrderConfig.class);
 
     final ConceptService conceptService;
     final OrderService orderService;
+    final EncounterService encounterService;
+    final MessageSourceService messageSourceService;
 
     @Autowired
-    public LabOrderConfig(ConceptService conceptService, OrderService orderService) {
+    public LabOrderConfig(ConceptService conceptService, OrderService orderService,  EncounterService encounterService, MessageSourceService messageSourceService) {
         this.conceptService = conceptService;
         this.orderService = orderService;
+        this.encounterService = encounterService;
+        this.messageSourceService = messageSourceService;
+    }
+
+    public List<Map<String, String>> getOrderStatusOptions() {
+        List<Map<String, String>> l = new ArrayList<>();
+        l.add(map("status", "", "display", messageSourceService.getMessage("pihapps.all")));
+        for (OrderStatus s : OrderStatus.values()) {
+            String display = messageSourceService.getMessage("pihapps.orderStatus." + s.name());
+            l.add(map("status", s.name(), "display", display));
+        }
+        return l;
+    }
+
+    public List<Map<String, String>> getFulfillerStatusOptions() {
+        List<Map<String, String>> l = new ArrayList<>();
+        l.add(map("status", "", "display", messageSourceService.getMessage("pihapps.all")));
+        l.add(map("status", "none", "display", messageSourceService.getMessage("pihapps.none")));
+        for (Order.FulfillerStatus s : Order.FulfillerStatus.values()) {
+            String display = messageSourceService.getMessage("pihapps.fulfillerStatus." + s.name());
+            l.add(map("status", s.name(), "display", display));
+        }
+        return l;
+    }
+
+    public List<Map<String, String>> getOrderFulfillmentStatusOptions() {
+        List<Map<String, String>> l = new ArrayList<>();
+        l.add(map("status", "", "display", messageSourceService.getMessage("pihapps.all")));
+        for (OrderFulfillmentStatus s : OrderFulfillmentStatus.values()) {
+            String display = messageSourceService.getMessage("pihapps.orderFulfillmentStatus." + s.name());
+            l.add(map("status", s.name(), "display", display));
+        }
+        return l;
     }
 
     // Lab Orderables Concept Set
@@ -121,6 +159,72 @@ public class LabOrderConfig {
         return orderType;
     }
 
+    public List<OrderType> getTestOrderTypes() {
+        List<OrderType> orderTypes = new ArrayList<>();
+        for (OrderType orderType : orderService.getOrderTypes(false)) {
+            try {
+                Class<?> clazz = Context.loadClass(orderType.getJavaClassName());
+                if (TestOrder.class.isAssignableFrom(clazz)) {
+                    orderTypes.add(orderType);
+                }
+            }
+            catch (ClassNotFoundException e) {
+                log.warn("Unable to load order type class {}", orderType.getJavaClassName());
+            }
+        }
+        return orderTypes;
+    }
+
+    // Lab Order Encounter Type
+
+    public String getLabOrderEncounterTypeReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.labOrderEncounterType");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("orderentryowa.encounterType");
+        }
+        return configVal;
+    }
+
+    public EncounterType getLabOrderEncounterType() {
+        String encounterTypeRef = getLabOrderEncounterTypeReference();
+        EncounterType encounterType = null;
+        if (StringUtils.isNotBlank(encounterTypeRef)) {
+            encounterType = encounterService.getEncounterTypeByUuid(encounterTypeRef);
+            if (encounterType == null) {
+                encounterType = encounterService.getEncounterType(encounterTypeRef);
+            }
+        }
+        if (encounterType == null) {
+            log.warn("Invalid labOrderEncounterType configuration: " + encounterTypeRef);
+        }
+        return encounterType;
+    }
+
+    // Lab Order Encounter Role
+
+    public String getLabOrderEncounterRoleReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.labOrderEncounterRole");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("orderentryowa.encounterRole");
+        }
+        return configVal;
+    }
+
+    public EncounterRole getLabOrderEncounterRole() {
+        String encounterRoleRef = getLabOrderEncounterRoleReference();
+        EncounterRole encounterRole = null;
+        if (StringUtils.isNotBlank(encounterRoleRef)) {
+            encounterRole = encounterService.getEncounterRoleByUuid(encounterRoleRef);
+            if (encounterRole == null) {
+                encounterRole = encounterService.getEncounterRoleByName(encounterRoleRef);
+            }
+        }
+        if (encounterRole == null) {
+            log.warn("Invalid labOrderEncounterRole configuration: " + encounterRoleRef);
+        }
+        return encounterRole;
+    }
+
     // Lab Care Setting
 
     public CareSetting getDefaultCareSetting() {
@@ -133,69 +237,33 @@ public class LabOrderConfig {
         return careSettings.isEmpty() ? null : careSettings.get(0);
     }
 
-    // Lab Concept Display Name
+    // Auto-expire days for lab orders
 
-    public String formatConcept(Concept c) {
-        String format = ConfigUtil.getGlobalProperty("pihapps.labs.conceptDisplayFormat");
-        if ("shortest".equals(format)) {
-            return getBestShortName(c);
+    public String getLabOrderAutoExpireDaysReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.autoExpireTimeInDays");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("orderentryowa.labOrderAutoExpireTimeInDays");
         }
-        return c.getDisplayString();
+        return configVal;
     }
 
-    /**
-     * @return the best short name for a concept
-     * Taken from orderentryowa - helpers.getConceptShortName
-     */
-    public String getBestShortName(Concept c) {
-        ConceptName preferredShortLocale = null;
-        ConceptName shortLocale = null;
-        ConceptName preferredLocale = null;
-        ConceptName preferredShortEnglish = null;
-        ConceptName shortEnglish = null;
-        if (c == null || c.getNames() == null || c.getNames().isEmpty()) {
-            return "";
-        }
-        // Get the locale for the current locale, language only
-        Locale locale = Context.getLocale();
-        String language = locale.getLanguage();
-        for (ConceptName cn : c.getNames()) {
-            boolean isShort = cn.getConceptNameType() == ConceptNameType.SHORT;
-            boolean isPreferred = cn.isPreferred();
-            boolean isLocale = cn.getLocale().equals(locale) || cn.getLocale().getLanguage().equals(language);
-            boolean isEnglish = cn.getLocale().getLanguage().equals("en");
-            if (isPreferred && isShort && isLocale) {
-                preferredShortLocale = cn;
-            }
-            else if (isShort && isLocale) {
-                shortLocale = cn;
-            }
-            else if (isPreferred && isLocale) {
-                preferredLocale = cn;
-            }
-            else if (isPreferred && isShort && isEnglish) {
-                preferredShortEnglish = cn;
-            }
-            else if (isShort && isEnglish) {
-                shortEnglish = cn;
+    public int getLabOrderAutoExpireDays() {
+        int autoExpireDays = 30;
+        String configVal = getLabOrderAutoExpireDaysReference();
+        if (StringUtils.isNotBlank(configVal)) {
+            try {
+                autoExpireDays = Integer.parseInt(configVal);
+            } catch (NumberFormatException e) {
+                log.warn("Invalid autoExpireTimeInDaysConfiguration, integer expected: " + configVal);
             }
         }
-        if (preferredShortLocale != null) {
-            return preferredShortLocale.getName();
-        }
-        if (shortLocale != null) {
-            return shortLocale.getName();
-        }
-        if (preferredLocale != null) {
-            return preferredLocale.getName();
-        }
-        if (preferredShortEnglish != null) {
-            return preferredShortEnglish.getName();
-        }
-        if (shortEnglish != null) {
-            return shortEnglish.getName();
-        }
-        return c.getDisplayString();
+        return autoExpireDays;
+    }
+
+    // Lab Concept Display Name
+
+    public String getConceptDisplayFormat() {
+        return ConfigUtil.getGlobalProperty("pihapps.labs.conceptDisplayFormat");
     }
 
     // Enabled Lab Tests By Category
@@ -223,8 +291,8 @@ public class LabOrderConfig {
         return ret;
     }
 
-    public Map<Concept, List<Concept>> getAvailableLabTestsByCategory() {
-        Map<Concept, List<Concept>> ret = new LinkedHashMap<>();
+    public List<LabTestCategory> getAvailableLabTestsByCategory() {
+        List<LabTestCategory> ret = new ArrayList<>();
         Concept labOrderablesConceptSet = getLabOrderablesConceptSet();
         if (labOrderablesConceptSet != null) {
             List<Concept> enabledLabTests = getEnabledLabTests();
@@ -236,9 +304,20 @@ public class LabOrderConfig {
                     }
                 }
                 if (!conceptsInCategory.isEmpty()) {
-                    ret.put(category, conceptsInCategory);
+                    LabTestCategory c = new LabTestCategory();
+                    c.setCategory(category);
+                    c.setLabTests(conceptsInCategory);
+                    ret.add(c);
                 }
             }
+        }
+        return ret;
+    }
+
+    private Map<String, String> map(String... keysAndValues) {
+        Map<String, String> ret = new LinkedHashMap<>();
+        for (int i = 0; i < keysAndValues.length; i += 2) {
+            ret.put(keysAndValues[i], keysAndValues[i + 1]);
         }
         return ret;
     }

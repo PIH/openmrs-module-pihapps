@@ -2,6 +2,7 @@ package org.openmrs.module.pihapps;
 
 import lombok.Getter;
 import org.openmrs.PatientIdentifierType;
+import org.openmrs.api.context.Context;
 import org.openmrs.module.emrapi.EmrApiProperties;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.util.ConfigUtil;
@@ -28,11 +29,23 @@ public class PihAppsConfig {
         return ConfigUtil.getProperty("coreapps.dashboardUrl", defaultUrl);
     }
 
+    public String getDateFormat() {
+        return ConfigUtil.getProperty("uiframework.formatter.JSdateFormat", "DD-MMM-YYYY");
+    }
+
+    public String getDateTimeFormat() {
+        return ConfigUtil.getProperty("uiframework.formatter.JSdateAndTimeFormat", "DD-MMM-YYYY HH:mm");
+    }
+
     public PatientIdentifierType getPrimaryIdentifierType() {
         return emrApiProperties.getPrimaryIdentifierType();
     }
 
-    public String getGlobalProperty(String propertyName, String defaultValue) {
-        return ConfigUtil.getProperty(propertyName, defaultValue);
+    public String getLocale() {
+        return Context.getLocale().toString();
+    }
+
+    public String getLanguage() {
+        return Context.getLocale().getLanguage();
     }
 }

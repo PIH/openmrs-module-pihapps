@@ -26,9 +26,9 @@
     const defaultLocation = '${sessionContext.sessionLocation.uuid}'
     const defaultOrderDate = '${ui.dateToISOString(defaultOrderDate)}'
 
-    <% labTestsByCategory.keySet().each { category -> %>
-        <% labTestsByCategory.get(category).each { orderable -> %>
-            testNames.set('${ orderable.uuid }', '${ ui.encodeJavaScript(labOrderConfig.formatConcept(orderable)) }');
+    <% labTestsByCategory.each { labTestCategory -> %>
+        <% labTestCategory.labTests.each { orderable -> %>
+            testNames.set('${ orderable.uuid }', '${ ui.encodeJavaScript(pihAppsUtils.formatLabTest(orderable)) }');
             <% if (orderable.isSet()) { %>
                 testsByPanel.set('${ orderable.uuid }', new Set());
                 <% orderable.setMembers.each { test -> %>
@@ -38,7 +38,7 @@
             <% if (orderReasonsMap.get(orderable)) { %>
                 reasonsByTest.set('${ orderable.uuid }', []);
                 <% orderReasonsMap.get(orderable).each{ reasonConcept -> %>
-                    reasonsByTest.get('${ orderable.uuid }').push({uuid: '${reasonConcept.uuid}', display: '${ ui.encodeJavaScript(labOrderConfig.formatConcept(reasonConcept)) }'});
+                    reasonsByTest.get('${ orderable.uuid }').push({uuid: '${reasonConcept.uuid}', display: '${ ui.encodeJavaScript(pihAppsUtils.formatLabTest(reasonConcept)) }'});
                 <% } %>
             <% } %>
         <% } %>
@@ -178,7 +178,7 @@
 
         jq(".lab-selection-form").hide();
         <% if (!labTestsByCategory.isEmpty()) { %>
-            changeCategory('${labTestsByCategory.keySet().iterator().next().uuid}');
+            changeCategory('${labTestsByCategory.get(0).category.uuid}');
         <% } %>
 
         jq("#cancel-button").click(function () {
@@ -203,7 +203,8 @@
         jq("#draft-save-button").click(function () {
             const saveButton = jq("#draft-save-button");
             saveButton.attr("disabled", "disabled");
-            jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/labOrderConfig", function(labOrderConfig) {
+            jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config", function(pihAppsConfig) {
+                const labOrderConfig = pihAppsConfig.labOrderConfig;
                 const orders = [];
                 const orderDate = jq("#order-date-picker-field").val() || defaultOrderDate;
                 const orderer = jq("#order-provider-picker-field").val() || defaultOrderer;
@@ -217,18 +218,18 @@
                         concept: orderable,
                         urgency: urgencies.get(orderable) || 'ROUTINE',
                         orderReason: reasons.get(orderable) ?? null,
-                        careSetting: labOrderConfig.careSetting.INPATIENT,
+                        careSetting: labOrderConfig.defaultCareSetting?.uuid,
                         dateActivated: orderDate,
-                        autoExpireDate: moment(orderDate).add(labOrderConfig.autoExpireDays || 30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS'),
+                        autoExpireDate: moment(orderDate).add(labOrderConfig?.labOrderAutoExpireDays || 30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS'),
                     });
                 })
                 const encounterPayload = {
                     patient: patient,
-                    encounterType: labOrderConfig.encounterType,
+                    encounterType: labOrderConfig.labOrderEncounterType,
                     encounterDatetime: orderDate,
                     location: encounterLocation,
                     orders,
-                    encounterProviders: [ { encounterRole: labOrderConfig.encounterRole, provider: orderer } ],
+                    encounterProviders: [ { encounterRole: labOrderConfig.labOrderEncounterRole, provider: orderer } ],
                 };
 
                 jq.ajax({
@@ -376,22 +377,22 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                 <div class="row">
                     <div class="col-12 col-sm-4 col-md-5 lab-category">
                         <ul>
-                            <% labTestsByCategory.keySet().each { category -> %>
+                            <% labTestsByCategory.each { labTestCategory -> %>
                                 <li>
-                                    <a id="category-link-${category.uuid}" class="category-link" href="#" onclick="changeCategory('${category.uuid}')">
-                                        ${ labOrderConfig.formatConcept(category) }
+                                    <a id="category-link-${labTestCategory.category.uuid}" class="category-link" href="#" onclick="changeCategory('${labTestCategory.category.uuid}')">
+                                        ${ pihAppsUtils.formatLabTest(labTestCategory.category) }
                                     </a>
                                 </li>
                             <% } %>
                         </ul>
                     </div>
                     <div class="col-12 col-sm-8 col-md-7">
-                        <% labTestsByCategory.keySet().each { category -> %>
-                            <div class="lab-selection-form" id="lab-selection-form-${category.uuid}">
+                        <% labTestsByCategory.each { labTestCategory -> %>
+                            <div class="lab-selection-form" id="lab-selection-form-${labTestCategory.category.uuid}">
                                 <%
                                     def panels = []
                                     def tests = []
-                                    labTestsByCategory.get(category).each { orderable ->
+                                        labTestCategory.labTests.each { orderable ->
                                         if (orderable.isSet()) {
                                             panels.add(orderable)
                                         }
@@ -407,12 +408,12 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                                     <div class="panel-box">
                                         <% panels.each { orderable -> %>
                                             <button id="panel-button-${orderable.uuid}" class="lab-tests-btn tooltip" type="button" onclick="toggleTest('${orderable.uuid}')">
-                                                ${ labOrderConfig.formatConcept(orderable) }
+                                                ${ pihAppsUtils.formatLabTest(orderable) }
                                                 <span class="tooltip-text">
                                                     <p>${ui.message("pihapps.testsIncludedInThisPanel")}:</p>
                                                     <div>
                                                         <% orderable.setMembers.each { setMember -> %>
-                                                            <span>${labOrderConfig.formatConcept(setMember)}</span>
+                                                            <span>${pihAppsUtils.formatLabTest(setMember)}</span>
                                                         <% } %>
                                                     </div>
                                                 </span>
@@ -425,7 +426,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                                     <div class="panel-box">
                                         <% tests.each { orderable -> %>
                                             <button id="test-button-${orderable.uuid}" class="lab-tests-btn" type="button" onclick="toggleTest('${orderable.uuid}')">
-                                                ${ labOrderConfig.formatConcept(orderable) }
+                                                ${ pihAppsUtils.formatLabTest(orderable) }
                                             </button>
                                         <% } %>
                                     </div>
