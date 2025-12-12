@@ -22,7 +22,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         { label: "${ ui.encodeJavaScript(ui.message("pihapps.labOrders")) }" , link: '${ui.pageLink("pihapps", "labs/labOrders", ["patientId": patient.id])}'}
     ];
 
-    function discontinueOrder(orderUuid, orderableUuid) {
+    function discontinueOrder(orderUuid, orderableUuid, careSettingUuid) {
         const discontinueDialog = emr.setupConfirmationDialog({
             selector: '#discontinue-order-dialog',
             actions: {
@@ -51,7 +51,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                                     concept: orderableUuid,
                                     urgency: 'ROUTINE',
                                     orderReasonNonCoded: discontinueReason,
-                                    careSetting: labOrderConfig.defaultCareSetting?.uuid,
+                                    careSetting: careSettingUuid,
                                     dateActivated: discontinueDate,
                                 }
                             ]
@@ -116,7 +116,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const getActions = function (order) {
                 const orderStatusOption = patientUtils.getOrderStatusOption(order, orderStatusOptions);
                 if (orderStatusOption.status === 'ACTIVE') {
-                    const discontinueLink = '<a href="#" onClick="discontinueOrder(\\\'' + order.uuid + '\\\', \\\'' + order.concept.uuid + '\\\')"><i class="icon-remove scale"></i></a>';
+                    const discontinueLink = '<a href="#" onClick="discontinueOrder(\\\'' + order.uuid + '\\\', \\\'' + order.concept.uuid + '\\\', \\\'' + order.careSetting.uuid + '\\\')"><i class="icon-remove scale"></i></a>';
                     return '<span class="order-actions-btn" style="text-align: center;">' + discontinueLink + '</span>'
                 }
                 return "";
