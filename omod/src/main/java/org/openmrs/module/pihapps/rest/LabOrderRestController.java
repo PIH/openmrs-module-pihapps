@@ -7,12 +7,15 @@ import org.openmrs.Concept;
 import org.openmrs.Order;
 import org.openmrs.OrderType;
 import org.openmrs.Patient;
+import org.openmrs.api.OrderService;
 import org.openmrs.module.pihapps.PihAppsService;
 import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.module.pihapps.orders.OrderFulfillmentStatus;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
+import org.openmrs.module.pihapps.orders.PatientWithOrders;
+import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
@@ -47,10 +50,13 @@ public class LabOrderRestController {
 
     private final LabOrderConfig labOrderConfig;
 
+    private final OrderService orderService;
+
     @Autowired
-    public LabOrderRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig) {
+    public LabOrderRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig, OrderService orderService) {
         this.pihAppsService = pihAppsService;
         this.labOrderConfig = labOrderConfig;
+        this.orderService = orderService;
     }
 
     @RequestMapping(value = "/rest/v1/pihapps/labOrder", method = RequestMethod.GET)
@@ -58,7 +64,7 @@ public class LabOrderRestController {
     public Object getLabOrders(HttpServletRequest request, HttpServletResponse response,
                                @RequestParam(value = "patient", required = false) Patient patient,
                                @RequestParam(value = "labTest", required = false) Concept labTest,
-                               @RequestParam(value = "orderType", required = false) List<OrderType> orderType,
+                               @RequestParam(value = "orderType", required = false) List<String> orderType,
                                @RequestParam(value = "activatedOnOrBefore", required = false) String activatedOnOrBefore,
                                @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
                                @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
@@ -71,7 +77,7 @@ public class LabOrderRestController {
         Integer limit = requestContext.getLimit();
 
         OrderSearchCriteria searchCriteria = new OrderSearchCriteria();
-        searchCriteria.setOrderTypes(orderType == null ? labOrderConfig.getTestOrderTypes() : orderType);
+        searchCriteria.setOrderTypes(getOrderTypes(orderType, labOrderConfig.getTestOrderTypes()));
         searchCriteria.setPatient(patient);
         searchCriteria.setConcept(labTest);
         searchCriteria.setAccessionNumber(accessionNumber);
@@ -118,6 +124,88 @@ public class LabOrderRestController {
         return alreadyPaged.toSimpleObject(orderConverter);
     }
 
+    @RequestMapping(value = "/rest/v1/pihapps/patientsWithOrders", method = RequestMethod.GET)
+    @ResponseBody
+    public Object getLabOrderPatients(HttpServletRequest request, HttpServletResponse response,
+                               @RequestParam(value = "patient", required = false) Patient patient,
+                               @RequestParam(value = "labTest", required = false) Concept labTest,
+                               @RequestParam(value = "orderType", required = false) List<String> orderType,
+                               @RequestParam(value = "activatedOnOrBefore", required = false) String activatedOnOrBefore,
+                               @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
+                               @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
+                               @RequestParam(value = "orderFulfillmentStatus", required = false) OrderFulfillmentStatus orderFulfillmentStatus,
+                               @RequestParam(value = "sortBy", required = false) List<String> sortBy
+    ) throws ResponseException {
+
+        RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
+        Integer startIndex = requestContext.getStartIndex() == null ? 0 : requestContext.getStartIndex();
+        Integer limit = requestContext.getLimit();
+
+        OrderSearchCriteria searchCriteria = new OrderSearchCriteria();
+        searchCriteria.setOrderTypes(getOrderTypes(orderType, labOrderConfig.getTestOrderTypes()));
+        searchCriteria.setPatient(patient);
+        searchCriteria.setConcept(labTest);
+        searchCriteria.setAccessionNumber(accessionNumber);
+        searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
+        searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
+        if (orderFulfillmentStatus != null) {
+            if (orderFulfillmentStatus.getOrderStatus() != null) {
+                searchCriteria.setOrderStatus(Collections.singletonList(orderFulfillmentStatus.getOrderStatus()));
+            }
+            searchCriteria.setFulfillerStatuses(orderFulfillmentStatus.getFulfillerStatuses());
+            searchCriteria.setIncludeNullFulfillerStatus(orderFulfillmentStatus.getIncludeNullFulfillerStatus());
+        }
+        searchCriteria.setStartIndex(requestContext.getStartIndex());
+        searchCriteria.setLimit(requestContext.getLimit());
+
+        List<SortCriteria> sortCriteriaList = new ArrayList<>();
+        if (sortBy != null && !sortBy.isEmpty()) {
+            for (String sortByValue : sortBy) {
+                if (StringUtils.isNotBlank(sortByValue)) {
+                    String[] components = sortByValue.split("-", 2);
+                    String field = components[0];
+                    SortCriteria.Direction direction = SortCriteria.Direction.ASC;
+                    if (components.length > 1) {
+                        direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+                    }
+                    sortCriteriaList.add(new SortCriteria(field, direction));
+                }
+            }
+        }
+        if (!sortCriteriaList.isEmpty()) {
+            searchCriteria.setSortCriteria(sortCriteriaList);
+        }
+
+        PatientWithOrdersSearchResult result = pihAppsService.getPatientsWithOrders(searchCriteria);
+
+        boolean hasMoreResults = false;
+        if (limit != null) {
+            int recordsProcessed = startIndex + limit + 1;
+            hasMoreResults = recordsProcessed < result.getTotalCount();
+        }
+
+        Converter<PatientWithOrders> patientConverter = ConversionUtil.getConverter(PatientWithOrders.class);
+        AlreadyPaged<PatientWithOrders> alreadyPaged = new AlreadyPaged<>(requestContext, result.getPatients(), hasMoreResults, result.getTotalCount());
+        return alreadyPaged.toSimpleObject(patientConverter);
+    }
+
+    /**
+     * There is no OrderType Property Editor registered with core, so convert from String uuids to OrderTypes
+     */
+    List<OrderType> getOrderTypes(List<String> orderTypeUuids, List<OrderType> defaultValue) {
+        if (orderTypeUuids != null && !orderTypeUuids.isEmpty()) {
+            List<OrderType> orderTypes = new ArrayList<>();
+            for (String uuid : orderTypeUuids) {
+                orderTypes.add(orderService.getOrderTypeByUuid(uuid));
+            }
+            return orderTypes;
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Utility method to get a date from a string in yyyy-MM-dd format
+     */
     Date getDate(String ymd) {
         if (StringUtils.isBlank(ymd)) {
             return null;

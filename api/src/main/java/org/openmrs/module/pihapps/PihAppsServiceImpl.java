@@ -23,22 +23,26 @@ import org.hibernate.criterion.Projections;
 import org.openmrs.Location;
 import org.openmrs.LocationTag;
 import org.openmrs.Order;
+import org.openmrs.Patient;
 import org.openmrs.annotation.Authorized;
 import org.openmrs.api.LocationService;
-import org.openmrs.api.OrderService;
 import org.openmrs.api.db.hibernate.DbSessionFactory;
 import org.openmrs.api.impl.BaseOpenmrsService;
 import org.openmrs.module.emrapi.EmrApiConstants;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
 import org.openmrs.module.pihapps.orders.OrderStatus;
+import org.openmrs.module.pihapps.orders.PatientWithOrders;
+import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
 import org.openmrs.util.OpenmrsUtil;
 import org.openmrs.util.PrivilegeConstants;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.hibernate.criterion.Restrictions.and;
 import static org.hibernate.criterion.Restrictions.eq;
@@ -57,9 +61,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 
 	@Setter
 	private LocationService locationService;
-
-	@Setter
-	private OrderService orderService;
 
 	@Setter
 	private DbSessionFactory sessionFactory;
@@ -101,13 +102,69 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Override
 	@Transactional(readOnly = true)
 	@Authorized(PrivilegeConstants.GET_ORDERS)
-	@SuppressWarnings({ "unchecked", "deprecation" })
+	@SuppressWarnings({ "unchecked" })
 	public OrderSearchResult getOrders(OrderSearchCriteria searchCriteria) {
 		OrderSearchResult result = new OrderSearchResult();
-		result.setCriteria(searchCriteria);
+		// First query to get total count
+		Criteria c = createHibernateCriteria(searchCriteria, false);
+		c.setProjection(Projections.rowCount());
+		Long totalCount = (Long) c.list().get(0);
+		result.setTotalCount(totalCount);
+		// Then query to get page of results
+		c = createHibernateCriteria(searchCriteria, true);
+		c.setProjection(null);
+		Integer startIndex = searchCriteria.getStartIndex();
+		Integer limit = searchCriteria.getLimit();
+		if (limit != null) {
+			startIndex = startIndex == null ? 0 : startIndex;
+			c.setFirstResult(startIndex);
+			c.setMaxResults(limit);
+		}
+		List<Order> orders = c.list();
+		result.setOrders(orders);
+		return result;
+	}
 
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_PATIENTS)
+	@SuppressWarnings({ "unchecked" })
+	public PatientWithOrdersSearchResult getPatientsWithOrders(OrderSearchCriteria searchCriteria) {
+		PatientWithOrdersSearchResult result = new PatientWithOrdersSearchResult();
+		// First query to get total count of distinct patients
+		Criteria c = createHibernateCriteria(searchCriteria, false);
+		c.setProjection(Projections.countDistinct("patient"));
+		Long totalCount = (Long) c.list().get(0);
+		result.setTotalCount(totalCount);
+		// Then query to get page of patients
+		c = createHibernateCriteria(searchCriteria, true);
+		c.setProjection(Projections.distinct(Projections.property("patient")));
+		Integer startIndex = searchCriteria.getStartIndex();
+		Integer limit = searchCriteria.getLimit();
+		if (limit != null) {
+			startIndex = startIndex == null ? 0 : startIndex;
+			c.setFirstResult(startIndex);
+			c.setMaxResults(limit);
+		}
+		List<Patient> patients = c.list();
+		// Then retrieve the orders for these patients and organize them into results
+		c = createHibernateCriteria(searchCriteria, true);
+		c.add(in("patient", patients));
+		c.setProjection(null);
+		List<Order> orders = c.list();
+		Map<Patient, List<Order>> ordersForPatient = new LinkedHashMap<>();
+		for (Order  o : orders) {
+			ordersForPatient.computeIfAbsent(o.getPatient(), p -> new ArrayList<>()).add(o);
+		}
+		for (Patient p : ordersForPatient.keySet()) {
+			result.getPatients().add(new PatientWithOrders(p, ordersForPatient.get(p)));
+		}
+		return result;
+	}
+
+	@SuppressWarnings({"deprecation"})
+	private Criteria createHibernateCriteria(OrderSearchCriteria searchCriteria, boolean applySortCriteria) {
 		Date now = new Date();
-
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Order.class);
 		c.add(eq("voided", false));
 		if (searchCriteria.getOrderTypes() != null && !searchCriteria.getOrderTypes().isEmpty()) {
@@ -166,39 +223,24 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			c.add(or(fulfillerStatusCriteria.toArray(new Criterion[0])));
 		}
 
-		c.setProjection(Projections.rowCount());
-		Long totalCount = (Long) c.list().get(0);
-		result.setTotalCount(totalCount);
-
-		c.setProjection(null);
-
-		List<SortCriteria> sortCriteriaList = searchCriteria.getSortCriteria();
-		if (sortCriteriaList == null) {
-			sortCriteriaList = new ArrayList<>();
-		}
-		if (sortCriteriaList.isEmpty()) {
-			sortCriteriaList.add(new SortCriteria("urgency", SortCriteria.Direction.DESC)); // TODO: This is a hack that only works because STAT is alphabetically last
-			sortCriteriaList.add(new SortCriteria("dateActivated", SortCriteria.Direction.ASC));
-		}
-		for (SortCriteria sortCriteria : sortCriteriaList) {
-			if (sortCriteria.getDirection() == SortCriteria.Direction.DESC) {
-				c.addOrder(org.hibernate.criterion.Order.desc(sortCriteria.getField()));
+		if (applySortCriteria) {
+			List<SortCriteria> sortCriteriaList = searchCriteria.getSortCriteria();
+			if (sortCriteriaList == null) {
+				sortCriteriaList = new ArrayList<>();
 			}
-			else {
-				c.addOrder(org.hibernate.criterion.Order.asc(sortCriteria.getField()));
+			if (sortCriteriaList.isEmpty()) {
+				sortCriteriaList.add(new SortCriteria("urgency", SortCriteria.Direction.DESC)); // TODO: This is a hack that only works because STAT is alphabetically last
+				sortCriteriaList.add(new SortCriteria("dateActivated", SortCriteria.Direction.ASC));
+			}
+			for (SortCriteria sortCriteria : sortCriteriaList) {
+				if (sortCriteria.getDirection() == SortCriteria.Direction.DESC) {
+					c.addOrder(org.hibernate.criterion.Order.desc(sortCriteria.getField()));
+				} else {
+					c.addOrder(org.hibernate.criterion.Order.asc(sortCriteria.getField()));
+				}
 			}
 		}
 
-		Integer startIndex = searchCriteria.getStartIndex();
-		Integer limit = searchCriteria.getLimit();
-		if (limit != null) {
-			startIndex = startIndex == null ? 0 : startIndex;
-			c.setFirstResult(startIndex);
-			c.setMaxResults(limit);
-		}
-		List<Order> orders = c.list();
-		result.setOrders(orders);
-
-		return result;
+		return c;
 	}
 }

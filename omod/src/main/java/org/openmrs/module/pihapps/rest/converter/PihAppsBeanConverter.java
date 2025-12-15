@@ -7,6 +7,7 @@ import org.openmrs.annotation.Handler;
 import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.module.pihapps.orders.LabTestCategory;
+import org.openmrs.module.pihapps.orders.PatientWithOrders;
 import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.representation.CustomRepresentation;
@@ -22,7 +23,8 @@ import java.util.Map;
 @Handler(supports = {
         PihAppsConfig.class,
         LabOrderConfig.class,
-        LabTestCategory.class
+        LabTestCategory.class,
+        PatientWithOrders.class
 }, order = 0)
 public class PihAppsBeanConverter<T> implements Converter<T> {
 

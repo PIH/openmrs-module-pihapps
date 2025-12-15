@@ -13,8 +13,10 @@
 <script type="text/javascript">
     const breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
-        { label: "${ ui.encodeJavaScript(ui.message("pihapps.labWorkflow")) }" , link: '${ui.pageLink("pihapps", "labs/labWorkflow")}'}
+        { label: "${ ui.encodeJavaScript(ui.message("pihapps.labPatientList")) }" , link: '${ui.pageLink("pihapps", "labs/labPatientList")}'}
     ];
+
+    const orderFulfillmentStatus = '${orderFulfillmentStatus.name()}';
 
     moment.locale(window.sessionContext?.locale ?? 'en');
 
@@ -23,7 +25,7 @@
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
-        const labOrderConfigRep = "(availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display))";
+        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
@@ -34,46 +36,52 @@
             const conceptUtils = new PihAppsConceptUtils(jq);
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment);
-            const orderStatusOptions = pihAppsConfig.labOrderConfig.orderStatusOptions;
-            const fulfillerStatusOptions = pihAppsConfig.labOrderConfig.fulfillerStatusOptions;
             const orderFulfillmentStatusOptions = pihAppsConfig.labOrderConfig.orderFulfillmentStatusOptions;
 
+            orderFulfillmentStatusOptions.forEach((statusOption) => {
+                if (statusOption.status) {
+                    const option = jq("<option>").attr("value", statusOption.status).html(statusOption.display);
+                    jq("#orderFulfillmentStatus-filter").append(option);
+                }
+            });
+            jq("#orderFulfillmentStatus-filter").val(orderFulfillmentStatus);
+
             // Column functions
-            const getEmrId = (order) => { return patientUtils.getPreferredIdentifier(order.patient, primaryIdentifierType); };
-            const getPatientName = (order) => { return order.patient.person.display; }
-            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated, dateFormat, dateTimeFormat); };
-            const getOrderNumber = (order) => { return order.orderNumber; }
-            const getAccessionNumber = (order) => { return order.accessionNumber; }
-            const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };
-            const getFulfillerStatus = (order) => { return patientUtils.getFulfillerStatusOption(order, fulfillerStatusOptions).display; };
-            const getOrderFulfillmentStatus = (order) => { return patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display; };
+            const getEmrId = (patientWithOrders) => { return patientUtils.getPreferredIdentifier(patientWithOrders.patient, primaryIdentifierType); };
+            const getPatientName = (patientWithOrders) => { return patientWithOrders.patient.person.display; }
+            const getOrderDates = (patientWithOrders) => {
+                const orderDates = patientWithOrders.orders.map((order) => order.dateActivated).sort().reverse();
+                return orderDates.map((d) => dateUtils.formatDateWithTimeIfPresent(d, dateFormat, dateTimeFormat)).join(", <br/>");
+            }
             const getLabTest = function(order) {
                 const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
                 return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
             }
+            const getTestNames = (patientWithOrders) => {return patientWithOrders.orders.map((o) => getLabTest(o)).join(", <br/>");};
 
             const getFilterParameterValues = function() {
-                const fulfillerStatus = jq("#fulfillerStatus-filter").val();
                 return {
-                    "orderType": pihAppsConfig.labOrderConfig.labTestOrderType,
+                    "orderType": pihAppsConfig.labOrderConfig.labTestOrderType?.uuid,
                     "patient": jq("#patient-filter-field").val(),
                     "labTest": jq("#testConcept-filter").val(),
                     "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
                     "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
-                    "accessionNumber": jq("#lab-id-filter").val(),
                     "orderFulfillmentStatus": jq("#orderFulfillmentStatus-filter").val(),
                     "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?
                 }
             }
 
+            const patientRep = "(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
+            const orderRep = "(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType)))";
+
             pagingDataTable.initialize({
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
-                endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
-                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))",
+                endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/patientsWithOrders",
+                representation: "custom:patient:" + patientRep + ",orders:" + orderRep,
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getEmrId, getPatientName, getOrderNumber, getOrderDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest
+                    getEmrId, getPatientName, getOrderDates, getTestNames
                 ],
                 datatableOptions: {
                     oLanguage: {
@@ -94,11 +102,6 @@
                     optGroup.append(labOpt);
                 });
                 jq("#testConcept-filter").append(optGroup);
-            });
-
-            orderFulfillmentStatusOptions.forEach((statusOption) => {
-                const option = jq("<option>").attr("value", statusOption.status).html(statusOption.display);
-                jq("#orderFulfillmentStatus-filter").append(option);
             });
 
             jq("#test-filter-form").find(":input").change(function () {
@@ -134,12 +137,7 @@
 
 <div class="row justify-content-between">
     <div class="col-6">
-        <h3>${ ui.message("pihapps.labWorkflow") }</h3>
-    </div>
-    <div class="col-6 text-right">
-        <a href="${ui.pageLink("coreapps", "findpatient/findPatient", ["app": "pih.app.labs.ordering"])}">
-            <input type="button" value="${ui.message("pihapps.addLabOrders")}" style="max-width: unset;"/>
-        </a>
+        <h3>${ ui.message("pihapps.labPatientList") }</h3>
     </div>
 </div>
 <form method="get" id="test-filter-form">
@@ -182,10 +180,6 @@
             <label for="patient-filter">${ ui.message("pihapps.patient") }</label>
             ${ ui.includeFragment("pihapps", "field/patient", [ id: "patient-filter", formFieldName: "patient" ]) }
         </div>
-        <div class="col">
-            <label for="lab-id-filter">${ ui.message("pihapps.labId") }:</label>
-            <input id="lab-id-filter" type="text" name="labId" value=""/>
-        </div>
     </div>
 </form>
 <table id="orders-table">
@@ -193,10 +187,7 @@
         <tr>
             <th>${ ui.message("pihapps.emrId") }</th>
             <th>${ ui.message("pihapps.name") }</th>
-            <th>${ ui.message("pihapps.orderNumber") }</th>
             <th>${ ui.message("pihapps.orderDate") }</th>
-            <th>${ ui.message("pihapps.labId") }</th>
-            <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>
             <th>${ ui.message("pihapps.labTest") }</th>
         </tr>
     </thead>

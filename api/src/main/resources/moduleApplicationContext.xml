@@ -9,7 +9,6 @@
 		<property name="target">
 			<bean class="org.openmrs.module.pihapps.PihAppsServiceImpl" autowire="byType">
 				<property name="locationService" ref="locationService"/>
-				<property name="orderService" ref="orderService"/>
 				<property name="sessionFactory" ref="dbSessionFactory"/>
 			</bean>
 		</property>
