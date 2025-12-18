@@ -13,7 +13,7 @@
 <script type="text/javascript">
     const breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
-        { label: "${ ui.encodeJavaScript(ui.message("pihapps.labWorkflow")) }" , link: '${ui.pageLink("pihapps", "labs/labWorkflow")}'}
+        { label: "${ ui.encodeJavaScript(ui.message("pihapps.labOrderList")) }" , link: '${ui.pageLink("pihapps", "labs/labOrderList")}'}
     ];
 
     moment.locale(window.sessionContext?.locale ?? 'en');
@@ -23,7 +23,7 @@
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
-        const labOrderConfigRep = "(availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display))";
+        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
@@ -55,7 +55,7 @@
             const getFilterParameterValues = function() {
                 const fulfillerStatus = jq("#fulfillerStatus-filter").val();
                 return {
-                    "orderType": pihAppsConfig.labOrderConfig.labTestOrderType,
+                    "orderType": pihAppsConfig.labOrderConfig.labTestOrderType?.uuid,
                     "patient": jq("#patient-filter-field").val(),
                     "labTest": jq("#testConcept-filter").val(),
                     "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
@@ -134,7 +134,7 @@
 
 <div class="row justify-content-between">
     <div class="col-6">
-        <h3>${ ui.message("pihapps.labWorkflow") }</h3>
+        <h3>${ ui.message("pihapps.labOrderList") }</h3>
     </div>
     <div class="col-6 text-right">
         <a href="${ui.pageLink("coreapps", "findpatient/findPatient", ["app": "pih.app.labs.ordering"])}">

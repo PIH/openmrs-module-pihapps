@@ -17,6 +17,7 @@ import org.openmrs.Location;
 import org.openmrs.api.OpenmrsService;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
+import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
 
 import java.util.List;
 
@@ -25,4 +26,6 @@ public interface PihAppsService extends OpenmrsService {
 	void updateVisitAndLoginLocations(List<Location> visitLocations, List<Location> loginLocations);
 
 	OrderSearchResult getOrders(OrderSearchCriteria searchCriteria);
+
+	PatientWithOrdersSearchResult getPatientsWithOrders(OrderSearchCriteria searchCriteria);
 }
