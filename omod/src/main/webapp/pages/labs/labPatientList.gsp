@@ -30,43 +30,24 @@
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
 
-            const dateFormat = pihAppsConfig.dateFormat ?? "DD-MMM-YYYY";
-            const dateTimeFormat = pihAppsConfig.dateTimeFormat ?? "DD-MMM-YYYY HH:mm";
             const primaryIdentifierType = pihAppsConfig.primaryIdentifierType?.uuid ?? '';
             const conceptUtils = new PihAppsConceptUtils(jq);
             const patientUtils = new PihAppsPatientUtils(jq);
-            const dateUtils = new PihAppsDateUtils(moment);
-            const orderFulfillmentStatusOptions = pihAppsConfig.labOrderConfig.orderFulfillmentStatusOptions;
-
-            orderFulfillmentStatusOptions.forEach((statusOption) => {
-                if (statusOption.status) {
-                    const option = jq("<option>").attr("value", statusOption.status).html(statusOption.display);
-                    jq("#orderFulfillmentStatus-filter").append(option);
-                }
-            });
-            jq("#orderFulfillmentStatus-filter").val(orderFulfillmentStatus);
 
             // Column functions
             const getEmrId = (patientWithOrders) => { return patientUtils.getPreferredIdentifier(patientWithOrders.patient, primaryIdentifierType); };
             const getPatientName = (patientWithOrders) => { return patientWithOrders.patient.person.display; }
-            const getOrderDates = (patientWithOrders) => {
-                const orderDates = patientWithOrders.orders.map((order) => order.dateActivated).sort().reverse();
-                return orderDates.map((d) => dateUtils.formatDateWithTimeIfPresent(d, dateFormat, dateTimeFormat)).join(", <br/>");
-            }
             const getLabTest = function(order) {
                 const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
                 return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
             }
-            const getTestNames = (patientWithOrders) => {return patientWithOrders.orders.map((o) => getLabTest(o)).join(", <br/>");};
+            const getTestNames = (patientWithOrders) => {return patientWithOrders.orders.map((o) => getLabTest(o)).join(", ");};
 
             const getFilterParameterValues = function() {
                 return {
                     "orderType": pihAppsConfig.labOrderConfig.labTestOrderType?.uuid,
+                    "orderFulfillmentStatus": "AWAITING_FULFILLMENT",
                     "patient": jq("#patient-filter-field").val(),
-                    "labTest": jq("#testConcept-filter").val(),
-                    "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
-                    "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
-                    "orderFulfillmentStatus": jq("#orderFulfillmentStatus-filter").val(),
                     "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?
                 }
             }
@@ -81,7 +62,7 @@
                 representation: "custom:patient:" + patientRep + ",orders:" + orderRep,
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getEmrId, getPatientName, getOrderDates, getTestNames
+                    getEmrId, getPatientName, getTestNames
                 ],
                 datatableOptions: {
                     oLanguage: {
@@ -93,15 +74,6 @@
                         sProcessing:  "${ ui.message("uicommons.dataTable.processing") }",
                     }
                 }
-            });
-
-            pihAppsConfig.labOrderConfig.availableLabTestsByCategory.forEach((labCategory) => {
-                const optGroup = jq("<optGroup>").attr("label", conceptUtils.getConceptShortName(labCategory.category, window.sessionContext?.locale));
-                labCategory.labTests.forEach((labTest) => {
-                    const labOpt = jq("<option>").attr("value", labTest.uuid).html(conceptUtils.getConceptShortName(labTest, window.sessionContext?.locale));
-                    optGroup.append(labOpt);
-                });
-                jq("#testConcept-filter").append(optGroup);
             });
 
             jq("#test-filter-form").find(":input").change(function () {
@@ -142,40 +114,6 @@
 </div>
 <form method="get" id="test-filter-form">
     <div class="row justify-content-start align-items-end">
-        <div class="col">
-            ${ ui.includeFragment("pihapps", "field/datetimepicker", [
-                    id: "orderedFrom-filter",
-                    formFieldName: "orderedFrom",
-                    label: "pihapps.orderedFrom",
-                    classes: "form-control",
-                    endDate: now,
-                    useTime: false,
-                    clearButton: true
-            ])}
-        </div>
-        <div class="col">
-            ${ ui.includeFragment("pihapps", "field/datetimepicker", [
-                    id: "orderedTo-filter",
-                    formFieldName: "orderedTo",
-                    label: "pihapps.orderedTo",
-                    classes: "form-control",
-                    endDate: now,
-                    useTime: false,
-                    clearButton: true
-            ])}
-        </div>
-        <div class="col">
-            <label for="orderFulfillmentStatus-filter">${ ui.message("pihapps.orderStatus") }</label>
-            <select id="orderFulfillmentStatus-filter" name="orderFulfillmentStatus" class="form-control"></select>
-        </div>
-        <div class="col">
-            <label for="testConcept-filter">${ ui.message("pihapps.labTest") }</label>
-            <select id="testConcept-filter" name="testConcept" class="form-control">
-                <option value=""></option>
-            </select>
-        </div>
-    </div>
-    <div class="row justify-content-start align-items-end">
         <div class="col-md-6 col-sm-6">
             <label for="patient-filter">${ ui.message("pihapps.patient") }</label>
             ${ ui.includeFragment("pihapps", "field/patient", [ id: "patient-filter", formFieldName: "patient" ]) }
@@ -187,7 +125,6 @@
         <tr>
             <th>${ ui.message("pihapps.emrId") }</th>
             <th>${ ui.message("pihapps.name") }</th>
-            <th>${ ui.message("pihapps.orderDate") }</th>
             <th>${ ui.message("pihapps.labTest") }</th>
         </tr>
     </thead>
