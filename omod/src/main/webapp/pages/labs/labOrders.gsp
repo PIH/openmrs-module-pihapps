@@ -265,7 +265,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             <th>${ ui.message("pihapps.labTest") }</th>
             <th>${ ui.message("pihapps.testOrderedBy") }</th>
             <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>
-            <th></th>
+            <th>${ ui.message("pihapps.actions") }</th>
         </tr>
     </thead>
     <tbody></tbody>
