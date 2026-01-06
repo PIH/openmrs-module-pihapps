@@ -4,6 +4,7 @@ import org.openmrs.Concept;
 import org.openmrs.ConceptName;
 import org.openmrs.api.ConceptNameType;
 import org.openmrs.api.context.Context;
+import org.openmrs.messagesource.MessageSourceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -14,9 +15,12 @@ public class PihAppsUtils {
 
     private final PihAppsConfig pihAppsConfig;
 
+    private final MessageSourceService messageSourceService;
+
     @Autowired
-    public PihAppsUtils(PihAppsConfig pihAppsConfig) {
+    public PihAppsUtils(PihAppsConfig pihAppsConfig, MessageSourceService messageSourceService) {
         this.pihAppsConfig = pihAppsConfig;
+        this.messageSourceService = messageSourceService;
     }
 
     public String formatLabTest(Concept c) {
@@ -31,6 +35,14 @@ public class PihAppsUtils {
      * Taken from orderentryowa - helpers.getConceptShortName
      */
     public String getBestShortName(Concept c) {
+
+        // If a specific short name has been added to message properties for this concept, prioritize that
+        String messageCode = "ui.i18n.Concept.shortName." + c.getUuid();
+        String translatedMessageCode = messageSourceService.getMessage(messageCode);
+        if (!translatedMessageCode.equals(messageCode)) {
+            return translatedMessageCode;
+        }
+
         ConceptName preferredShortLocale = null;
         ConceptName shortLocale = null;
         ConceptName preferredLocale = null;
