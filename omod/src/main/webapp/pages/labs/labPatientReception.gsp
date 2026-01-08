@@ -29,7 +29,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
-        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display))";
+        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
@@ -118,6 +118,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
+            pihAppsConfig.labOrderConfig.testLocationQuestion?.answers?.forEach((answer) => {
+                jq("#test-location-picker-field").append(jq("<option>").attr("value", answer.uuid).html(answer.display));
+            });
+
+
             pagingDataTable.initialize({
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
@@ -174,6 +179,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     }
     .dialog {
         width: 80%;
+        height: 90%;
     }
     .dialog select option {
         font-size: 1.0em;
