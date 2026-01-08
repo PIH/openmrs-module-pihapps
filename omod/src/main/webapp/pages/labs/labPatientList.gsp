@@ -38,8 +38,7 @@
             const getEmrId = (patientWithOrders) => { return patientUtils.getPreferredIdentifier(patientWithOrders.patient, primaryIdentifierType); };
             const getPatientName = (patientWithOrders) => { return patientWithOrders.patient.person.display; }
             const getLabTest = function(order) {
-                const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
-                return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
+                return "<span class=\"urgency-" + order.urgency + "\">" + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale) + "</span>";
             }
             const getTestNames = (patientWithOrders) => {return patientWithOrders.orders.map((o) => getLabTest(o)).join(", ");};
 
@@ -104,6 +103,10 @@
     .paging-navigation {
         padding-left: 10px;
         cursor: pointer;
+    }
+    .urgency-STAT {
+        font-weight: bold;
+        color: red;
     }
 </style>
 
