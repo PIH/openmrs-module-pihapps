@@ -169,7 +169,12 @@ class PagingDataTable {
             }
 
             this.pagedTable.fnDraw();
-            this.getTableInfoElement().show();
+            if (data.totalCount > this.getPageSize()) {
+                this.getTableInfoElement().show();
+            }
+            else {
+                this.getTableInfoElement().hide();
+            }
         });
     }
 
