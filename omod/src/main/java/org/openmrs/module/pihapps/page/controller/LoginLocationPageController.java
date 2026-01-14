@@ -21,6 +21,7 @@ import org.openmrs.module.pihapps.LocationTagWebConfig;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.SpringBean;
 import org.openmrs.ui.framework.page.PageModel;
+import org.openmrs.web.WebConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.List;
@@ -82,15 +84,21 @@ public class LoginLocationPageController {
             String referer = request.getHeader("Referer");
             log.debug("Referer: {}", referer);
             if (StringUtils.isNotBlank(referer)) {
-                String baseUrl = request.getScheme() + "://" + request.getServerName();
-                String port = ":" + request.getServerPort();
-                if (referer.contains(port)) {
-                    baseUrl = baseUrl + port;
+                try {
+                    URL refererUrl = new URL(referer);
+                    String baseUrl = refererUrl.getProtocol() + "://" + refererUrl.getHost();
+                    String port = ":" + refererUrl.getPort();
+                    if (referer.contains(port)) {
+                        baseUrl = baseUrl + port;
+                    }
+                    String baseUrlAndContextPath = baseUrl + "/" + WebConstants.WEBAPP_NAME;
+                    log.debug("baseUrlAndContextPath: {}", baseUrlAndContextPath);
+                    if (referer.startsWith(baseUrlAndContextPath)) {
+                        returnUrl = referer.substring(baseUrlAndContextPath.length());
+                    }
                 }
-                String baseUrlAndContextPath = baseUrl + request.getContextPath();
-                log.debug("baseUrlAndContextPath: {}", baseUrlAndContextPath);
-                if (referer.startsWith(baseUrlAndContextPath)) {
-                    returnUrl = referer.substring(baseUrlAndContextPath.length());
+                catch (Exception e) {
+                    log.debug("Unable to parse referer into returnUrl: {}", e.getMessage());
                 }
             }
         }
