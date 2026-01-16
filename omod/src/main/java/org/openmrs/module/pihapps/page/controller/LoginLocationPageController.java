@@ -84,21 +84,22 @@ public class LoginLocationPageController {
             String referer = request.getHeader("Referer");
             log.debug("Referer: {}", referer);
             if (StringUtils.isNotBlank(referer)) {
-                try {
-                    URL refererUrl = new URL(referer);
-                    String baseUrl = refererUrl.getProtocol() + "://" + refererUrl.getHost();
-                    String port = ":" + refererUrl.getPort();
-                    if (referer.contains(port)) {
-                        baseUrl = baseUrl + port;
+                if (!referer.contains("/pihapps/loginLocation.page")) {
+                    try {
+                        URL refererUrl = new URL(referer);
+                        String baseUrl = refererUrl.getProtocol() + "://" + refererUrl.getHost();
+                        String port = ":" + refererUrl.getPort();
+                        if (referer.contains(port)) {
+                            baseUrl = baseUrl + port;
+                        }
+                        String baseUrlAndContextPath = baseUrl + "/" + WebConstants.WEBAPP_NAME;
+                        log.debug("baseUrlAndContextPath: {}", baseUrlAndContextPath);
+                        if (referer.startsWith(baseUrlAndContextPath)) {
+                            returnUrl = referer.substring(baseUrlAndContextPath.length());
+                        }
+                    } catch (Exception e) {
+                        log.debug("Unable to parse referer into returnUrl: {}", e.getMessage());
                     }
-                    String baseUrlAndContextPath = baseUrl + "/" + WebConstants.WEBAPP_NAME;
-                    log.debug("baseUrlAndContextPath: {}", baseUrlAndContextPath);
-                    if (referer.startsWith(baseUrlAndContextPath)) {
-                        returnUrl = referer.substring(baseUrlAndContextPath.length());
-                    }
-                }
-                catch (Exception e) {
-                    log.debug("Unable to parse referer into returnUrl: {}", e.getMessage());
                 }
             }
         }
