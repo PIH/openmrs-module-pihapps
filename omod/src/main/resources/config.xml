@@ -21,6 +21,9 @@
             org.openmrs.module.appui
         </require_module>
         <require_module>
+            org.openmrs.module.authentication
+        </require_module>
+        <require_module>
             org.openmrs.module.coreapps
         </require_module>
         <require_module>

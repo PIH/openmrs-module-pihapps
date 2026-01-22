@@ -50,6 +50,7 @@
 
         <appframeworkVersion>2.18.0</appframeworkVersion>
         <appuiVersion>1.18.0</appuiVersion>
+        <authenticationVersion>2.1.0</authenticationVersion>
         <coreappsVersion>3.2.0</coreappsVersion>
         <emrapiVersion>3.2.1</emrapiVersion>
         <htmlformentryVersion>6.1.0</htmlformentryVersion>
@@ -111,6 +112,13 @@
             <groupId>org.openmrs.module</groupId>
             <artifactId>appui-api</artifactId>
             <version>${appuiVersion}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openmrs.module</groupId>
+            <artifactId>authentication-api</artifactId>
+            <version>${authenticationVersion}</version>
             <scope>provided</scope>
         </dependency>
 
