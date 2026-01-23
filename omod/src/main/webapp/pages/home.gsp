@@ -7,7 +7,8 @@
         def fragmentParams = extension.extensionParams
         def fragmentProvider = fragmentParams.get("fragmentProvider")
         def fragmentPath = fragmentParams.get("fragmentPath")
+        def fragmentConfig = fragmentParams.get("fragmentConfig")
     %>
-        ${ ui.includeFragment(fragmentProvider, fragmentPath, fragmentParams)}
+        ${ ui.includeFragment(fragmentProvider, fragmentPath, fragmentConfig)}
     <% } %>
 </div>

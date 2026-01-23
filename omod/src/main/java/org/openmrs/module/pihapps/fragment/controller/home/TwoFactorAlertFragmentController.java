@@ -18,6 +18,7 @@ import org.openmrs.User;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.authentication.AuthenticationConfig;
 import org.openmrs.module.authentication.web.TwoFactorAuthenticationScheme;
+import org.openmrs.ui.framework.fragment.FragmentConfiguration;
 import org.openmrs.ui.framework.fragment.FragmentModel;
 
 /**
@@ -25,10 +26,20 @@ import org.openmrs.ui.framework.fragment.FragmentModel;
  */
 public class TwoFactorAlertFragmentController {
 	
-	public void controller(FragmentModel model) {
+	public void controller(FragmentModel model, FragmentConfiguration config) {
 		User currentUser = Context.getAuthenticatedUser();
 		boolean twoFactorEnabled = AuthenticationConfig.getAuthenticationScheme() instanceof TwoFactorAuthenticationScheme;
 		String secondaryType = currentUser.getUserProperty(TwoFactorAuthenticationScheme.USER_PROPERTY_SECONDARY_TYPE);
-		model.addAttribute("showTwoFactorAlert", twoFactorEnabled && StringUtils.isBlank(secondaryType));
+		boolean userRequires2fa = twoFactorEnabled && StringUtils.isBlank(secondaryType);
+		model.addAttribute("showBanner", userRequires2fa && getBooleanAttribute(config, "showBanner"));
+		model.addAttribute("showDialog", userRequires2fa && getBooleanAttribute(config, "showDialog"));
+	}
+
+	boolean getBooleanAttribute(FragmentConfiguration config, String attributeName) {
+		Object value = config.getAttribute(attributeName);
+		if (value == null) {
+			return true;
+		}
+		return Boolean.parseBoolean(value.toString());
 	}
 }
