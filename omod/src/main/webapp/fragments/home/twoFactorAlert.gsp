@@ -40,8 +40,8 @@
                 ${ui.message("authentication.2fa.enableMessage")}
             </div>
             <br><br>
-            <button class="cancel">${ ui.message("pihapps.notNow") }</button>
-            <button class="confirm right">${ ui.message("pihapps.enable") }
+            <button id="two-factor-popup-cancel-button" class="cancel">${ ui.message("pihapps.notNow") }</button>
+            <button id="two-factor-popup-enable-button" class="confirm right">${ ui.message("pihapps.enable") }
                 <i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i>
             </button>
         </div>
