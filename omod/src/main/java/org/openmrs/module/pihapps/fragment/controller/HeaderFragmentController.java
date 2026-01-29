@@ -49,7 +49,9 @@ public class HeaderFragmentController {
             locationName.append(uiUtils.format(loginLocation));
             if (locationTagConfig.getValidVisitLocations().size() > 1) {
                 for (Location visitLocation : locationTagConfig.getVisitLocationsForLocation(loginLocation)) {
-                    locationName.append(" - ").append(uiUtils.format(visitLocation));
+                    if (!visitLocation.equals(loginLocation)) {
+                        locationName.append(" - ").append(uiUtils.format(visitLocation));
+                    }
                 }
             }
         }
