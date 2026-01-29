@@ -14,9 +14,13 @@
 
 package org.openmrs.module.pihapps.fragment.controller;
 
+import org.openmrs.Location;
 import org.openmrs.module.appframework.domain.Extension;
 import org.openmrs.module.appframework.service.AppFrameworkService;
 import org.openmrs.module.appui.AppUiExtensions;
+import org.openmrs.module.appui.UiSessionContext;
+import org.openmrs.module.pihapps.LocationTagConfig;
+import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.SpringBean;
 import org.openmrs.ui.framework.fragment.FragmentModel;
 
@@ -25,7 +29,12 @@ import java.util.Map;
 
 public class HeaderFragmentController {
 
-    public void controller(@SpringBean AppFrameworkService appFrameworkService, FragmentModel fragmentModel) {
+    public void controller(@SpringBean AppFrameworkService appFrameworkService,
+                           @SpringBean LocationTagConfig locationTagConfig,
+                           UiSessionContext sessionContext,
+                           UiUtils uiUtils,
+                           FragmentModel fragmentModel) {
+
         List<Extension> exts = appFrameworkService.getExtensionsForCurrentUser(AppUiExtensions.HEADER_CONFIG_EXTENSION);
         Extension lowestOrderExtension = getLowestOrderExtenstion(exts);
         Map<String, Object> configSettings = null;
@@ -33,6 +42,18 @@ public class HeaderFragmentController {
             configSettings = lowestOrderExtension.getExtensionParams();
         }
         fragmentModel.addAttribute("configSettings", configSettings);
+
+        StringBuilder locationName = new StringBuilder();
+        Location loginLocation = sessionContext.getSessionLocation();
+        if (loginLocation != null) {
+            locationName.append(uiUtils.format(loginLocation));
+            if (locationTagConfig.getValidVisitLocations().size() > 1) {
+                for (Location visitLocation : locationTagConfig.getVisitLocationsForLocation(loginLocation)) {
+                    locationName.append(" - ").append(uiUtils.format(visitLocation));
+                }
+            }
+        }
+        fragmentModel.addAttribute("loginLocationName", locationName.toString());
     }
 
     public Extension getLowestOrderExtenstion(List<Extension> exts) {

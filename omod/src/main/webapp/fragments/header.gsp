@@ -4,7 +4,7 @@
 <script type="text/javascript">
     var sessionLocationModel = {
         id: () => "${ sessionContext.sessionLocationId }",
-        text: () => "${ ui.escapeJs(ui.encodeHtmlContent(ui.format(sessionContext.sessionLocation))) }"
+        text: () => "${ ui.escapeJs(ui.encodeHtmlContent(loginLocationName)) }"
     }
     jq(document).ready(function () {
         <% if (ui.convertTimezones()) { %>
@@ -74,7 +74,7 @@
                         <li class="nav-item">
                             <a href="${ui.pageLink("pihapps", "loginLocation")}">
                                 <i class="icon-map-marker small"></i>
-                                <span>${ ui.escapeJs(ui.encodeHtmlContent(ui.format(sessionContext.sessionLocation))) }</span>
+                                <span>${ ui.escapeJs(ui.encodeHtmlContent(loginLocationName)) }</span>
                             </a>
                         </li>
                     <% } %>
