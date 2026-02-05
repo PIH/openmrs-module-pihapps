@@ -15,6 +15,7 @@ package org.openmrs.module.pihapps;
 
 import org.openmrs.Location;
 import org.openmrs.api.OpenmrsService;
+import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
 import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
@@ -28,4 +29,8 @@ public interface PihAppsService extends OpenmrsService {
 	OrderSearchResult getOrders(OrderSearchCriteria searchCriteria);
 
 	PatientWithOrdersSearchResult getPatientsWithOrders(OrderSearchCriteria searchCriteria);
+
+	EncounterFulfillingOrders saveEncounterFulfillingOrders(EncounterFulfillingOrders encounterFulfillingOrders);
+
+	EncounterFulfillingOrders getEncounterFulfillingOrders(String encounterUuid);
 }

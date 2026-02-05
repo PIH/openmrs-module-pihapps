@@ -8,6 +8,7 @@
     ui.includeJavascript("pihapps", "dateUtils.js")
 
     def now = new Date()
+    def collectionPage = ui.pageLink("pihapps", "labs/labPatientReception");
 %>
 
 <script type="text/javascript">
@@ -33,9 +34,13 @@
             const primaryIdentifierType = pihAppsConfig.primaryIdentifierType?.uuid ?? '';
             const conceptUtils = new PihAppsConceptUtils(jq);
             const patientUtils = new PihAppsPatientUtils(jq);
+            const collectionPage = "${collectionPage}";
 
             // Column functions
-            const getEmrId = (patientWithOrders) => { return patientUtils.getPreferredIdentifier(patientWithOrders.patient, primaryIdentifierType); };
+            const getEmrId = (patientWithOrders) => {
+                const emrId = patientUtils.getPreferredIdentifier(patientWithOrders.patient, primaryIdentifierType);
+                return "<a href=\"" + collectionPage + "?patient=" + patientWithOrders.patient.uuid + "\">" + emrId + "</a>";
+            }
             const getPatientName = (patientWithOrders) => { return patientWithOrders.patient.person.display; }
             const getLabTest = function(order) {
                 return "<span class=\"urgency-" + order.urgency + "\">" + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale) + "</span>";

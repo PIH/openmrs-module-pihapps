@@ -4,11 +4,21 @@
 	   xsi:schemaLocation="http://www.springframework.org/schema/beans
   		    http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
+	<bean id="labOrderConfig" class="org.openmrs.module.pihapps.orders.LabOrderConfig" >
+		<property name="conceptService" ref="conceptService"/>
+		<property name="orderService" ref="orderService"/>
+		<property name="encounterService" ref="encounterService"/>
+		<property name="messageSourceService" ref="messageSourceService"/>
+	</bean>
+
 	<bean id="pihappsService" class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean">
 		<property name="transactionManager" ref="transactionManager"/>
 		<property name="target">
 			<bean class="org.openmrs.module.pihapps.PihAppsServiceImpl" autowire="byType">
+				<property name="labOrderConfig" ref="labOrderConfig"/>
 				<property name="locationService" ref="locationService"/>
+				<property name="orderService" ref="orderService"/>
+				<property name="encounterService" ref="encounterService"/>
 				<property name="sessionFactory" ref="dbSessionFactory"/>
 			</bean>
 		</property>

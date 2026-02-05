@@ -492,7 +492,7 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                     ${ui.includeFragment("pihapps", "field/provider", [
                             id: "order-provider-picker",
                             initialValue: sessionContext.currentProvider,
-                            formFieldName: "order_location",
+                            formFieldName: "order_provider",
                     ])}
                 </span>
             </div>

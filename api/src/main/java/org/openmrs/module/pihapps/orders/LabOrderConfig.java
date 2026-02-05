@@ -1,5 +1,6 @@
 package org.openmrs.module.pihapps.orders;
 
+import lombok.Setter;
 import org.apache.commons.lang.StringUtils;
 import org.openmrs.CareSetting;
 import org.openmrs.Concept;
@@ -26,23 +27,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-@Component
 public class LabOrderConfig {
 
     private static final Logger log = LoggerFactory.getLogger(LabOrderConfig.class);
 
-    final ConceptService conceptService;
-    final OrderService orderService;
-    final EncounterService encounterService;
-    final MessageSourceService messageSourceService;
+    @Setter
+    ConceptService conceptService;
 
-    @Autowired
-    public LabOrderConfig(ConceptService conceptService, OrderService orderService,  EncounterService encounterService, MessageSourceService messageSourceService) {
-        this.conceptService = conceptService;
-        this.orderService = orderService;
-        this.encounterService = encounterService;
-        this.messageSourceService = messageSourceService;
-    }
+    @Setter
+    OrderService orderService;
+
+    @Setter
+    EncounterService encounterService;
+
+    @Setter
+    MessageSourceService messageSourceService;
 
     public List<Map<String, String>> getOrderStatusOptions() {
         List<Map<String, String>> l = new ArrayList<>();
@@ -186,18 +185,7 @@ public class LabOrderConfig {
     }
 
     public EncounterType getLabOrderEncounterType() {
-        String encounterTypeRef = getLabOrderEncounterTypeReference();
-        EncounterType encounterType = null;
-        if (StringUtils.isNotBlank(encounterTypeRef)) {
-            encounterType = encounterService.getEncounterTypeByUuid(encounterTypeRef);
-            if (encounterType == null) {
-                encounterType = encounterService.getEncounterType(encounterTypeRef);
-            }
-        }
-        if (encounterType == null) {
-            log.warn("Invalid labOrderEncounterType configuration: " + encounterTypeRef);
-        }
-        return encounterType;
+        return getEncounterType(getLabOrderEncounterTypeReference());
     }
 
     // Lab Order Encounter Role
@@ -314,11 +302,109 @@ public class LabOrderConfig {
         return ret;
     }
 
+    public String getSpecimenCollectionEncounterTypeReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.specimenCollectionEncounterType");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.labResultsEntryEncounterType");
+        }
+        return configVal;
+    }
+
+    public EncounterType getSpecimenCollectionEncounterType() {
+        return getEncounterType(getSpecimenCollectionEncounterTypeReference());
+    }
+
+    public String getSpecimenCollectionEncounterRoleReference() {
+        return ConfigUtil.getGlobalProperty("pihapps.specimenCollectionEncounterRole");
+    }
+
+    public EncounterRole getSpecimenCollectionEncounterRole() {
+        String encounterRoleRef = getSpecimenCollectionEncounterRoleReference();
+        EncounterRole encounterRole = null;
+        if (StringUtils.isNotBlank(encounterRoleRef)) {
+            encounterRole = encounterService.getEncounterRoleByUuid(encounterRoleRef);
+            if (encounterRole == null) {
+                encounterRole = encounterService.getEncounterRoleByName(encounterRoleRef);
+            }
+        }
+        return encounterRole;
+    }
+
+    public String getEstimatedCollectionDateQuestionReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.estimatedCollectionDateQuestion");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.estimatedCollectionDateQuestion");
+        }
+        return configVal;
+    }
+
+    public Concept getEstimatedCollectionDateQuestion() {
+        return conceptService.getConceptByReference(getEstimatedCollectionDateQuestionReference());
+    }
+
+    public String getEstimatedCollectionDateAnswerReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.estimatedCollectionDateAnswer");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.estimatedCollectionDateAnswer");
+        }
+        return configVal;
+    }
+
+    public Concept getEstimatedCollectionDateAnswer() {
+        return conceptService.getConceptByReference(getEstimatedCollectionDateAnswerReference());
+    }
+
+    public String getTestOrderNumberQuestionReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.testOrderNumberConcept");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.testOrderNumberConcept");
+        }
+        return configVal;
+    }
+
+    public Concept getTestOrderNumberQuestion() {
+        return conceptService.getConceptByReference(getTestOrderNumberQuestionReference());
+    }
+
+    public String getTestLocationQuestionReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.locationOfLaboratory");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.locationOfLaboratory");
+        }
+        return configVal;
+    }
+
+    public Concept getTestLocationQuestion() {
+        return conceptService.getConceptByReference(getTestLocationQuestionReference());
+    }
+
+    public String getSpecimenReceivedDateQuestionReference() {
+        return ConfigUtil.getProperty("pihapps.labs.specimenReceivedDateConcept", "PIH:21057");
+    }
+
+    public Concept getSpecimenReceivedDateQuestion() {
+        return conceptService.getConceptByReference(getSpecimenReceivedDateQuestionReference());
+    }
+
     private Map<String, String> map(String... keysAndValues) {
         Map<String, String> ret = new LinkedHashMap<>();
         for (int i = 0; i < keysAndValues.length; i += 2) {
             ret.put(keysAndValues[i], keysAndValues[i + 1]);
         }
         return ret;
+    }
+
+    private EncounterType getEncounterType(String encounterTypeRef) {
+        EncounterType encounterType = null;
+        if (StringUtils.isNotBlank(encounterTypeRef)) {
+            encounterType = encounterService.getEncounterTypeByUuid(encounterTypeRef);
+            if (encounterType == null) {
+                encounterType = encounterService.getEncounterType(encounterTypeRef);
+            }
+        }
+        if (encounterType == null) {
+            log.warn("Invalid configuration.  No matching encounter type for reference: " + encounterTypeRef);
+        }
+        return encounterType;
     }
 }

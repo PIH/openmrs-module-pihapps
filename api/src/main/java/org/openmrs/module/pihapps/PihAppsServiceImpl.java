@@ -14,21 +14,29 @@
 package org.openmrs.module.pihapps;
 
 import lombok.Setter;
+import org.apache.commons.lang.BooleanUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hibernate.Criteria;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Projections;
+import org.openmrs.Concept;
+import org.openmrs.Encounter;
 import org.openmrs.Location;
 import org.openmrs.LocationTag;
+import org.openmrs.Obs;
 import org.openmrs.Order;
 import org.openmrs.Patient;
 import org.openmrs.annotation.Authorized;
+import org.openmrs.api.EncounterService;
 import org.openmrs.api.LocationService;
+import org.openmrs.api.OrderService;
 import org.openmrs.api.db.hibernate.DbSessionFactory;
 import org.openmrs.api.impl.BaseOpenmrsService;
 import org.openmrs.module.emrapi.EmrApiConstants;
+import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
+import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
 import org.openmrs.module.pihapps.orders.OrderStatus;
@@ -60,7 +68,16 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	protected Log log = LogFactory.getLog(getClass());
 
 	@Setter
+	private LabOrderConfig labOrderConfig;
+
+	@Setter
 	private LocationService locationService;
+
+	@Setter
+	private EncounterService encounterService;
+
+	@Setter
+	private OrderService orderService;
 
 	@Setter
 	private DbSessionFactory sessionFactory;
@@ -242,5 +259,64 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 
 		return c;
+	}
+
+	@Override
+	@Transactional
+	@Authorized(PrivilegeConstants.ADD_ENCOUNTERS)
+	public EncounterFulfillingOrders saveEncounterFulfillingOrders(EncounterFulfillingOrders encounterFulfillingOrders) {
+		Concept accessionNumberConcept = labOrderConfig.getTestOrderNumberQuestion();
+		if (accessionNumberConcept == null) {
+			throw new IllegalArgumentException("Accession Number Concept configuration is required");
+		}
+		if (encounterFulfillingOrders.getEncounter() == null) {
+			throw new  IllegalArgumentException("Encounter is required");
+		}
+		String accessionNumber = null;
+		for (Obs obs : encounterFulfillingOrders.getEncounter().getObs()) {
+			if (BooleanUtils.isNotTrue(obs.getVoided()) && obs.getConcept().equals(accessionNumberConcept)) {
+				accessionNumber = obs.getValueText();
+			}
+		}
+		encounterService.saveEncounter(encounterFulfillingOrders.getEncounter());
+		if (encounterFulfillingOrders.getOrders() != null) {
+			for (Order order : encounterFulfillingOrders.getOrders()) {
+				order.setAccessionNumber(accessionNumber);
+				Order.FulfillerStatus fulfillerStatus = order.getFulfillerStatus();
+				if (fulfillerStatus == null) {
+					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
+				}
+				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, null, accessionNumber);
+			}
+		}
+		return encounterFulfillingOrders;
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
+	public EncounterFulfillingOrders getEncounterFulfillingOrders(String encounterUuid) {
+		Encounter encounter = encounterService.getEncounterByUuid(encounterUuid);
+		if (encounter == null) {
+			return null;
+		}
+		EncounterFulfillingOrders  encounterFulfillingOrders = new EncounterFulfillingOrders();
+		encounterFulfillingOrders.setEncounter(encounter);
+		Concept accessionNumberConcept = labOrderConfig.getTestOrderNumberQuestion();
+		if (accessionNumberConcept == null) {
+			throw new IllegalArgumentException("Accession Number Concept configuration is required");
+		}
+		String accessionNumber = null;
+		for (Obs obs : encounter.getObs()) {
+			if (BooleanUtils.isNotTrue(obs.getVoided()) && obs.getConcept().equals(accessionNumberConcept)) {
+				accessionNumber = obs.getValueText();
+			}
+		}
+		OrderSearchCriteria orderSearchCriteria = new OrderSearchCriteria();
+		orderSearchCriteria.setPatient(encounter.getPatient());
+		orderSearchCriteria.setAccessionNumber(accessionNumber);
+		List<Order> orders = getOrders(orderSearchCriteria).getOrders();
+		encounterFulfillingOrders.setOrders(orders);
+		return encounterFulfillingOrders;
 	}
 }
