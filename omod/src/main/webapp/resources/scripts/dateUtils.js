@@ -15,4 +15,16 @@ class PihAppsDateUtils {
     formatDateWithTimeIfPresent(dateStr, dateFormat, dateTimeFormat) {
         return this.moment(dateStr).format(this.hasTime(dateStr) ? dateTimeFormat : dateFormat);
     }
+
+    roundDownToNearestMinuteInterval(date, minuteInterval) {
+        const d = new Date(date);
+        d.setSeconds(0);
+        d.setMilliseconds(0);
+        let minutes = d.getMinutes();
+        while (minutes % minuteInterval !== 0) {
+            minutes--;
+        }
+        d.setMinutes(minutes)
+        return d;
+    }
 }

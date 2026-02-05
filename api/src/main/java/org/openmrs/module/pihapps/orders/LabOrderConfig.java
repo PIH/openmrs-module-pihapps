@@ -1,5 +1,6 @@
 package org.openmrs.module.pihapps.orders;
 
+import lombok.Setter;
 import org.apache.commons.lang.StringUtils;
 import org.openmrs.CareSetting;
 import org.openmrs.Concept;
@@ -26,23 +27,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-@Component
 public class LabOrderConfig {
 
     private static final Logger log = LoggerFactory.getLogger(LabOrderConfig.class);
 
-    final ConceptService conceptService;
-    final OrderService orderService;
-    final EncounterService encounterService;
-    final MessageSourceService messageSourceService;
+    @Setter
+    ConceptService conceptService;
 
-    @Autowired
-    public LabOrderConfig(ConceptService conceptService, OrderService orderService,  EncounterService encounterService, MessageSourceService messageSourceService) {
-        this.conceptService = conceptService;
-        this.orderService = orderService;
-        this.encounterService = encounterService;
-        this.messageSourceService = messageSourceService;
-    }
+    @Setter
+    OrderService orderService;
+
+    @Setter
+    EncounterService encounterService;
+
+    @Setter
+    MessageSourceService messageSourceService;
 
     public List<Map<String, String>> getOrderStatusOptions() {
         List<Map<String, String>> l = new ArrayList<>();
@@ -315,6 +314,22 @@ public class LabOrderConfig {
         return getEncounterType(getSpecimenCollectionEncounterTypeReference());
     }
 
+    public String getSpecimenCollectionEncounterRoleReference() {
+        return ConfigUtil.getGlobalProperty("pihapps.specimenCollectionEncounterRole");
+    }
+
+    public EncounterRole getSpecimenCollectionEncounterRole() {
+        String encounterRoleRef = getSpecimenCollectionEncounterRoleReference();
+        EncounterRole encounterRole = null;
+        if (StringUtils.isNotBlank(encounterRoleRef)) {
+            encounterRole = encounterService.getEncounterRoleByUuid(encounterRoleRef);
+            if (encounterRole == null) {
+                encounterRole = encounterService.getEncounterRoleByName(encounterRoleRef);
+            }
+        }
+        return encounterRole;
+    }
+
     public String getEstimatedCollectionDateQuestionReference() {
         String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.estimatedCollectionDateQuestion");
         if (StringUtils.isBlank(configVal)) {
@@ -361,6 +376,14 @@ public class LabOrderConfig {
 
     public Concept getTestLocationQuestion() {
         return conceptService.getConceptByReference(getTestLocationQuestionReference());
+    }
+
+    public String getSpecimenReceivedDateQuestionReference() {
+        return ConfigUtil.getProperty("pihapps.labs.specimenReceivedDateConcept", "PIH:21057");
+    }
+
+    public Concept getSpecimenReceivedDateQuestion() {
+        return conceptService.getConceptByReference(getSpecimenReceivedDateQuestionReference());
     }
 
     private Map<String, String> map(String... keysAndValues) {
