@@ -312,7 +312,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     </div>
     <div id="order-actions-section">
         <input type="button" id="process-orders-button" value="${ ui.message("pihapps.processSelectedOrders") }" />
-        <input type="button" id="remove-orders-button" value="${ ui.message("pihapps.removeSelectedOrders") }" />
+        <input type="button" id="remove-orders-button" value="${ ui.message("pihapps.removeSelectedOrders") }" style="display:none;" />
     </div>
 </div>
 
