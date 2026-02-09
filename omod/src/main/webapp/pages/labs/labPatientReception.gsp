@@ -20,6 +20,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     const defaultLocation = '${sessionContext.sessionLocation.uuid}'
     const patientListPage = '${ui.pageLink("pihapps", "labs/labPatientList")}';
 
+    const messageCodes = {
+        specimenCollectionDateCannotBeFuture: '${ ui.message("pihapps.specimenCollectionDateCannotBeFuture") }',
+        specimenReceivedDateCannotBeFuture: '${ ui.message("pihapps.specimenReceivedDateCannotBeFuture") }',
+        specimenReceivedCannotBeBeforeCollected: '${ ui.message("pihapps.specimenReceivedCannotBeBeforeCollected") }'
+    };
+
     const breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
         { label: "${ ui.encodeJavaScript(ui.message("pihapps.labPatientList")) }" , link: '${ui.pageLink("pihapps", "labs/labPatientList")}'},
@@ -126,21 +132,58 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
+            const getFieldValue = function(formData, fieldName) {
+                return formData.find(e => e.name === fieldName)?.value ?? '';
+            }
+
             const getObs = function(formData, fieldName, concept) {
                 return {
                     concept: concept,
-                    value: formData.find(e => e.name === fieldName)?.value ?? '',
+                    value: getFieldValue(formData, fieldName),
                     formNamespaceAndPath: 'pihapps^' + fieldName
                 }
                 // Note: In the labworkflow owa version, order was set on obs, but we do not do this here as there could be multiple orders
                 // Note: In the labworkflow owa, formNamespaceAndPath was stored in the comment.  Here we move this, and rename them as well
             }
 
+            const validateFormData = function(formData) {
+                const errors = [];
+                const currentDate = moment();
+                const collectionDateStr =  getFieldValue(formData, "specimen_collection_date");
+                const collectionDate = collectionDateStr ? moment(collectionDateStr) : null;
+                console.log('collection date field: ' + collectionDateStr + "; collection date moment: " + collectionDate.toDate());
+                if (collectionDate && collectionDate.isAfter(currentDate)) {
+                    errors.push(messageCodes.specimenCollectionDateCannotBeFuture);
+                }
+                const receivedDateStr = getFieldValue(formData, "specimen_received_date");
+                const receivedDate = receivedDateStr ? moment(receivedDateStr) : null;
+                if (receivedDate && receivedDate.isAfter(currentDate)) {
+                    errors.push(messageCodes.specimenReceivedDateCannotBeFuture);
+                }
+                if (collectionDate && receivedDate && collectionDate.isAfter(receivedDate)) {
+                    errors.push(messageCodes.specimenReceivedCannotBeBeforeCollected);
+                }
+                return errors;
+            }
+
+            const disableFormEntry = () => { jq("#process-orders-form .action-button").attr("disabled", "disabled") };
+            const enableFormEntry = () => { jq("#process-orders-form .action-button").removeAttr("disabled") };
+
             jq("#process-orders-form").submit((event) => {
                 event.preventDefault();
-                jq("#process-orders-form .action-button").attr("disabled", "disabled");
+                disableFormEntry();
                 const selectedOrders = getSelectedOrderData();
                 const formData = jq("#process-orders-form").serializeArray();
+
+                jq("#errors-section").html("");
+                const validationErrors = validateFormData(formData);
+                if (validationErrors && validationErrors.length > 0) {
+                    validationErrors.forEach(e => {
+                        jq("#errors-section").append(jq("<div>").html(e));
+                    });
+                    enableFormEntry();
+                    return;
+                }
 
                 const encounterRole = pihAppsConfig.labOrderConfig.specimenCollectionEncounterRole?.uuid;
                 const provider = formData.find(e => e.name === "specimen_collection_provider")?.value;
@@ -181,7 +224,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                         document.location.href = patientListPage;
                     },
                     error: (xhr) => {
-                        jq("#process-orders-form .action-button").removeAttr("disabled");
+                        enableFormEntry();
                         const error = xhr?.responseJSON?.error;
                         const message = error?.translatedMessage ?? error.message ?? error;
                         jq("#errors-section").html(message);
