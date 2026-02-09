@@ -140,10 +140,10 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 return {
                     concept: concept,
                     value: getFieldValue(formData, fieldName),
-                    formNamespaceAndPath: 'pihapps^' + fieldName
+                    formNamespaceAndPath: 'pihapps^' + fieldName,
+                    comment: 'result-entry-form^' + fieldName // This is here for backwards-compatibility with the labworkflow owa
                 }
                 // Note: In the labworkflow owa version, order was set on obs, but we do not do this here as there could be multiple orders
-                // Note: In the labworkflow owa, formNamespaceAndPath was stored in the comment.  Here we move this, and rename them as well
             }
 
             const validateFormData = function(formData) {
@@ -155,7 +155,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 if (collectionDate && collectionDate.isAfter(currentDate)) {
                     errors.push(messageCodes.specimenCollectionDateCannotBeFuture);
                 }
-                const receivedDateStr = getFieldValue(formData, "specimen_received_date");
+                const receivedDateStr = getFieldValue(formData, "specimen-received-date");
                 const receivedDate = receivedDateStr ? moment(receivedDateStr) : null;
                 if (receivedDate && receivedDate.isAfter(currentDate)) {
                     errors.push(messageCodes.specimenReceivedDateCannotBeFuture);
@@ -193,6 +193,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     return {
                         concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
                         value: o.orderNumber,
+                        comment: "result-entry-form^test-order-number", // This is here for backwards-compatibility with labworkflow owa
                         formNamespaceAndPath: "pihapps^order_number_" + index
                     }
                 });
@@ -206,10 +207,10 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                             encounterProviders: encounterProviders,
                             obs: [
                                 ...orderNumberObs,
-                                getObs(formData, "lab_id", pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid),
-                                getObs(formData, "specimen_date_estimated", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid),
-                                getObs(formData, "specimen_received_date", pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid),
-                                getObs(formData, "test_location", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)
+                                getObs(formData, "lab-id", pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid),
+                                getObs(formData, "estimated-checkbox", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid),
+                                getObs(formData, "specimen-received-date", pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid),
+                                getObs(formData, "test-location-dropdown", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)
                             ].filter(o => o.value)
                         },
                         orders: selectedOrders.map(o => o.uuid)
@@ -386,7 +387,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     ${ui.includeFragment("uicommons", "field/text", [
                             id: "lab-id-input",
                             label: "",
-                            formFieldName: "lab_id",
+                            formFieldName: "lab-id",
                             left: true,
                             size: 20,
                             initialValue: ""
@@ -406,7 +407,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     ])}
                 </span>
                 <span id="specimen-date-estimated-widgets" class="form-field-widgets col-auto">
-                    <input id="specimen-date-estimated" type="checkbox" name="specimen_date_estimated" value="${pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid}" />
+                    <input id="specimen-date-estimated" type="checkbox" name="estimated-checkbox" value="${pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid}" />
                     ${ui.message("pihapps.dateIsEstimated")}
                 </span>
             </div>
@@ -442,7 +443,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     ${ui.includeFragment("pihapps", "field/datetimepicker", [
                             id: "specimen-received-date-picker",
                             label: "",
-                            formFieldName: "specimen_received_date",
+                            formFieldName: "specimen-received-date",
                             useTime: true,
                             left: true
                     ])}
@@ -454,7 +455,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     ${ui.includeFragment("uicommons", "field/dropDown", [
                             id: "test-location-picker",
                             label: "",
-                            formFieldName: "test_location",
+                            formFieldName: "test-location-dropdown",
                             left: true,
                             options: [],
                             initialValue: ""
