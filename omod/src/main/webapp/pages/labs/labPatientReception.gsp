@@ -18,6 +18,13 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     const patientUuid = '${patient.patient.uuid}';
     const defaultOrderer = '${sessionContext.currentProvider.uuid}';
     const defaultLocation = '${sessionContext.sessionLocation.uuid}'
+    const patientListPage = '${ui.pageLink("pihapps", "labs/labPatientList")}';
+
+    const messageCodes = {
+        specimenCollectionDateCannotBeFuture: '${ ui.message("pihapps.specimenCollectionDateCannotBeFuture") }',
+        specimenReceivedDateCannotBeFuture: '${ ui.message("pihapps.specimenReceivedDateCannotBeFuture") }',
+        specimenReceivedCannotBeBeforeCollected: '${ ui.message("pihapps.specimenReceivedCannotBeBeforeCollected") }'
+    };
 
     const breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
@@ -32,7 +39,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
-        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),specimenReceivedDateQuestion:(uuid))";
+        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
@@ -90,6 +97,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
+            jq("#back-button").click(() => { document.location.href = patientListPage; })
+
             jq("#process-orders-button").click(function() {
                 const ordersWidgetsSection = jq("#orders-widgets");
                 ordersWidgetsSection.html("");
@@ -112,8 +121,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     jq("#errors-section").html("");
                     jq("#process-orders-form").find(":input").val("");
                     const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
-                    jq("#specimen-date-estimated").attr("value", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid).removeAttr("checked");
-                    console.log(currentDatetime);
+                    jq("#specimen-date-estimated").attr("value", pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid).removeAttr("checked");
                     jq("#specimen-date-picker-wrapper").datetimepicker("option", "maxDateTime", currentDatetime);
                     jq("#specimen-date-picker-wrapper").datetimepicker("setDate", currentDatetime);
                     jq("#specimen-location-picker-field").val(defaultLocation);
@@ -124,26 +132,70 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
+            const getFieldValue = function(formData, fieldName) {
+                return formData.find(e => e.name === fieldName)?.value ?? '';
+            }
+
             const getObs = function(formData, fieldName, concept) {
                 return {
                     concept: concept,
-                    value: formData.find(e => e.name === fieldName)?.value ?? '',
-                    formNamespaceAndPath: 'pihapps^' + fieldName
+                    value: getFieldValue(formData, fieldName),
+                    formNamespaceAndPath: 'pihapps^' + fieldName,
+                    comment: 'result-entry-form^' + fieldName // This is here for backwards-compatibility with the labworkflow owa
                 }
                 // Note: In the labworkflow owa version, order was set on obs, but we do not do this here as there could be multiple orders
-                // Note: In the labworkflow owa, formNamespaceAndPath was stored in the comment.  Here we move this, and rename them as well
             }
+
+            const validateFormData = function(formData) {
+                const errors = [];
+                const currentDate = moment();
+                const collectionDateStr =  getFieldValue(formData, "specimen_collection_date");
+                const collectionDate = collectionDateStr ? moment(collectionDateStr) : null;
+                if (collectionDate && collectionDate.isAfter(currentDate)) {
+                    errors.push(messageCodes.specimenCollectionDateCannotBeFuture);
+                }
+                const receivedDateStr = getFieldValue(formData, "specimen-received-date");
+                const receivedDate = receivedDateStr ? moment(receivedDateStr) : null;
+                if (receivedDate && receivedDate.isAfter(currentDate)) {
+                    errors.push(messageCodes.specimenReceivedDateCannotBeFuture);
+                }
+                if (collectionDate && receivedDate && collectionDate.isAfter(receivedDate)) {
+                    errors.push(messageCodes.specimenReceivedCannotBeBeforeCollected);
+                }
+                return errors;
+            }
+
+            const disableFormEntry = () => { jq("#process-orders-form .action-button").attr("disabled", "disabled") };
+            const enableFormEntry = () => { jq("#process-orders-form .action-button").removeAttr("disabled") };
 
             jq("#process-orders-form").submit((event) => {
                 event.preventDefault();
-                jq("#process-orders-form .action-button").attr("disabled", "disabled");
+                disableFormEntry();
                 const selectedOrders = getSelectedOrderData();
                 const formData = jq("#process-orders-form").serializeArray();
-                console.log(formData);
+
+                jq("#errors-section").html("");
+                const validationErrors = validateFormData(formData);
+                if (validationErrors && validationErrors.length > 0) {
+                    validationErrors.forEach(e => {
+                        jq("#errors-section").append(jq("<div>").html(e));
+                    });
+                    enableFormEntry();
+                    return;
+                }
 
                 const encounterRole = pihAppsConfig.labOrderConfig.specimenCollectionEncounterRole?.uuid;
                 const provider = formData.find(e => e.name === "specimen_collection_provider")?.value;
                 const encounterProviders = (provider && encounterRole) ? [{ provider, encounterRole }] : [];
+
+                const orderNumberObs = selectedOrders.map((o, index) => {
+                    return {
+                        concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
+                        value: o.orderNumber,
+                        comment: "result-entry-form^test-order-number", // This is here for backwards-compatibility with labworkflow owa
+                        formNamespaceAndPath: "pihapps^order_number_" + index
+                    }
+                });
 
                 const encounterFulfillingOrders = {
                         encounter: {
@@ -153,10 +205,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                             location: formData.find(e => e.name === "specimen_collection_location").value,
                             encounterProviders: encounterProviders,
                             obs: [
-                                getObs(formData, "lab_id", pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid),
-                                getObs(formData, "specimen_date_estimated", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid),
-                                getObs(formData, "specimen_received_date", pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid),
-                                getObs(formData, "test_location", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)
+                                ...orderNumberObs,
+                                getObs(formData, "lab-id", pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid),
+                                getObs(formData, "estimated-checkbox", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid),
+                                getObs(formData, "specimen-received-date", pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid),
+                                getObs(formData, "test-location-dropdown", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)
                             ].filter(o => o.value)
                         },
                         orders: selectedOrders.map(o => o.uuid)
@@ -168,13 +221,10 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     data: JSON.stringify(encounterFulfillingOrders),
                     dataType: "json",
                     success: () => {
-                        jq("#errors-section").html("");
-                        jq("#process-orders-section").hide();
-                        jq("#view-orders-section").show();
-                        pagingDataTable.goToFirstPage();
+                        document.location.href = patientListPage;
                     },
                     error: (xhr) => {
-                        jq("#process-orders-form .action-button").removeAttr("disabled");
+                        enableFormEntry();
                         const error = xhr?.responseJSON?.error;
                         const message = error?.translatedMessage ?? error.message ?? error;
                         jq("#errors-section").html(message);
@@ -311,6 +361,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         </div>
     </div>
     <div id="order-actions-section">
+        <input type="button" id="back-button" class="cancel" value="${ ui.message("pihapps.return") }" />
         <input type="button" id="process-orders-button" value="${ ui.message("pihapps.processSelectedOrders") }" />
         <input type="button" id="remove-orders-button" value="${ ui.message("pihapps.removeSelectedOrders") }" style="display:none;" />
     </div>
@@ -335,7 +386,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     ${ui.includeFragment("uicommons", "field/text", [
                             id: "lab-id-input",
                             label: "",
-                            formFieldName: "lab_id",
+                            formFieldName: "lab-id",
                             left: true,
                             size: 20,
                             initialValue: ""
@@ -355,7 +406,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     ])}
                 </span>
                 <span id="specimen-date-estimated-widgets" class="form-field-widgets col-auto">
-                    <input id="specimen-date-estimated" type="checkbox" name="specimen_date_estimated" value="${pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid}" />
+                    <input id="specimen-date-estimated" type="checkbox" name="estimated-checkbox" value="${pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid}" />
                     ${ui.message("pihapps.dateIsEstimated")}
                 </span>
             </div>
@@ -391,7 +442,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     ${ui.includeFragment("pihapps", "field/datetimepicker", [
                             id: "specimen-received-date-picker",
                             label: "",
-                            formFieldName: "specimen_received_date",
+                            formFieldName: "specimen-received-date",
                             useTime: true,
                             left: true
                     ])}
@@ -403,7 +454,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     ${ui.includeFragment("uicommons", "field/dropDown", [
                             id: "test-location-picker",
                             label: "",
-                            formFieldName: "test_location",
+                            formFieldName: "test-location-dropdown",
                             left: true,
                             options: [],
                             initialValue: ""
