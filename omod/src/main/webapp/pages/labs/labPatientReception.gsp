@@ -18,6 +18,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     const patientUuid = '${patient.patient.uuid}';
     const defaultOrderer = '${sessionContext.currentProvider.uuid}';
     const defaultLocation = '${sessionContext.sessionLocation.uuid}'
+    const patientListPage = '${ui.pageLink("pihapps", "labs/labPatientList")}';
 
     const breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
@@ -90,6 +91,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
+            jq("#back-button").click(() => { document.location.href = patientListPage; })
+
             jq("#process-orders-button").click(function() {
                 const ordersWidgetsSection = jq("#orders-widgets");
                 ordersWidgetsSection.html("");
@@ -113,7 +116,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     jq("#process-orders-form").find(":input").val("");
                     const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
                     jq("#specimen-date-estimated").attr("value", pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid).removeAttr("checked");
-                    console.log(currentDatetime);
                     jq("#specimen-date-picker-wrapper").datetimepicker("option", "maxDateTime", currentDatetime);
                     jq("#specimen-date-picker-wrapper").datetimepicker("setDate", currentDatetime);
                     jq("#specimen-location-picker-field").val(defaultLocation);
@@ -139,7 +141,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 jq("#process-orders-form .action-button").attr("disabled", "disabled");
                 const selectedOrders = getSelectedOrderData();
                 const formData = jq("#process-orders-form").serializeArray();
-                console.log(formData);
 
                 const encounterRole = pihAppsConfig.labOrderConfig.specimenCollectionEncounterRole?.uuid;
                 const provider = formData.find(e => e.name === "specimen_collection_provider")?.value;
@@ -177,11 +178,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     data: JSON.stringify(encounterFulfillingOrders),
                     dataType: "json",
                     success: () => {
-                        jq("#process-orders-form .action-button").removeAttr("disabled");
-                        jq("#errors-section").html("");
-                        jq("#process-orders-section").hide();
-                        jq("#view-orders-section").show();
-                        pagingDataTable.goToFirstPage();
+                        document.location.href = patientListPage;
                     },
                     error: (xhr) => {
                         jq("#process-orders-form .action-button").removeAttr("disabled");
@@ -321,6 +318,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         </div>
     </div>
     <div id="order-actions-section">
+        <input type="button" id="back-button" class="cancel" value="${ ui.message("pihapps.return") }" />
         <input type="button" id="process-orders-button" value="${ ui.message("pihapps.processSelectedOrders") }" />
         <input type="button" id="remove-orders-button" value="${ ui.message("pihapps.removeSelectedOrders") }" style="display:none;" />
     </div>
