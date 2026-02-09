@@ -265,7 +265,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Transactional
 	@Authorized(PrivilegeConstants.ADD_ENCOUNTERS)
 	public EncounterFulfillingOrders saveEncounterFulfillingOrders(EncounterFulfillingOrders encounterFulfillingOrders) {
-		Concept accessionNumberConcept = labOrderConfig.getTestOrderNumberQuestion();
+		Concept accessionNumberConcept = labOrderConfig.getLabIdentifierConcept();
 		if (accessionNumberConcept == null) {
 			throw new IllegalArgumentException("Accession Number Concept configuration is required");
 		}
