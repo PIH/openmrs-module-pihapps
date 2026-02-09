@@ -366,6 +366,14 @@ public class LabOrderConfig {
         return conceptService.getConceptByReference(getTestOrderNumberQuestionReference());
     }
 
+    public String getLabIdentifierConceptReference() {
+        return ConfigUtil.getProperty("pihapps.labs.labIdentifierConcept", "CIEL:162086");
+    }
+
+    public Concept getLabIdentifierConcept() {
+        return conceptService.getConceptByReference(getLabIdentifierConceptReference());
+    }
+
     public String getTestLocationQuestionReference() {
         String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.locationOfLaboratory");
         if (StringUtils.isBlank(configVal)) {

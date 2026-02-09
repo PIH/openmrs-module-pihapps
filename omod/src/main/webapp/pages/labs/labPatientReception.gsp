@@ -32,7 +32,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
-        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),specimenReceivedDateQuestion:(uuid))";
+        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
@@ -112,7 +112,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     jq("#errors-section").html("");
                     jq("#process-orders-form").find(":input").val("");
                     const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
-                    jq("#specimen-date-estimated").attr("value", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid).removeAttr("checked");
+                    jq("#specimen-date-estimated").attr("value", pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid).removeAttr("checked");
                     console.log(currentDatetime);
                     jq("#specimen-date-picker-wrapper").datetimepicker("option", "maxDateTime", currentDatetime);
                     jq("#specimen-date-picker-wrapper").datetimepicker("setDate", currentDatetime);
@@ -145,6 +145,14 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 const provider = formData.find(e => e.name === "specimen_collection_provider")?.value;
                 const encounterProviders = (provider && encounterRole) ? [{ provider, encounterRole }] : [];
 
+                const orderNumberObs = selectedOrders.map((o, index) => {
+                    return {
+                        concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
+                        value: o.orderNumber,
+                        formNamespaceAndPath: "pihapps^order_number_" + index
+                    }
+                });
+
                 const encounterFulfillingOrders = {
                         encounter: {
                             patient: patientUuid,
@@ -153,7 +161,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                             location: formData.find(e => e.name === "specimen_collection_location").value,
                             encounterProviders: encounterProviders,
                             obs: [
-                                getObs(formData, "lab_id", pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid),
+                                ...orderNumberObs,
+                                getObs(formData, "lab_id", pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid),
                                 getObs(formData, "specimen_date_estimated", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid),
                                 getObs(formData, "specimen_received_date", pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid),
                                 getObs(formData, "test_location", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)
@@ -168,6 +177,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     data: JSON.stringify(encounterFulfillingOrders),
                     dataType: "json",
                     success: () => {
+                        jq("#process-orders-form .action-button").removeAttr("disabled");
                         jq("#errors-section").html("");
                         jq("#process-orders-section").hide();
                         jq("#view-orders-section").show();
