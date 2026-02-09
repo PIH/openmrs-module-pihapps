@@ -151,7 +151,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 const currentDate = moment();
                 const collectionDateStr =  getFieldValue(formData, "specimen_collection_date");
                 const collectionDate = collectionDateStr ? moment(collectionDateStr) : null;
-                console.log('collection date field: ' + collectionDateStr + "; collection date moment: " + collectionDate.toDate());
                 if (collectionDate && collectionDate.isAfter(currentDate)) {
                     errors.push(messageCodes.specimenCollectionDateCannotBeFuture);
                 }
