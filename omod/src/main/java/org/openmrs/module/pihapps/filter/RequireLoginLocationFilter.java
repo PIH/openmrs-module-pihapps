@@ -17,6 +17,7 @@ import org.apache.log4j.Logger;
 import org.openmrs.User;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.pihapps.LocationTagWebConfig;
+import org.openmrs.module.pihapps.UrlPathMatcher;
 import org.openmrs.ui.framework.WebConstants;
 import org.openmrs.util.ConfigUtil;
 
@@ -42,9 +43,9 @@ public class RequireLoginLocationFilter implements Filter {
 
 	public static final String LOGIN_LOCATION_PAGE = "/" + WebConstants.CONTEXT_PATH + "/pihapps/loginLocation.page";
 
-	public static final List<String> EXCLUSION_EXTENSIONS = Arrays.asList(
-			"js", "css", "gif", "jpg", "jpeg", "png", ".ttf", ".woff", ".action", "/csrfguard",
-			"/pihapps/admin/configureLoginLocations.page", "/pihapps/account/termsAndConditions.page"
+	public static final List<String> WHITELIST = Arrays.asList(
+			"*.js", "*.css", "*.gif", "*.jpg", "*.jpeg", "*.png", "*.ttf", "*.woff", "*.action", "/csrfguard",
+			"/pihapps/admin/configureLoginLocations.page", "/pihapps/account/termsAndConditions.page", "/ws/rest/**/*"
 	);
 
 	public boolean disabled = false;
@@ -64,8 +65,7 @@ public class RequireLoginLocationFilter implements Filter {
 				HttpSession session = httpRequest.getSession();
 				User currentUser = Context.getAuthenticatedUser();
 				if (currentUser != null) {
-					// Only redirect for page requests, not for included resources
-					if (!isExcluded(httpRequest.getRequestURI())) {
+					if (!isExcluded(httpRequest)) {
 						if (LocationTagWebConfig.getLoginLocation(session) == null) {
 							log.debug("Redirecting " + currentUser + " from " + httpRequest.getRequestURI() + " to " + LOGIN_LOCATION_PAGE);
 							httpResponse.sendRedirect(LOGIN_LOCATION_PAGE);
@@ -78,16 +78,12 @@ public class RequireLoginLocationFilter implements Filter {
 		chain.doFilter(request, response);
 	}
 
-	public boolean isExcluded(String uri) {
+	public boolean isExcluded(HttpServletRequest httpRequest) {
+		String uri = httpRequest.getRequestURI();
 		if (uri.equals(LOGIN_LOCATION_PAGE)) {
 			return true;
 		}
-		for (String extension : EXCLUSION_EXTENSIONS) {
-			if (uri.endsWith(extension)) {
-				return true;
-			}
-		}
-		return false;
+		return UrlPathMatcher.urlMatchesAnyPattern(httpRequest, WHITELIST);
 	}
 
 	@Override
