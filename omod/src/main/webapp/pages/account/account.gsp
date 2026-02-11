@@ -25,7 +25,7 @@
 <script type="text/javascript">
     var breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
-        { label: "${ ui.message("emr.app.systemAdministration.label")}", link: '${ui.pageLink("coreapps", "systemadministration/systemAdministration")}' },
+        { label: "${ ui.message("coreapps.app.system.administration.label")}", link: '${ui.pageLink("coreapps", "systemadministration/systemAdministration")}' },
         { label: "${ ui.message("emr.task.accountManagement.label")}" , link: '${ui.pageLink("pihapps", "account/manageAccounts")}'},
         { label: "${ createAccount ? ui.message("emr.createAccount") : ui.message("emr.editAccount")}" }
     ];
