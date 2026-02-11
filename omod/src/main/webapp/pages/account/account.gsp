@@ -10,7 +10,7 @@
 
     def allowedLocalesOptions = []
     allowedLocales.each {
-        def displayLanguage = it.getDisplayLanguage(emrContext.userContext.locale);
+        def displayLanguage = it.getDisplayLanguage(sessionContext.locale);
         if (displayLanguage == "Haitian") { displayLanguage = "Haitian Creole" };  // Hack to fix the fact that ISO standard lists Creole as "Haitian"
         allowedLocalesOptions.push([ label: displayLanguage, value: it ]);
     }
