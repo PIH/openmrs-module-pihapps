@@ -6,7 +6,7 @@
     var breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
         { label: "${ ui.message("coreapps.app.system.administration.label") }", link: "${ ui.pageLink("coreapps", "systemadministration/systemAdministration") }" },
-        { label: "${ ui.message("pih.app.admin.rolesandprivileges.view") }", link: "${ ui.pageLink("pihapps", "admin/rolesAndPrivileges") }" }
+        { label: "${ ui.message("pihapps.admin.rolesAndPrivileges.title") }", link: "${ ui.pageLink("pihapps", "admin/rolesAndPrivileges") }" }
     ];
 
     jq(document).ready(function() {
