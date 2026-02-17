@@ -315,7 +315,7 @@ public class LabOrderConfig {
     }
 
     public String getSpecimenCollectionEncounterRoleReference() {
-        return ConfigUtil.getGlobalProperty("pihapps.specimenCollectionEncounterRole");
+        return ConfigUtil.getGlobalProperty("pihapps.labs.specimenCollectionEncounterRole");
     }
 
     public EncounterRole getSpecimenCollectionEncounterRole() {

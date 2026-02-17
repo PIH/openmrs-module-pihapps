@@ -126,6 +126,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     jq("#specimen-date-picker-wrapper").datetimepicker("setDate", currentDatetime);
                     jq("#specimen-location-picker-field").val(defaultLocation);
 
+                    const testLocationQuestion = pihAppsConfig.labOrderConfig.testLocationQuestion;
+                    if (!testLocationQuestion || testLocationQuestion.answers.length === 0) {
+                        jq("#lab-location-section").hide();
+                    }
+
                     // Open the form
                     jq("#view-orders-section").hide();
                     jq("#process-orders-section").show();
