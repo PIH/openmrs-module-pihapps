@@ -58,7 +58,7 @@
 				(a) => { return translations['gender_' + a.gender] ?? "" },
 				(a) => { return a.providerRole?.display ?? "" },
 				(a) => { return a.providerIdentifier ?? "" },
-				(a) => { return translations['' + a.userEnabled] },
+				(a) => { return translations['' + a.userEnabled] ?? "" },
 				(a) => { return createLink(editAccountPage + a.person.uuid, "<button>" + translations['edit'] + "</button>") }
 			],
 			datatableOptions: {
