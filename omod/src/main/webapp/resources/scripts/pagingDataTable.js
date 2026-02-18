@@ -127,6 +127,20 @@ class PagingDataTable {
         }
         const representationParameters = this.representation ? { "v": this.representation } : {};
         const requestParameters = { ...this.parameters, ...pagingParameters, ...representationParameters};
+
+        this.pagedTable.fnClearTable();
+        this.getTableInfoElement().hide();
+
+        const skeletonRows = [];
+        Array.from({length: 5 }).forEach(() => {
+            const skeletonRow = [];
+            this.columnTransformFunctions.forEach(transformFunction => {
+                skeletonRow.push('<span class="skeleton"></span>');
+            });
+            skeletonRows.push(skeletonRow);
+        });
+        this.pagedTable.fnAddData(skeletonRows);
+
         jq.get(this.endpoint, requestParameters, (data) => {
             if (!data || !data.results || data.results.length === 0) {
                 this.getPagedTable().fnClearTable();

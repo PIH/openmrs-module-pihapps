@@ -54,3 +54,10 @@ form fieldset input[type=button] {
 #list-accounts_filter {
   width: 100%;
 }
+
+.help-text {
+  font-size: smaller;
+}
+.no-matching-accounts {
+  font-weight: bold;
+}
