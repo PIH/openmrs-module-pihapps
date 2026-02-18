@@ -22,7 +22,7 @@ function renderLabOrdersByCategory(config) {
     const templateSections = $templateSection.find(".order-field-widget");
     const fieldSections = [];
     templateSections.each(function () {
-        const fieldName = labOrderFields.filter((field) => $(this).hasClass("order-" + field)).at(0);
+        const fieldName = labOrderFields.filter((field) => jq(this).hasClass("order-" + field)).at(0);
         const fieldWidgetSection = $templateSection.find(".order-field.order-" + fieldName);
         const isInFormTemplate = fieldWidgetSection.parents(".non-template-field").length === 0;
         fieldSections.push({fieldName, fieldWidgetSection, isInFormTemplate})
