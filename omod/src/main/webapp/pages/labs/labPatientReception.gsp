@@ -39,7 +39,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
-        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid))";
+        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid),reasonTestNotPerformedQuestion:(uuid,answers:(uuid,display)))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
@@ -97,28 +97,32 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
+            const populateOrderWidgetsSection = function(ordersWidgetsSection, selectedOrderData) {
+                let headerRow = jq("<div>").addClass("row table-header");
+                headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.labTest") }"));
+                headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.orderDate") }"));
+                headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.orderNumber") }"));
+                ordersWidgetsSection.append(headerRow);
+                selectedOrderData.forEach((orderRow) => {
+                    let row = jq("<div>").addClass("row");
+                    row.append(jq("<div>").addClass("col-4").html(orderRow.labTest));
+                    row.append(jq("<div>").addClass("col-4").html(orderRow.orderDate));
+                    row.append(jq("<div>").addClass("col-4").html(orderRow.orderNumber));
+                    ordersWidgetsSection.append(row);
+                });
+            }
+
             jq("#back-button").click(() => { document.location.href = patientListPage; })
 
             jq("#process-orders-button").click(function() {
-                const ordersWidgetsSection = jq("#orders-widgets");
+                const ordersWidgetsSection = jq("#process-orders-form .orders-widgets");
                 ordersWidgetsSection.html("");
                 const selectedOrderData = getSelectedOrderData();
                 if (selectedOrderData.length > 0) {
-                    let headerRow = jq("<div>").addClass("row table-header");
-                    headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.labTest") }"));
-                    headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.orderDate") }"));
-                    headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.orderNumber") }"));
-                    ordersWidgetsSection.append(headerRow);
-                    selectedOrderData.forEach((orderRow) => {
-                        let row = jq("<div>").addClass("row");
-                        row.append(jq("<div>").addClass("col-4").html(orderRow.labTest));
-                        row.append(jq("<div>").addClass("col-4").html(orderRow.orderDate));
-                        row.append(jq("<div>").addClass("col-4").html(orderRow.orderNumber));
-                        ordersWidgetsSection.append(row);
-                    });
+                    populateOrderWidgetsSection(ordersWidgetsSection, selectedOrderData);
 
                     // Populate default values each time form is opened
-                    jq("#errors-section").html("");
+                    jq("#process-orders-errors-section").html("");
                     jq("#process-orders-form").find(":input").val("");
                     const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
                     jq("#specimen-date-estimated").attr("value", pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid).removeAttr("checked");
@@ -137,6 +141,25 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
+            jq("#remove-orders-button").click(function() {
+                const ordersWidgetsSection = jq("#remove-orders-form .orders-widgets");
+                ordersWidgetsSection.html("");
+                const selectedOrderData = getSelectedOrderData();
+                if (selectedOrderData.length > 0) {
+                    populateOrderWidgetsSection(ordersWidgetsSection, selectedOrderData);
+                    jq("#remove-orders-errors-section").html("");
+                    jq("#remove-orders-form").find(":input").val("");
+
+                    const reasonTestNotPerformedQuestion = pihAppsConfig.labOrderConfig.reasonTestNotPerformedQuestion;
+                    if (!reasonTestNotPerformedQuestion || reasonTestNotPerformedQuestion.answers.length === 0) {
+                        jq("#remove-reason-section").hide();
+                    }
+
+                    jq("#view-orders-section").hide();
+                    jq("#remove-orders-section").show();
+                }
+            });
+
             const getFieldValue = function(formData, fieldName) {
                 return formData.find(e => e.name === fieldName)?.value ?? '';
             }
@@ -151,7 +174,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 // Note: In the labworkflow owa version, order was set on obs, but we do not do this here as there could be multiple orders
             }
 
-            const validateFormData = function(formData) {
+            const validateProcessOrdersFormData = function(formData) {
                 const errors = [];
                 const currentDate = moment();
                 const collectionDateStr =  getFieldValue(formData, "specimen_collection_date");
@@ -170,8 +193,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 return errors;
             }
 
-            const disableFormEntry = () => { jq("#process-orders-form .action-button").attr("disabled", "disabled") };
-            const enableFormEntry = () => { jq("#process-orders-form .action-button").removeAttr("disabled") };
+            const disableFormEntry = () => { jq(".action-button").attr("disabled", "disabled") };
+            const enableFormEntry = () => { jq(".action-button").removeAttr("disabled") };
 
             jq("#process-orders-form").submit((event) => {
                 event.preventDefault();
@@ -179,11 +202,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 const selectedOrders = getSelectedOrderData();
                 const formData = jq("#process-orders-form").serializeArray();
 
-                jq("#errors-section").html("");
-                const validationErrors = validateFormData(formData);
+                jq("#process-orders-errors-section").html("");
+                const validationErrors = validateProcessOrdersFormData(formData);
                 if (validationErrors && validationErrors.length > 0) {
                     validationErrors.forEach(e => {
-                        jq("#errors-section").append(jq("<div>").html(e));
+                        jq("#process-orders-errors-section").append(jq("<div>").html(e));
                     });
                     enableFormEntry();
                     return;
@@ -230,9 +253,37 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     },
                     error: (xhr) => {
                         enableFormEntry();
+                        const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
+                        const message = error?.translatedMessage ?? error.message ?? error;
+                        jq("#process-orders-errors-section").html(message);
+                    }
+                });
+            });
+
+            jq("#remove-orders-form").submit((event) => {
+                event.preventDefault();
+                disableFormEntry();
+                const selectedOrders = getSelectedOrderData();
+                const formData = jq("#remove-orders-form").serializeArray();
+                jq("#remove-orders-errors-section").html("");
+                const removeOrdersPayload = {
+                    "orders": selectedOrders.map(o => o.uuid),
+                    "reason": getFieldValue(formData, "remove-reason-dropdown")
+                }
+                jq.ajax({
+                    url: openmrsContextPath + "/ws/rest/v1/pihapps/markOrdersAsNotPerformed",
+                    type: "POST",
+                    contentType: "application/json; charset=utf-8",
+                    data: JSON.stringify(removeOrdersPayload),
+                    dataType: "json",
+                    success: () => {
+                        document.location.href = patientListPage;
+                    },
+                    error: (xhr) => {
+                        enableFormEntry();
                         const error = xhr?.responseJSON?.error;
                         const message = error?.translatedMessage ?? error.message ?? error;
-                        jq("#errors-section").html(message);
+                        jq("#remove-orders-errors-section").html(message);
                     }
                 });
             });
@@ -243,8 +294,18 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 jq("#view-orders-section").show();
             });
 
+            jq("#remove-orders-section button.cancel").click((event) => {
+                event.preventDefault();
+                jq("#remove-orders-section").hide();
+                jq("#view-orders-section").show();
+            });
+
             pihAppsConfig.labOrderConfig.testLocationQuestion?.answers?.forEach((answer) => {
                 jq("#test-location-picker-field").append(jq("<option>").attr("value", answer.uuid).html(answer.display));
+            });
+
+            pihAppsConfig.labOrderConfig.reasonTestNotPerformedQuestion?.answers?.forEach((answer) => {
+                jq("#remove-reason-picker-field").append(jq("<option>").attr("value", answer.uuid).html(answer.display));
             });
 
             pagingDataTable.initialize({
@@ -315,7 +376,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     .table-header div {
         font-weight: bold;
     }
-    #orders-section {
+    .orders-section {
         padding: 10px 0 10px 0;
         background-color: lightgray;
         margin-bottom: 10px;
@@ -326,7 +387,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         font-weight: bold;
         font-size: large;
     }
-    #errors-section {
+    .errors-section {
         font-weight: bold;
         color: red;
     }
@@ -368,7 +429,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     <div id="order-actions-section">
         <input type="button" id="back-button" class="cancel" value="${ ui.message("pihapps.return") }" />
         <input type="button" id="process-orders-button" value="${ ui.message("pihapps.processSelectedOrders") }" />
-        <input type="button" id="remove-orders-button" value="${ ui.message("pihapps.removeSelectedOrders") }" style="display:none;" />
+        <input type="button" id="remove-orders-button" value="${ ui.message("pihapps.removeSelectedOrders") }" />
     </div>
 </div>
 
@@ -376,12 +437,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     <div class="form-header">
         ${ui.message("pihapps.processSelectedOrders")}
     </div>
-    <div id="errors-section"></div>
+    <div id="process-orders-errors-section" class="errors-section"></div>
     <form id="process-orders-form">
         <div class="dialog-content form">
-            <div id="orders-section" class="form-field-section row">
-                <span id="orders-label" class="form-field-label col-4">${ui.message("pihapps.selectedOrders")}:</span>
-                <span id="orders-widgets" class="form-field-widgets col-8">
+            <div class="orders-section" class="form-field-section row">
+                <span class="orders-label" class="form-field-label col-4">${ui.message("pihapps.selectedOrders")}:</span>
+                <span class="orders-widgets" class="form-field-widgets col-8">
 
                 </span>
             </div>
@@ -474,5 +535,34 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 </div>
 
 <div id="remove-orders-section" style="display:none;">
+    <div class="form-header">
+        ${ui.message("pihapps.removeSelectedOrders")}
+    </div>
+    <div id="remove-orders-errors-section" class="errors-section"></div>
+    <form id="remove-orders-form">
+        <div class="dialog-content form">
+            <div class="orders-section" class="form-field-section row">
+                <span class="orders-label" class="form-field-label col-4">${ui.message("pihapps.selectedOrders")}:</span>
+                <span class="orders-widgets" class="form-field-widgets col-8">
 
+                </span>
+            </div>
+            <div id="remove-reason-section" class="form-field-section row">
+                <span id="remove-reason-label" class="form-field-label col-4">${ui.message("pihapps.reason")}:</span>
+                <span id="remove-reason-widgets" class="form-field-widgets col-auto">
+                    ${ui.includeFragment("uicommons", "field/dropDown", [
+                            id: "remove-reason-picker",
+                            label: "",
+                            formFieldName: "remove-reason-dropdown",
+                            left: true,
+                            options: [],
+                            initialValue: ""
+                    ])}
+                </span>
+            </div>
+            <br><br>
+            <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
+            <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
+        </div>
+    </form>
 </div>

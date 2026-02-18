@@ -7,6 +7,7 @@ import org.openmrs.Concept;
 import org.openmrs.Order;
 import org.openmrs.OrderType;
 import org.openmrs.Patient;
+import org.openmrs.api.ConceptService;
 import org.openmrs.api.OrderService;
 import org.openmrs.module.pihapps.PihAppsService;
 import org.openmrs.module.pihapps.SortCriteria;
@@ -16,6 +17,7 @@ import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
 import org.openmrs.module.pihapps.orders.PatientWithOrders;
 import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
+import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
@@ -24,7 +26,10 @@ import org.openmrs.module.webservices.rest.web.resource.api.Converter;
 import org.openmrs.module.webservices.rest.web.resource.impl.AlreadyPaged;
 import org.openmrs.module.webservices.rest.web.response.ResponseException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -52,11 +57,14 @@ public class LabOrderRestController {
 
     private final OrderService orderService;
 
+    private final ConceptService conceptService;
+
     @Autowired
-    public LabOrderRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig, OrderService orderService) {
+    public LabOrderRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig, OrderService orderService, ConceptService conceptService) {
         this.pihAppsService = pihAppsService;
         this.labOrderConfig = labOrderConfig;
         this.orderService = orderService;
+        this.conceptService = conceptService;
     }
 
     @RequestMapping(value = "/rest/v1/pihapps/labOrder", method = RequestMethod.GET)
@@ -187,6 +195,37 @@ public class LabOrderRestController {
         Converter<PatientWithOrders> patientConverter = ConversionUtil.getConverter(PatientWithOrders.class);
         AlreadyPaged<PatientWithOrders> alreadyPaged = new AlreadyPaged<>(requestContext, result.getPatients(), hasMoreResults, result.getTotalCount());
         return alreadyPaged.toSimpleObject(patientConverter);
+    }
+
+    @RequestMapping(value = "/rest/v1/pihapps/markOrdersAsNotPerformed", method = RequestMethod.POST)
+    public Object markOrdersAsNotPerformed(HttpServletRequest request, HttpServletResponse response, @RequestBody SimpleObject post) throws ResponseException {
+        try {
+            List<String> orderUuids = post.get("orders");
+            if (orderUuids == null || orderUuids.isEmpty()) {
+                throw new RuntimeException("You must specify at least one order");
+            }
+            List<Order> orders = new ArrayList<>();
+            for (String orderUuid : orderUuids) {
+                Order order = orderService.getOrderByUuid(orderUuid);
+                if (order == null) {
+                    throw new Exception("No order found with uuid " + orderUuid);
+                }
+                orders.add(order);
+            }
+            Concept reason = null;
+            if (StringUtils.isNotBlank(post.get("reason"))) {
+                reason = conceptService.getConceptByReference(post.get("reason"));
+                if (reason == null) {
+                    throw new Exception("Invalid reason.  No concept found with uuid " + post.get("reason"));
+                }
+            }
+            pihAppsService.markOrdersAsNotFulfilled(orders, reason);
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        }
+        catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
+        }
     }
 
     /**

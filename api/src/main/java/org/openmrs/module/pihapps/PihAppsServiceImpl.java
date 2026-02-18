@@ -31,6 +31,7 @@ import org.openmrs.Patient;
 import org.openmrs.annotation.Authorized;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.LocationService;
+import org.openmrs.api.ObsService;
 import org.openmrs.api.OrderService;
 import org.openmrs.api.db.hibernate.DbSessionFactory;
 import org.openmrs.api.impl.BaseOpenmrsService;
@@ -78,6 +79,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 
 	@Setter
 	private OrderService orderService;
+
+	@Setter
+	private ObsService obsService;
 
 	@Setter
 	private DbSessionFactory sessionFactory;
@@ -318,5 +322,28 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		List<Order> orders = getOrders(orderSearchCriteria).getOrders();
 		encounterFulfillingOrders.setOrders(orders);
 		return encounterFulfillingOrders;
+	}
+
+	@Override
+	@Transactional
+	@Authorized(PrivilegeConstants.EDIT_ORDERS)
+	public void markOrdersAsNotFulfilled(List<Order> orders, Concept reason) {
+		for (Order order : orders) {
+			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.EXCEPTION, null);
+			if (reason != null) {
+				if (labOrderConfig.getReasonTestNotPerformedQuestion() == null) {
+					throw new IllegalArgumentException("Reason test not performed question is not configured");
+				}
+				Obs obs = new Obs();
+				obs.setPerson(order.getPatient());
+				obs.setObsDatetime(new Date());
+				obs.setConcept(labOrderConfig.getReasonTestNotPerformedQuestion());
+				obs.setOrder(order);
+				obs.setValueCoded(reason);
+				obs.setAccessionNumber(order.getAccessionNumber());
+				obs.setComment("result-entry-form^did-not-perform-dropdown"); // This is here for backwards-compatibility with the labworkflow owa
+				obsService.saveObs(obs, "");
+			}
+		}
 	}
 }

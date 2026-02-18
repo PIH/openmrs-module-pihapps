@@ -394,6 +394,18 @@ public class LabOrderConfig {
         return conceptService.getConceptByReference(getSpecimenReceivedDateQuestionReference());
     }
 
+    public String getReasonTestNotPerformedQuestionReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.didNotPerformReason");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.didNotPerformReason");
+        }
+        return configVal;
+    }
+
+    public Concept getReasonTestNotPerformedQuestion() {
+        return conceptService.getConceptByReference(getReasonTestNotPerformedQuestionReference());
+    }
+
     private Map<String, String> map(String... keysAndValues) {
         Map<String, String> ret = new LinkedHashMap<>();
         for (int i = 0; i < keysAndValues.length; i += 2) {
