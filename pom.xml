@@ -54,7 +54,7 @@
         <coreappsVersion>3.2.0</coreappsVersion>
         <emrapiVersion>3.3.0-SNAPSHOT</emrapiVersion>
         <htmlformentryVersion>7.1.0</htmlformentryVersion>
-        <metadatamappingVersion>1.7.0</metadatamappingVersion>
+        <metadatamappingVersion>2.0.0</metadatamappingVersion>
         <uicommonsVersion>3.0.0</uicommonsVersion>
         <uiframeworkVersion>4.0.0</uiframeworkVersion>
         <uilibraryVersion>2.0.7</uilibraryVersion>
