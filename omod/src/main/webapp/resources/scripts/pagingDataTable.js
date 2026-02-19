@@ -42,6 +42,7 @@ class PagingDataTable {
         this.pageNumber = 0;
         this.totalCount = 0;
         this.pagedTable = null;
+        this.lastUpdateDate = null;
 
         // Set up the event handlers for navigating between pages
         this.getTableInfoElement().find(".first").click(() => this.goToFirstPage());
@@ -96,6 +97,14 @@ class PagingDataTable {
         this.totalCount = totalCount;
     }
 
+    getLastUpdateDate() {
+        return this.lastUpdateDate;
+    }
+
+    setLastUpdateDate(lastUpdateDate) {
+        this.lastUpdateDate = lastUpdateDate;
+    }
+
     getDefaultDataTableOptions() {
         return {
             bFilter: false,
@@ -120,6 +129,8 @@ class PagingDataTable {
     }
 
     updateTable() {
+        const currentUpdateDate = new Date();
+        this.setLastUpdateDate(currentUpdateDate);
         const pagingParameters = {
             "totalCount": true,
             "startIndex": this.getPageNumber() * this.getPageSize(),
@@ -142,6 +153,9 @@ class PagingDataTable {
         this.pagedTable.fnAddData(skeletonRows);
 
         jq.get(this.endpoint, requestParameters, (data) => {
+            if (currentUpdateDate !== this.getLastUpdateDate()) {
+                return;  // This happens if a table update is requested while an existing update/search is in progress
+            }
             if (!data || !data.results || data.results.length === 0) {
                 this.getPagedTable().fnClearTable();
                 this.setTotalCount(0);
