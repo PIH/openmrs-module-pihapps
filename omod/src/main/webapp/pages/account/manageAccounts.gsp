@@ -140,16 +140,12 @@
 
 <h3>${  ui.message("emr.task.accountManagement.label") }</h3>
 
-<div style="display:flex; justify-content: space-between;">
+<div style="display:flex; justify-content: space-between; padding-bottom: 10px;">
 	<div>
 		<a href="${ ui.pageLink("pihapps", "account/account") }">
 			<button id="create-account-button">${ ui.message("emr.createAccount") }</button>
 		</a>
 	</div>
-</div>
-
-<div style="padding:10px;" class="help-text">
-	${ui.message("emr.task.accountManagement.helpText")}
 </div>
 
 <div id="filter-section" class="row justify-content-start align-items-end">
