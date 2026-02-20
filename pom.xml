@@ -50,7 +50,7 @@
 
         <appframeworkVersion>2.18.0</appframeworkVersion>
         <appuiVersion>1.18.0</appuiVersion>
-        <authenticationVersion>2.1.0</authenticationVersion>
+        <authenticationVersion>2.2.0</authenticationVersion>
         <coreappsVersion>3.2.0</coreappsVersion>
         <emrapiVersion>3.3.0-SNAPSHOT</emrapiVersion>
         <htmlformentryVersion>7.1.0</htmlformentryVersion>
