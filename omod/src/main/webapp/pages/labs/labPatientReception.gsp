@@ -23,7 +23,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     const messageCodes = {
         specimenCollectionDateCannotBeFuture: '${ ui.message("pihapps.specimenCollectionDateCannotBeFuture") }',
         specimenReceivedDateCannotBeFuture: '${ ui.message("pihapps.specimenReceivedDateCannotBeFuture") }',
-        specimenReceivedCannotBeBeforeCollected: '${ ui.message("pihapps.specimenReceivedCannotBeBeforeCollected") }'
+        specimenReceivedCannotBeBeforeCollected: '${ ui.message("pihapps.specimenReceivedCannotBeBeforeCollected") }',
+        removeReasonRequired: '${ ui.message("pihapps.reasonRequired") }'
     };
 
     const breadcrumbs = [
@@ -266,9 +267,16 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 const selectedOrders = getSelectedOrderData();
                 const formData = jq("#remove-orders-form").serializeArray();
                 jq("#remove-orders-errors-section").html("");
+                const removeReason = getFieldValue(formData, "remove-reason-dropdown");
+                if (!removeReason) {
+                    jq("#remove-orders-errors-section").append(jq("<div>").html(messageCodes.removeReasonRequired));
+                    enableFormEntry();
+                    return;
+                }
+
                 const removeOrdersPayload = {
                     "orders": selectedOrders.map(o => o.uuid),
-                    "reason": getFieldValue(formData, "remove-reason-dropdown")
+                    "reason": removeReason
                 }
                 jq.ajax({
                     url: openmrsContextPath + "/ws/rest/v1/pihapps/markOrdersAsNotPerformed",
