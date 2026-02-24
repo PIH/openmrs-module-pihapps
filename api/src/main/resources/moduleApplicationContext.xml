@@ -19,6 +19,7 @@
 				<property name="locationService" ref="locationService"/>
 				<property name="orderService" ref="orderService"/>
 				<property name="encounterService" ref="encounterService"/>
+				<property name="obsService" ref="obsService"/>
 				<property name="sessionFactory" ref="dbSessionFactory"/>
 			</bean>
 		</property>
