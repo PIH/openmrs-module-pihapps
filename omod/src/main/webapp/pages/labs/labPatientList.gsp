@@ -8,7 +8,8 @@
     ui.includeJavascript("pihapps", "dateUtils.js")
 
     def now = new Date()
-    def collectionPage = ui.pageLink("pihapps", "labs/labPatientReception");
+    def collectionPage = ui.pageLink("pihapps", "labs/labPatientReception")
+    def orderListPage = ui.pageLink("pihapps", "labs/labOrderList")
 %>
 
 <script type="text/javascript">
@@ -113,11 +114,31 @@
         font-weight: bold;
         color: red;
     }
+    .dropdown {
+        background: unset;
+        top: unset;
+        div {
+            display: none;
+        }
+    }
 </style>
 
 <div class="row justify-content-between">
     <div class="col-6">
         <h3>${ ui.message("pihapps.labPatientList") }</h3>
+    </div>
+    <div class="col-6 text-right">
+        <div class="dropdown show">
+            <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                ${ ui.message("pihapps.actions") }
+            </a>
+            <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
+                <a class="dropdown-item" href="${ orderListPage }">${ ui.message("pihapps.labOrderList") }</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 text-right">
+        <a href="${}">${ ui.message("pihapps.") }</a>
     </div>
 </div>
 <form method="get" id="test-filter-form">

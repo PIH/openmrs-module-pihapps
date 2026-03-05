@@ -8,6 +8,8 @@
     ui.includeJavascript("pihapps", "dateUtils.js")
 
     def now = new Date()
+    def patientListPage = ui.pageLink("pihapps", "labs/labPatientList")
+    def orderLabsPage = ui.pageLink("coreapps", "findpatient/findPatient", ["app": "pih.app.labs.ordering"])
 %>
 
 <script type="text/javascript">
@@ -130,6 +132,13 @@
         padding-left: 10px;
         cursor: pointer;
     }
+    .dropdown {
+        background: unset;
+        top: unset;
+        div {
+            display: none;
+        }
+    }
 </style>
 
 <div class="row justify-content-between">
@@ -137,9 +146,15 @@
         <h3>${ ui.message("pihapps.labOrderList") }</h3>
     </div>
     <div class="col-6 text-right">
-        <a href="${ui.pageLink("coreapps", "findpatient/findPatient", ["app": "pih.app.labs.ordering"])}">
-            <input type="button" value="${ui.message("pihapps.addLabOrders")}" style="max-width: unset;"/>
-        </a>
+        <div class="dropdown show">
+            <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                ${ ui.message("pihapps.actions") }
+            </a>
+            <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
+                <a class="dropdown-item" href="${ patientListPage }">${ ui.message("pihapps.labPatientReception") }</a>
+                <a class="dropdown-item" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
+            </div>
+        </div>
     </div>
 </div>
 <form method="get" id="test-filter-form">
