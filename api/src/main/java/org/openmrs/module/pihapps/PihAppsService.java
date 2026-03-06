@@ -14,6 +14,7 @@
 package org.openmrs.module.pihapps;
 
 import org.openmrs.Concept;
+import org.openmrs.Encounter;
 import org.openmrs.Location;
 import org.openmrs.Order;
 import org.openmrs.api.OpenmrsService;
@@ -35,6 +36,8 @@ public interface PihAppsService extends OpenmrsService {
 	EncounterFulfillingOrders saveEncounterFulfillingOrders(EncounterFulfillingOrders encounterFulfillingOrders);
 
 	EncounterFulfillingOrders getEncounterFulfillingOrders(String encounterUuid);
+
+	Encounter getFulfillerEncouterForOrder(Order order);
 
 	void markOrdersAsNotFulfilled(List<Order> orders, Concept reason);
 }

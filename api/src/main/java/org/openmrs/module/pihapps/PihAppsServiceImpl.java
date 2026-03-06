@@ -325,6 +325,25 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
+	@SuppressWarnings({ "unchecked" })
+	public Encounter getFulfillerEncouterForOrder(Order order) {
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
+		c.add(eq("voided", false));
+		c.add(eq("person", order.getPatient()));
+		c.add(eq("concept", labOrderConfig.getTestOrderNumberQuestion()));
+		c.add(eq("valueText", order.getOrderNumber()));
+		c.addOrder(org.hibernate.criterion.Order.desc("obsDatetime"));
+		c.setMaxResults(1);
+		List<Obs> l = c.list();
+		if (l == null || l.isEmpty()) {
+			return null;
+		}
+		return l.get(0).getEncounter();
+	}
+
+	@Override
 	@Transactional
 	@Authorized(PrivilegeConstants.EDIT_ORDERS)
 	public void markOrdersAsNotFulfilled(List<Order> orders, Concept reason) {

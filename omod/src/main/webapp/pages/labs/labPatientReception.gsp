@@ -449,7 +449,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     <form id="process-orders-form">
         <div class="dialog-content form">
             <div class="orders-section" class="form-field-section row">
-                <span class="orders-label" class="form-field-label col-4">${ui.message("pihapps.selectedOrders")}:</span>
                 <span class="orders-widgets" class="form-field-widgets col-8">
 
                 </span>

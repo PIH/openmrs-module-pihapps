@@ -13,7 +13,7 @@ class PihAppsDateUtils {
     }
 
     formatDateWithTimeIfPresent(dateStr, dateFormat, dateTimeFormat) {
-        return this.moment(dateStr).format(this.hasTime(dateStr) ? dateTimeFormat : dateFormat);
+        return dateStr ? this.moment(dateStr).format(this.hasTime(dateStr) ? dateTimeFormat : dateFormat) : "";
     }
 
     roundDownToNearestMinuteInterval(date, minuteInterval) {

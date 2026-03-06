@@ -44,6 +44,7 @@
             const getEmrId = (order) => { return patientUtils.getPreferredIdentifier(order.patient, primaryIdentifierType); };
             const getPatientName = (order) => { return order.patient.person.display; }
             const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated, dateFormat, dateTimeFormat); };
+            const getSpecimenDate = function(order) { return dateUtils.formatDateWithTimeIfPresent(order.fulfillerEncounter?.encounterDatetime, dateFormat, dateTimeFormat); };
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getAccessionNumber = (order) => { return order.accessionNumber; }
             const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };
@@ -72,10 +73,10 @@
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
                 endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
-                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))",
+                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getEmrId, getPatientName, getOrderNumber, getOrderDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest
+                    getEmrId, getPatientName, getOrderNumber, getOrderDate, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest
                 ],
                 datatableOptions: {
                     oLanguage: {
@@ -138,6 +139,17 @@
         div {
             display: none;
         }
+        z-index: unset;
+        padding: unset;
+        margin: unset;
+        a:link, a:visited, a:hover, a:active {
+            color: white;
+        }
+        .dropdown-menu {
+            a:link, a:visited, a:hover, a:active {
+                color: black;
+            }
+        }
     }
 </style>
 
@@ -147,7 +159,7 @@
     </div>
     <div class="col-6 text-right">
         <div class="dropdown show">
-            <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <a class="btn btn-sm btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 ${ ui.message("pihapps.actions") }
             </a>
             <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
@@ -210,6 +222,7 @@
             <th>${ ui.message("pihapps.name") }</th>
             <th>${ ui.message("pihapps.orderNumber") }</th>
             <th>${ ui.message("pihapps.orderDate") }</th>
+            <th>${ ui.message("pihapps.specimenDate") }</th>
             <th>${ ui.message("pihapps.labId") }</th>
             <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>
             <th>${ ui.message("pihapps.labTest") }</th>
