@@ -22,6 +22,15 @@
 
     const pagingDataTable = new PagingDataTable(jq);
 
+    const viewSpecimenEncounter = function(encounterUuid) {
+        const encounterRep = "id,uuid,encounterDatetime,location:(uuid, display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display))";
+        const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))"
+        const rep = "custom:(encounter:(" + encounterRep + "),orders:(" + orderRep + "))";
+        jq.get(openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterUuid + "?v=custom:(" + rep + ")", function(encAndOrders) {
+            console.log(encAndOrders);
+        });
+    };
+
     jq(document).ready(function() {
 
         const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
@@ -44,7 +53,6 @@
             const getEmrId = (order) => { return patientUtils.getPreferredIdentifier(order.patient, primaryIdentifierType); };
             const getPatientName = (order) => { return order.patient.person.display; }
             const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated, dateFormat, dateTimeFormat); };
-            const getSpecimenDate = function(order) { return dateUtils.formatDateWithTimeIfPresent(order.fulfillerEncounter?.encounterDatetime, dateFormat, dateTimeFormat); };
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getAccessionNumber = (order) => { return order.accessionNumber; }
             const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };
@@ -54,9 +62,16 @@
                 const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
                 return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
             }
+            const getSpecimenDate = function(order) {
+                const fulfillerEncounter = order.fulfillerEncounter;
+                if (!fulfillerEncounter) {
+                    return "";
+                }
+                const specimenDate = dateUtils.formatDateWithTimeIfPresent(fulfillerEncounter.encounterDatetime, dateFormat, dateTimeFormat);
+                return "<a href=\"javascript:viewSpecimenEncounter('" + fulfillerEncounter.uuid +  "')\">" + specimenDate + "</a>";
+            };
 
             const getFilterParameterValues = function() {
-                const fulfillerStatus = jq("#fulfillerStatus-filter").val();
                 return {
                     "orderType": pihAppsConfig.labOrderConfig.labTestOrderType?.uuid,
                     "patient": jq("#patient-filter-field").val(),
@@ -244,3 +259,5 @@
         <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
     </div>
 </div>
+
+${ ui.includeFragment("pihapps", "labs/specimenCollectionEncounter", ["id": "specimen-encounter-section"])}

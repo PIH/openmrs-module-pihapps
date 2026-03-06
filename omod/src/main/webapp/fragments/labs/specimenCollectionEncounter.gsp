@@ -21,7 +21,7 @@
 
     function initializeSpecimenCollectionForm(formConfig) {
 
-        const orderData = formConfig.orderData; // This is pre-processed, formatted order data, consisting of uuid, orderDate, orderNumber, labTest, orderedBy
+        const orderData = formConfig.orderData; // This is pre-processed, formatted order data, consisting of uuid, orderDate, orderNumber, labTest
         const pihAppsConfig = formConfig.pihAppsConfig;
 
         const dateUtils = new PihAppsDateUtils(moment);
@@ -237,7 +237,7 @@
                     ])}
                 </span>
                 <span class="form-field-widgets col-auto">
-                    <input class="specimen-date-estimated" type="checkbox" name="estimated-checkbox" value="${pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid}" />
+                    <input class="specimen-date-estimated" type="checkbox" name="estimated-checkbox" />
                     ${ui.message("pihapps.dateIsEstimated")}
                 </span>
             </div>

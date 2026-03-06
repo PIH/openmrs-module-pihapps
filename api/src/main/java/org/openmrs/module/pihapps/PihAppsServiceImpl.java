@@ -202,6 +202,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (StringUtils.isNotBlank(searchCriteria.getAccessionNumber())) {
 			c.add(eq("accessionNumber", searchCriteria.getAccessionNumber()).ignoreCase());
 		}
+		if (searchCriteria.getOrderNumbers() != null && !searchCriteria.getOrderNumbers().isEmpty()) {
+			c.add(in("orderNumber", searchCriteria.getOrderNumbers()));
+		}
 		if (searchCriteria.getActivatedOnOrBefore() != null) {
 			Date onOrBefore = OpenmrsUtil.getLastMomentOfDay(searchCriteria.getActivatedOnOrBefore());
 			c.add(le("dateActivated", onOrBefore));
@@ -306,19 +309,19 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		EncounterFulfillingOrders  encounterFulfillingOrders = new EncounterFulfillingOrders();
 		encounterFulfillingOrders.setEncounter(encounter);
-		Concept accessionNumberConcept = labOrderConfig.getTestOrderNumberQuestion();
-		if (accessionNumberConcept == null) {
-			throw new IllegalArgumentException("Accession Number Concept configuration is required");
+		Concept orderNumberConcept = labOrderConfig.getTestOrderNumberQuestion();
+		if (orderNumberConcept == null) {
+			throw new IllegalArgumentException("Test Order Number Concept configuration is required");
 		}
-		String accessionNumber = null;
+		List<String> orderNumbers = new ArrayList<>();
 		for (Obs obs : encounter.getObs()) {
-			if (BooleanUtils.isNotTrue(obs.getVoided()) && obs.getConcept().equals(accessionNumberConcept)) {
-				accessionNumber = obs.getValueText();
+			if (BooleanUtils.isNotTrue(obs.getVoided()) && obs.getConcept().equals(orderNumberConcept)) {
+				orderNumbers.add(obs.getValueText());
 			}
 		}
 		OrderSearchCriteria orderSearchCriteria = new OrderSearchCriteria();
 		orderSearchCriteria.setPatient(encounter.getPatient());
-		orderSearchCriteria.setAccessionNumber(accessionNumber);
+		orderSearchCriteria.setOrderNumbers(orderNumbers);
 		List<Order> orders = getOrders(orderSearchCriteria).getOrders();
 		encounterFulfillingOrders.setOrders(orders);
 		return encounterFulfillingOrders;

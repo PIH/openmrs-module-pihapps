@@ -67,8 +67,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                             "uuid": jq(element).val(),
                             "orderDate": columns.eq(1).html(),
                             "orderNumber": columns.eq(2).html(),
-                            "labTest": columns.eq(3).html(),
-                            "orderedBy": columns.eq(4).html(),
+                            "labTest": columns.eq(3).html()
                         });
                     }
                 });
