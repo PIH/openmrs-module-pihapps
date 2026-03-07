@@ -78,7 +78,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             jq("#process-orders-button").click(function() {
                 jq("#view-orders-section").hide();
                 const selectedOrders = getSelectedOrders();
-                initializeSpecimenCollectionForm({orders: selectedOrders, pihAppsConfig: pihAppsConfig});
+                initializeSpecimenCollectionForm({patientUuid: patientUuid, orders: selectedOrders, pihAppsConfig: pihAppsConfig});
             });
 
             jq("#remove-orders-button").click(function() {

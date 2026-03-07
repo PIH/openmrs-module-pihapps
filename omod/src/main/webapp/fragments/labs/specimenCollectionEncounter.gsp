@@ -21,6 +21,7 @@
 
     function initializeSpecimenCollectionForm(formConfig) {
 
+        const patientUuid = formConfig.patientUuid;
         const encounter = formConfig.encounter;
         const orders = formConfig.orders;
         const pihAppsConfig = formConfig.pihAppsConfig;
@@ -43,7 +44,6 @@
             headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.orderNumber") }"));
             ordersWidgetsSection.append(headerRow);
             orders.forEach((o) => {
-                console.log(o);
                 const urgency = o.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
                 const labTest = urgency + conceptUtils.getConceptShortName(o.concept, window.sessionContext?.locale);
                 let row = jq("<div>").addClass("row");
@@ -53,23 +53,56 @@
                 ordersWidgetsSection.append(row);
             });
 
+            // Get initial state
+            const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
+            let initialState = encounter ? {
+                patient:  encounter.patient.uuid,
+                collectionDate: encounter.encounterDatetime,
+                collectionLocation: encounter.location.uuid,
+                provider: encounter.encounterProviders && encounter.encounterProviders.length > 0 ? encounter.encounterProviders[0].provider.uuid : null,
+                orderNumber: encounter.obs.find(o => o.concept.uuid === pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid),
+                labId: encounter.obs.find(o => o.concept.uuid === pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid),
+                dateEstimated: encounter.obs.find(o => o.concept.uuid === pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid),
+                receivedDate: encounter.obs.find(o => o.concept.uuid === pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid),
+                testLocation: encounter.obs.find(o => o.concept.uuid === pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)
+            } : { };
+
             // Populate default values each time form is opened
             parentElement.find(".errors-section").html("");
             parentElement.find(":input").val("");
-            const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
-            parentElement.find(".specimen-date-estimated").attr("value", pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid).removeAttr("checked");
+
+            const estimatedCheckBox = parentElement.find(".specimen-date-estimated");
+            estimatedCheckBox.attr("value", pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid);
+            estimatedCheckBox.removeProp("checked");
+            if (initialState.dateEstimated) {
+                estimatedCheckBox.prop("checked", true);
+            }
+            const specimenDate = initialState.collectionDate ? new Date(initialState.collectionDate) : currentDatetime;
             jq(selectorPrefix + "specimen-date-picker-wrapper").datetimepicker("option", "maxDateTime", currentDatetime);
-            jq(selectorPrefix + "specimen-date-picker-wrapper").datetimepicker("setDate", currentDatetime);
-            jq(selectorPrefix + "specimen-location-picker-field").val(defaultLocation);
+            jq(selectorPrefix + "specimen-date-picker-wrapper").datetimepicker("setDate", specimenDate);
+            jq(selectorPrefix + "specimen-location-picker-field").val(initialState.collectionLocation ?? defaultLocation);
+
+            if (initialState.labId) {
+                jq(selectorPrefix + "lab-id-input-field").val(initialState.labId.value);
+            }
+
+            if (initialState.receivedDate) {
+                jq(selectorPrefix + "specimen-received-date-picker-wrapper").datetimepicker("setDate", new Date(initialState.receivedDate.value));
+            }
 
             const testLocationQuestion = pihAppsConfig.labOrderConfig.testLocationQuestion;
             if (!testLocationQuestion || testLocationQuestion.answers.length === 0) {
                 parentElement.find(".lab-location-section").hide();
             }
             else {
+                const testLocationField = jq(selectorPrefix + "test-location-picker-field");
+                testLocationField.empty();
                 testLocationQuestion.answers?.forEach((answer) => {
-                    jq(selectorPrefix + "test-location-picker-field").append(jq("<option>").attr("value", answer.uuid).html(answer.display));
+                    testLocationField.append(jq("<option>").attr("value", answer.uuid).html(answer.display));
                 });
+                if (initialState.testLocation) {
+                    testLocationField.val(initialState.testLocation.value.uuid);
+                }
             }
 
             const encounterRole = pihAppsConfig.labOrderConfig.specimenCollectionEncounterRole?.uuid;
