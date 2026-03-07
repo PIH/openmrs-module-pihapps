@@ -21,10 +21,12 @@
 
     function initializeSpecimenCollectionForm(formConfig) {
 
-        const orderData = formConfig.orderData; // This is pre-processed, formatted order data, consisting of uuid, orderDate, orderNumber, labTest
+        const encounter = formConfig.encounter;
+        const orders = formConfig.orders;
         const pihAppsConfig = formConfig.pihAppsConfig;
 
-        const dateUtils = new PihAppsDateUtils(moment);
+        const conceptUtils = new PihAppsConceptUtils(jq);
+        const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
 
         const id = "${id}";
         const selectorPrefix = "#" + id;
@@ -32,7 +34,7 @@
 
         const ordersWidgetsSection = parentElement.find(".orders-widgets");
         ordersWidgetsSection.html("");
-        if (orderData.length > 0) {
+        if (orders.length > 0) {
 
             // Display the orders that are included at the top of the form, read-only
             let headerRow = jq("<div>").addClass("row table-header");
@@ -40,10 +42,13 @@
             headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.orderDate") }"));
             headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.orderNumber") }"));
             ordersWidgetsSection.append(headerRow);
-            orderData.forEach((o) => {
+            orders.forEach((o) => {
+                console.log(o);
+                const urgency = o.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
+                const labTest = urgency + conceptUtils.getConceptShortName(o.concept, window.sessionContext?.locale);
                 let row = jq("<div>").addClass("row");
-                row.append(jq("<div>").addClass("col-4").html(o.labTest));
-                row.append(jq("<div>").addClass("col-4").html(o.orderDate));
+                row.append(jq("<div>").addClass("col-4").html(labTest));
+                row.append(jq("<div>").addClass("col-4").html(dateUtils.formatDateWithTimeIfPresent(o.dateActivated)));
                 row.append(jq("<div>").addClass("col-4").html(o.orderNumber));
                 ordersWidgetsSection.append(row);
             });
@@ -119,7 +124,7 @@
                 const provider = formData.find(e => e.name === "specimen_collection_provider")?.value;
                 const encounterProviders = (provider && encounterRole) ? [{ provider, encounterRole }] : [];
 
-                const orderNumberObs = orderData.map((o, index) => {
+                const orderNumberObs = orders.map((o, index) => {
                     return {
                         concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
                         value: o.orderNumber,
@@ -143,7 +148,7 @@
                             getObs(formData, "test-location-dropdown", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)
                         ].filter(o => o.value)
                     },
-                    orders: orderData.map(o => o.uuid)
+                    orders: orders.map(o => o.uuid)
                 }
                 jq.ajax({
                     url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders",

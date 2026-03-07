@@ -32,13 +32,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
 
-            const dateFormat = pihAppsConfig.dateFormat ?? "DD-MMM-YYYY";
-            const dateTimeFormat = pihAppsConfig.dateTimeFormat ?? "DD-MMM-YYYY HH:mm";
             const conceptUtils = new PihAppsConceptUtils(jq);
-            const dateUtils = new PihAppsDateUtils(moment);
+            const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
 
             // Column functions
-            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated, dateFormat, dateTimeFormat); };
+            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated); };
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getOrderer = (order) => { return order.orderer.person.display; }
             const getLabTest = function(order) {
@@ -58,20 +56,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             }
 
-            const getSelectedOrderData = function() {
-                const ret = [];
-                jq("#orders-table").find(".order-selector").each(function(index, element) {
-                    if (jq(element).prop("checked")) {
-                        const columns = jq(element).closest("tr").find("td");
-                        ret.push({
-                            "uuid": jq(element).val(),
-                            "orderDate": columns.eq(1).html(),
-                            "orderNumber": columns.eq(2).html(),
-                            "labTest": columns.eq(3).html()
-                        });
-                    }
+            const getSelectedOrders = function() {
+                const orderUuids = [];
+                jq("#orders-table").find(".order-selector:checked").each(function(index, element) {
+                    orderUuids.push(jq(element).val())
                 });
-                return ret;
+                return pagingDataTable.getRowObjects().filter((o) => orderUuids.includes(o.uuid));
             }
 
             jq("#select-all-orders").change(function () {
@@ -87,16 +77,16 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
             jq("#process-orders-button").click(function() {
                 jq("#view-orders-section").hide();
-                const selectedOrderData = getSelectedOrderData();
-                initializeSpecimenCollectionForm({orderData: selectedOrderData, pihAppsConfig: pihAppsConfig});
+                const selectedOrders = getSelectedOrders();
+                initializeSpecimenCollectionForm({orders: selectedOrders, pihAppsConfig: pihAppsConfig});
             });
 
             jq("#remove-orders-button").click(function() {
                 const ordersWidgetsSection = jq("#remove-orders-form .orders-widgets");
                 ordersWidgetsSection.html("");
-                const selectedOrderData = getSelectedOrderData();
-                if (selectedOrderData.length > 0) {
-                    populateOrderWidgetsSection(ordersWidgetsSection, selectedOrderData);
+                const selectedOrders = getSelectedOrders();
+                if (selectedOrders.length > 0) {
+                    populateOrderWidgetsSection(ordersWidgetsSection, selectedOrders);
                     jq("#remove-orders-errors-section").html("");
                     jq("#remove-orders-form").find(":input").val("");
 
@@ -120,7 +110,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             jq("#remove-orders-form").submit((event) => {
                 event.preventDefault();
                 disableFormEntry();
-                const selectedOrders = getSelectedOrderData();
+                const selectedOrders = getSelectedOrders();
                 const formData = jq("#remove-orders-form").serializeArray();
                 jq("#remove-orders-errors-section").html("");
                 const removeReason = getFieldValue(formData, "remove-reason-dropdown");

@@ -3,8 +3,10 @@
  */
 class PihAppsDateUtils {
 
-    constructor(moment) {
+    constructor(moment, dateFormat, dateTimeFormat) {
         this.moment = moment;
+        this.dateFormat = dateFormat ?? "DD-MMM-YYYY";
+        this.dateTimeFormat = dateTimeFormat ?? "DD-MMM-YYYY HH:mm";
     }
 
     hasTime(dateStr) {
@@ -12,8 +14,8 @@ class PihAppsDateUtils {
         return (m.hour() !== 0 || m.minute() !== 0 || m.second() !== 0 || m.millisecond() !== 0);
     }
 
-    formatDateWithTimeIfPresent(dateStr, dateFormat, dateTimeFormat) {
-        return dateStr ? this.moment(dateStr).format(this.hasTime(dateStr) ? dateTimeFormat : dateFormat) : "";
+    formatDateWithTimeIfPresent(dateStr) {
+        return dateStr ? this.moment(dateStr).format(this.hasTime(dateStr) ? this.dateTimeFormat : this.dateFormat) : "";
     }
 
     roundDownToNearestMinuteInterval(date, minuteInterval) {
