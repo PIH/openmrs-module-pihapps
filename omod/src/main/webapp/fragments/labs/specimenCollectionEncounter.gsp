@@ -97,6 +97,7 @@
             else {
                 const testLocationField = jq(selectorPrefix + "test-location-picker-field");
                 testLocationField.empty();
+                testLocationField.append(jq("<option>").attr("value", "").html(""));
                 testLocationQuestion.answers?.forEach((answer) => {
                     testLocationField.append(jq("<option>").attr("value", answer.uuid).html(answer.display));
                 });
