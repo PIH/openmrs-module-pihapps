@@ -27,7 +27,7 @@
     const pagingDataTable = new PagingDataTable(jq);
 
     const viewSpecimenEncounter = function(encounterUuid) {
-        const encounterRep = "id,uuid,patient:(uuid),encounterDatetime,location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(uuid,concept:(uuid),value,comment,formNamespaceAndPath)";
+        const encounterRep = "id,uuid,patient:(uuid),encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(uuid,concept:(uuid,conceptClass:(name)),value,comment,formNamespaceAndPath)";
         const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:" + conceptRep
         const rep = "encounter:(" + encounterRep + "),orders:(" + orderRep + ")";
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
@@ -37,12 +37,18 @@
                     patientUuid: encAndOrders.encounter.patient.uuid,
                     orders: encAndOrders.orders,
                     encounter: encAndOrders.encounter,
-                    pihAppsConfig: pihAppsConfig
+                    pihAppsConfig: pihAppsConfig,
+                    onSuccessFunction: () => { closeEncounterEdit(); pagingDataTable.updateTable(); }
                 });
                 jq("#edit-specimen-encounter-section").show();
             });
         });
     };
+
+    const closeEncounterEdit = function() {
+        jq("#edit-specimen-encounter-section").hide();
+        jq("#view-orders-section").show();
+    }
 
     jq(document).ready(function() {
 
@@ -133,8 +139,7 @@
 
             jq("#specimen-encounter-section button.cancel").click((event) => {
                 event.preventDefault();
-                jq("#edit-specimen-encounter-section").hide();
-                jq("#view-orders-section").show();
+                closeEncounterEdit();
             });
         });
     });
@@ -181,6 +186,10 @@
     }
     #edit-specimen-encounter-section {
         display: none;
+    }
+    #orders-table a {
+        color: #007FFF;
+        text-decoration: underline;
     }
 </style>
 

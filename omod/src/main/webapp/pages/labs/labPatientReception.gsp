@@ -12,7 +12,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 <script type="text/javascript">
 
     const patientUuid = '${patient.patient.uuid}';
-    const patientListPage = '${ui.pageLink("pihapps", "labs/labPatientList")}';
+    const patientListPage = '${ui.pageLink("pihapps", "labs/labPatientList")}'
 
     const breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
@@ -78,7 +78,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             jq("#process-orders-button").click(function() {
                 jq("#view-orders-section").hide();
                 const selectedOrders = getSelectedOrders();
-                initializeSpecimenCollectionForm({patientUuid: patientUuid, orders: selectedOrders, pihAppsConfig: pihAppsConfig});
+                initializeSpecimenCollectionForm({
+                    patientUuid: patientUuid,
+                    orders: selectedOrders,
+                    pihAppsConfig: pihAppsConfig,
+                    onSuccessFunction: () => { document.location.href = patientListPage; }
+                });
             });
 
             jq("#remove-orders-button").click(function() {
