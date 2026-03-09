@@ -240,7 +240,6 @@
                     addOrUpdateObs(updatedEncounter, initialState.dateEstimated, getObs(formData, "estimated-checkbox", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid));
                     addOrUpdateObs(updatedEncounter, initialState.receivedDate, getObs(formData, "specimen-received-date", pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid));
                     addOrUpdateObs(updatedEncounter, initialState.testLocation, getObs(formData, "test-location-dropdown", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid));
-                    console.log(updatedEncounter);
 
                     jq.ajax({
                         url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounter.uuid,
