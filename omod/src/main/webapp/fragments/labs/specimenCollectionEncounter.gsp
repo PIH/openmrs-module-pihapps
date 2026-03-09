@@ -222,8 +222,14 @@
                     }
                     const addOrUpdateObs = function(encounterToUpdate, existingObs, newObs) {
                         if (existingObs) {
-                            const existingValue = existingObs.value?.uuid ?? existingObs.value;
-                            if (existingValue !== newObs.value) {
+                            let existingValue = existingObs.value?.uuid ?? existingObs.value;
+                            let newValue = newObs.value;
+                            const datatype = existingObs.concept.datatype.name;
+                            if (datatype === 'Date' || datatype === 'Datetime') {
+                                existingValue = dateUtils.formatDateWithTimeIfPresent(existingValue);
+                                newValue = dateUtils.formatDateWithTimeIfPresent(newValue);
+                            }
+                            if (existingValue !== newValue) {
                                 updatedEncounter.obs.push({ uuid: existingObs.uuid, voided: true });
                                 if (newObs.value) {
                                     updatedEncounter.obs.push({ ...newObs, previousVersion: existingObs.uuid });

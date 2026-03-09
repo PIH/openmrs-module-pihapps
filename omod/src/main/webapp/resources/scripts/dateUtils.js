@@ -29,21 +29,4 @@ class PihAppsDateUtils {
         d.setMinutes(minutes)
         return d;
     }
-
-    /**
-     * The rest module expects dates in yyyy-MM-dd, and datetimes in yyyy-MM-dd HH:mm formats
-     * However, the rest module produces dates in "yyyy-MM-ddTHH:m:ss" formats.  So this converts to the expected format if needed.
-     */
-    normalizeDateStrForRest(inputStr, includeTime) {
-        const dateTimeRegex = new RegExp("^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}-[0-9]{2}:[0-9]{2})$");
-        if (inputStr && dateTimeRegex.test(inputStr)) {
-            if (includeTime) {
-                return inputStr.substring(0, 16).replace("T", " ");
-            } else {
-                return inputStr.substring(0, 10)
-            }
-        }
-        return inputStr;
-    }
-
 }
