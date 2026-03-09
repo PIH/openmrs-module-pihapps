@@ -152,7 +152,7 @@
                 }
                 if (errors && errors.length > 0) {
                     errors.forEach(e => {
-                        jq("#process-orders-errors-section").append(jq("<div>").html(e));
+                        parentElement.find(".errors-section").append(jq("<div>").html(e));
                     });
                     jq(".action-button").removeAttr("disabled");
                     return;
@@ -220,50 +220,28 @@
                     if (encounterProviders.length > 0) {
                         updatedEncounter.encounterProviders = encounterProviders;
                     }
-
-                    const newLabId = getObs(formData, "lab-id", pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid);
-                    if (initialState.labId) {
-                        if (initialState.labId.value !== newLabId.value) {
-                            updatedEncounter.obs.push({ uuid: initialState.labId.uuid, voided: true });
-                            if (newLabId.value) {
-                                updatedEncounter.obs.push({ ...newLabId, previousVersion: initialState.labId.uuid });
+                    const addOrUpdateObs = function(encounterToUpdate, existingObs, newObs) {
+                        if (existingObs) {
+                            const existingValue = existingObs.value?.uuid ?? existingObs.value;
+                            if (existingValue !== newObs.value) {
+                                updatedEncounter.obs.push({ uuid: existingObs.uuid, voided: true });
+                                if (newObs.value) {
+                                    updatedEncounter.obs.push({ ...newObs, previousVersion: existingObs.uuid });
+                                }
+                            }
+                        }
+                        else {
+                            if (newObs.value) {
+                                updatedEncounter.obs.push(newObs);
                             }
                         }
                     }
-                    else {
-                        updatedEncounter.obs.push(newLabId);
-                    }
-
-                    /*
-                    let initialState = encounter ? {
-                        labId: encounter.obs.find(o => o.concept.uuid === pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid),
-                        dateEstimated: encounter.obs.find(o => o.concept.uuid === pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid),
-                        receivedDate: encounter.obs.find(o => o.concept.uuid === pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid),
-                        testLocation: encounter.obs.find(o => o.concept.uuid === pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)
-                    } : { };
-
-
-
-
-
-                    const addOrUpdateObs = function(encounterToUpdate, newObs) {
-                        encounter.obs.forEach((o) => {
-                            // All obs date values need to be normalized.  They cannot be submitted back as they are received
-                            o.value = dateUtils.normalizeDateStrForRest(o.value);
-                            if (o.concept.uuid === newObs.concept && o.formNamespaceAndPath === newObs.formNamespaceAndPath) {
-                                newObs.uuid = o.uuid;
-                            }
-                        });
-                        if (!newObs.value) {
-                            encounterToUpdate.obs.push(newObs);
-                        }
-                    }
-                    addOrUpdateObs(updatedEncounter, ;
-                    addOrUpdateObs(updatedEncounter, getObs(formData, "estimated-checkbox", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid));
-                    addOrUpdateObs(updatedEncounter, getObs(formData, "specimen-received-date", pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid));
-                    addOrUpdateObs(updatedEncounter, getObs(formData, "test-location-dropdown", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid));
- */
+                    addOrUpdateObs(updatedEncounter, initialState.labId, getObs(formData, "lab-id", pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid));
+                    addOrUpdateObs(updatedEncounter, initialState.dateEstimated, getObs(formData, "estimated-checkbox", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid));
+                    addOrUpdateObs(updatedEncounter, initialState.receivedDate, getObs(formData, "specimen-received-date", pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid));
+                    addOrUpdateObs(updatedEncounter, initialState.testLocation, getObs(formData, "test-location-dropdown", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid));
                     console.log(updatedEncounter);
+
                     jq.ajax({
                         url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounter.uuid,
                         type: "POST",
@@ -393,7 +371,8 @@
                             label: "",
                             formFieldName: "specimen-received-date",
                             useTime: true,
-                            left: true
+                            left: true,
+                            clearButton: true
                     ])}
                 </span>
             </div>
