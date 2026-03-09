@@ -137,9 +137,6 @@
             </div>
         </div>
     </div>
-    <div class="col-6 text-right">
-        <a href="${}">${ ui.message("pihapps.") }</a>
-    </div>
 </div>
 <form method="get" id="test-filter-form">
     <div class="row justify-content-start align-items-end">
