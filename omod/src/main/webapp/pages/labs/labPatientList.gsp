@@ -120,6 +120,17 @@
         div {
             display: none;
         }
+        z-index: unset;
+        padding: unset;
+        margin: unset;
+        a:link, a:visited, a:hover, a:active {
+            color: white;
+        }
+        .dropdown-menu {
+            a:link, a:visited, a:hover, a:active {
+                color: black;
+            }
+        }
     }
 </style>
 
@@ -129,16 +140,13 @@
     </div>
     <div class="col-6 text-right">
         <div class="dropdown show">
-            <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <a class="btn btn-sm btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 ${ ui.message("pihapps.actions") }
             </a>
             <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
                 <a class="dropdown-item" href="${ orderListPage }">${ ui.message("pihapps.labOrderList") }</a>
             </div>
         </div>
-    </div>
-    <div class="col-6 text-right">
-        <a href="${}">${ ui.message("pihapps.") }</a>
     </div>
 </div>
 <form method="get" id="test-filter-form">
