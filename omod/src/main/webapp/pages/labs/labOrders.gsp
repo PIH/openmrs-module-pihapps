@@ -93,17 +93,15 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
 
-            const dateFormat = pihAppsConfig.dateFormat ?? "DD-MMM-YYYY";
-            const dateTimeFormat = pihAppsConfig.dateTimeFormat ?? "DD-MMM-YYYY HH:mm";
             const conceptUtils = new PihAppsConceptUtils(jq);
             const patientUtils = new PihAppsPatientUtils(jq);
-            const dateUtils = new PihAppsDateUtils(moment);
+            const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
             const orderStatusOptions = pihAppsConfig.labOrderConfig.orderStatusOptions;
             const fulfillerStatusOptions = pihAppsConfig.labOrderConfig.fulfillerStatusOptions;
             const orderFulfillmentStatusOptions = pihAppsConfig.labOrderConfig.orderFulfillmentStatusOptions;
 
             // Column functions
-            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated, dateFormat, dateTimeFormat); };
+            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated); };
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getOrderer = (order) => { return order.orderer.person.display; }
             const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };

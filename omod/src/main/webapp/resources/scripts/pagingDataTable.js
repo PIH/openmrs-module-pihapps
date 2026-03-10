@@ -43,6 +43,7 @@ class PagingDataTable {
         this.totalCount = 0;
         this.pagedTable = null;
         this.lastUpdateDate = null;
+        this.rowObjects = [];
 
         // Set up the event handlers for navigating between pages
         this.getTableInfoElement().find(".first").click(() => this.goToFirstPage());
@@ -156,7 +157,8 @@ class PagingDataTable {
             if (currentUpdateDate !== this.getLastUpdateDate()) {
                 return;  // This happens if a table update is requested while an existing update/search is in progress
             }
-            if (!data || !data.results || data.results.length === 0) {
+            this.rowObjects = data?.results ?? [];
+            if (this.rowObjects.length === 0) {
                 this.getPagedTable().fnClearTable();
                 this.setTotalCount(0);
                 this.pageNumber = 0;
@@ -164,7 +166,7 @@ class PagingDataTable {
                 return;
             }
             let tableRows = [];
-            data.results.forEach((result) => {
+            this.rowObjects.forEach((result) => {
                 let tableRow = [];
                 this.columnTransformFunctions.forEach(transformFunction => {
                     tableRow.push(transformFunction(result));
@@ -249,5 +251,9 @@ class PagingDataTable {
     getLastNumberForPage() {
         const lastNumber = Number(this.getFirstNumberForPage()) + Number(this.pageSize) - 1
         return lastNumber > this.totalCount ? this.totalCount : lastNumber;
+    }
+
+    getRowObjects() {
+        return this.rowObjects;
     }
 }

@@ -18,24 +18,46 @@
         { label: "${ ui.encodeJavaScript(ui.message("pihapps.labOrderList")) }" , link: '${ui.pageLink("pihapps", "labs/labOrderList")}'}
     ];
 
+    const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
+    const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid),reasonTestNotPerformedQuestion:(uuid,answers:(uuid,display)))";
+    const pihAppsConfigRep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
+
     moment.locale(window.sessionContext?.locale ?? 'en');
 
     const pagingDataTable = new PagingDataTable(jq);
 
+    const viewSpecimenEncounter = function(encounterUuid) {
+        const encounterRep = "id,uuid,patient:(uuid),encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(uuid,concept:(uuid,datatype:(name)),value,comment,formNamespaceAndPath)";
+        const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:" + conceptRep
+        const rep = "encounter:(" + encounterRep + "),orders:(" + orderRep + ")";
+        jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
+            jq.get(openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterUuid + "?v=custom:(" + rep + ")", function (encAndOrders) {
+                jq("#view-orders-section").hide();
+                initializeSpecimenCollectionForm({
+                    patientUuid: encAndOrders.encounter.patient.uuid,
+                    orders: encAndOrders.orders,
+                    encounter: encAndOrders.encounter,
+                    pihAppsConfig: pihAppsConfig,
+                    onSuccessFunction: () => { closeEncounterEdit(); pagingDataTable.updateTable(); }
+                });
+                jq("#edit-specimen-encounter-section").show();
+            });
+        });
+    };
+
+    const closeEncounterEdit = function() {
+        jq("#edit-specimen-encounter-section").hide();
+        jq("#view-orders-section").show();
+    }
+
     jq(document).ready(function() {
 
-        const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
-        const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display))";
-        const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
+        jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
 
-        jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
-
-            const dateFormat = pihAppsConfig.dateFormat ?? "DD-MMM-YYYY";
-            const dateTimeFormat = pihAppsConfig.dateTimeFormat ?? "DD-MMM-YYYY HH:mm";
             const primaryIdentifierType = pihAppsConfig.primaryIdentifierType?.uuid ?? '';
             const conceptUtils = new PihAppsConceptUtils(jq);
             const patientUtils = new PihAppsPatientUtils(jq);
-            const dateUtils = new PihAppsDateUtils(moment);
+            const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
             const orderStatusOptions = pihAppsConfig.labOrderConfig.orderStatusOptions;
             const fulfillerStatusOptions = pihAppsConfig.labOrderConfig.fulfillerStatusOptions;
             const orderFulfillmentStatusOptions = pihAppsConfig.labOrderConfig.orderFulfillmentStatusOptions;
@@ -43,7 +65,7 @@
             // Column functions
             const getEmrId = (order) => { return patientUtils.getPreferredIdentifier(order.patient, primaryIdentifierType); };
             const getPatientName = (order) => { return order.patient.person.display; }
-            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated, dateFormat, dateTimeFormat); };
+            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated); };
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getAccessionNumber = (order) => { return order.accessionNumber; }
             const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };
@@ -53,9 +75,16 @@
                 const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
                 return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
             }
+            const getSpecimenDate = function(order) {
+                const fulfillerEncounter = order.fulfillerEncounter;
+                if (!fulfillerEncounter) {
+                    return "";
+                }
+                const specimenDate = dateUtils.formatDateWithTimeIfPresent(fulfillerEncounter.encounterDatetime);
+                return "<a href=\"javascript:viewSpecimenEncounter('" + fulfillerEncounter.uuid +  "')\">" + specimenDate + "</a>";
+            };
 
             const getFilterParameterValues = function() {
-                const fulfillerStatus = jq("#fulfillerStatus-filter").val();
                 return {
                     "orderType": pihAppsConfig.labOrderConfig.labTestOrderType?.uuid,
                     "patient": jq("#patient-filter-field").val(),
@@ -72,10 +101,10 @@
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
                 endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
-                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))",
+                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getEmrId, getPatientName, getOrderNumber, getOrderDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest
+                    getEmrId, getPatientName, getOrderNumber, getOrderDate, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest
                 ],
                 datatableOptions: {
                     oLanguage: {
@@ -106,6 +135,11 @@
             jq("#test-filter-form").find(":input").change(function () {
                 pagingDataTable.setParameters(getFilterParameterValues())
                 pagingDataTable.goToFirstPage();
+            });
+
+            jq("#specimen-encounter-section button.cancel").click((event) => {
+                event.preventDefault();
+                closeEncounterEdit();
             });
         });
     });
@@ -138,96 +172,127 @@
         div {
             display: none;
         }
+        z-index: unset;
+        padding: unset;
+        margin: unset;
+        a:link, a:visited, a:hover, a:active {
+            color: white;
+        }
+        .dropdown-menu {
+            a:link, a:visited, a:hover, a:active {
+                color: black;
+            }
+        }
+    }
+    #edit-specimen-encounter-section {
+        display: none;
+    }
+    #orders-table a {
+        color: #007FFF;
+        text-decoration: underline;
     }
 </style>
 
-<div class="row justify-content-between">
-    <div class="col-6">
-        <h3>${ ui.message("pihapps.labOrderList") }</h3>
-    </div>
-    <div class="col-6 text-right">
-        <div class="dropdown show">
-            <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                ${ ui.message("pihapps.actions") }
-            </a>
-            <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
-                <a class="dropdown-item" href="${ patientListPage }">${ ui.message("pihapps.labPatientReception") }</a>
-                <a class="dropdown-item" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
+<div id="view-orders-section">
+    <div class="row justify-content-between">
+        <div class="col-6">
+            <h3>${ ui.message("pihapps.labOrderList") }</h3>
+        </div>
+        <div class="col-6 text-right">
+            <div class="dropdown show">
+                <a class="btn btn-sm btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    ${ ui.message("pihapps.actions") }
+                </a>
+                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
+                    <a class="dropdown-item" href="${ patientListPage }">${ ui.message("pihapps.labPatientReception") }</a>
+                    <a class="dropdown-item" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
+                </div>
             </div>
         </div>
     </div>
+
+    <form method="get" id="test-filter-form">
+        <div class="row justify-content-start align-items-end">
+            <div class="col">
+                ${ ui.includeFragment("pihapps", "field/datetimepicker", [
+                        id: "orderedFrom-filter",
+                        formFieldName: "orderedFrom",
+                        label: "pihapps.orderedFrom",
+                        classes: "form-control",
+                        endDate: now,
+                        useTime: false,
+                        clearButton: true
+                ])}
+            </div>
+            <div class="col">
+                ${ ui.includeFragment("pihapps", "field/datetimepicker", [
+                        id: "orderedTo-filter",
+                        formFieldName: "orderedTo",
+                        label: "pihapps.orderedTo",
+                        classes: "form-control",
+                        endDate: now,
+                        useTime: false,
+                        clearButton: true
+                ])}
+            </div>
+            <div class="col">
+                <label for="orderFulfillmentStatus-filter">${ ui.message("pihapps.orderStatus") }</label>
+                <select id="orderFulfillmentStatus-filter" name="orderFulfillmentStatus" class="form-control"></select>
+            </div>
+            <div class="col">
+                <label for="testConcept-filter">${ ui.message("pihapps.labTest") }</label>
+                <select id="testConcept-filter" name="testConcept" class="form-control">
+                    <option value=""></option>
+                </select>
+            </div>
+        </div>
+        <div class="row justify-content-start align-items-end">
+            <div class="col-md-6 col-sm-6">
+                <label for="patient-filter">${ ui.message("pihapps.patient") }</label>
+                ${ ui.includeFragment("pihapps", "field/patient", [ id: "patient-filter", formFieldName: "patient" ]) }
+            </div>
+            <div class="col">
+                <label for="lab-id-filter">${ ui.message("pihapps.labId") }:</label>
+                <input id="lab-id-filter" type="text" name="labId" value=""/>
+            </div>
+        </div>
+    </form>
+    <table id="orders-table">
+        <thead>
+            <tr>
+                <th>${ ui.message("pihapps.emrId") }</th>
+                <th>${ ui.message("pihapps.name") }</th>
+                <th>${ ui.message("pihapps.orderNumber") }</th>
+                <th>${ ui.message("pihapps.orderDate") }</th>
+                <th>${ ui.message("pihapps.specimenDate") }</th>
+                <th>${ ui.message("pihapps.labId") }</th>
+                <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>
+                <th>${ ui.message("pihapps.labTest") }</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div id="orders-table-info-and-paging" style="font-size: .9em">
+        <div class="row justify-content-between info-and-paging-row">
+            <div class="col paging-info"></div>
+            <div class="col text-right">
+                <a class="first paging-navigation">${ ui.message("uicommons.dataTable.first") }</a>
+                <a class="previous paging-navigation">${ ui.message("uicommons.dataTable.previous") }</a>
+                <a class="next paging-navigation">${ ui.message("uicommons.dataTable.next") }</a>
+                <a class="last paging-navigation">${ ui.message("uicommons.dataTable.last") }</a>
+            </div>
+        </div>
+        <div class="row justify-content-between info-and-paging-row">
+            <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
+        </div>
+    </div>
 </div>
-<form method="get" id="test-filter-form">
-    <div class="row justify-content-start align-items-end">
-        <div class="col">
-            ${ ui.includeFragment("pihapps", "field/datetimepicker", [
-                    id: "orderedFrom-filter",
-                    formFieldName: "orderedFrom",
-                    label: "pihapps.orderedFrom",
-                    classes: "form-control",
-                    endDate: now,
-                    useTime: false,
-                    clearButton: true
-            ])}
-        </div>
-        <div class="col">
-            ${ ui.includeFragment("pihapps", "field/datetimepicker", [
-                    id: "orderedTo-filter",
-                    formFieldName: "orderedTo",
-                    label: "pihapps.orderedTo",
-                    classes: "form-control",
-                    endDate: now,
-                    useTime: false,
-                    clearButton: true
-            ])}
-        </div>
-        <div class="col">
-            <label for="orderFulfillmentStatus-filter">${ ui.message("pihapps.orderStatus") }</label>
-            <select id="orderFulfillmentStatus-filter" name="orderFulfillmentStatus" class="form-control"></select>
-        </div>
-        <div class="col">
-            <label for="testConcept-filter">${ ui.message("pihapps.labTest") }</label>
-            <select id="testConcept-filter" name="testConcept" class="form-control">
-                <option value=""></option>
-            </select>
+
+<div id="edit-specimen-encounter-section">
+    <div class="row justify-content-between">
+        <div class="col-6">
+            <h3>${ ui.message("pihapps.specimenCollectionDetails") }</h3>
         </div>
     </div>
-    <div class="row justify-content-start align-items-end">
-        <div class="col-md-6 col-sm-6">
-            <label for="patient-filter">${ ui.message("pihapps.patient") }</label>
-            ${ ui.includeFragment("pihapps", "field/patient", [ id: "patient-filter", formFieldName: "patient" ]) }
-        </div>
-        <div class="col">
-            <label for="lab-id-filter">${ ui.message("pihapps.labId") }:</label>
-            <input id="lab-id-filter" type="text" name="labId" value=""/>
-        </div>
-    </div>
-</form>
-<table id="orders-table">
-    <thead>
-        <tr>
-            <th>${ ui.message("pihapps.emrId") }</th>
-            <th>${ ui.message("pihapps.name") }</th>
-            <th>${ ui.message("pihapps.orderNumber") }</th>
-            <th>${ ui.message("pihapps.orderDate") }</th>
-            <th>${ ui.message("pihapps.labId") }</th>
-            <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>
-            <th>${ ui.message("pihapps.labTest") }</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-<div id="orders-table-info-and-paging" style="font-size: .9em">
-    <div class="row justify-content-between info-and-paging-row">
-        <div class="col paging-info"></div>
-        <div class="col text-right">
-            <a class="first paging-navigation">${ ui.message("uicommons.dataTable.first") }</a>
-            <a class="previous paging-navigation">${ ui.message("uicommons.dataTable.previous") }</a>
-            <a class="next paging-navigation">${ ui.message("uicommons.dataTable.next") }</a>
-            <a class="last paging-navigation">${ ui.message("uicommons.dataTable.last") }</a>
-        </div>
-    </div>
-    <div class="row justify-content-between info-and-paging-row">
-        <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
-    </div>
+    ${ ui.includeFragment("pihapps", "labs/specimenCollectionEncounter", ["id": "specimen-encounter-section"])}
 </div>

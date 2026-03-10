@@ -16,6 +16,7 @@ public class OrderSearchCriteria {
     private List<OrderType> orderTypes;
     private Concept concept;
     private String accessionNumber;
+    private List<String> orderNumbers;
     private Date activatedOnOrBefore;
     private Date activatedOnOrAfter;
     private List<OrderStatus> orderStatus;

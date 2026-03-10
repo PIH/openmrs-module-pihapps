@@ -7,6 +7,9 @@ import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.module.webservices.rest.web.annotation.Resource;
+import org.openmrs.module.webservices.rest.web.representation.DefaultRepresentation;
+import org.openmrs.module.webservices.rest.web.representation.FullRepresentation;
+import org.openmrs.module.webservices.rest.web.representation.RefRepresentation;
 import org.openmrs.module.webservices.rest.web.representation.Representation;
 import org.openmrs.module.webservices.rest.web.resource.impl.DelegatingCrudResource;
 import org.openmrs.module.webservices.rest.web.resource.impl.DelegatingResourceDescription;
@@ -40,8 +43,14 @@ public class EncounterFulfillingOrdersResource extends DelegatingCrudResource<En
     }
 
     @Override
-    public DelegatingResourceDescription getRepresentationDescription(Representation representation) {
-        return getCreatableProperties();
+    public DelegatingResourceDescription getRepresentationDescription(Representation rep) {
+        if (rep instanceof DefaultRepresentation || rep instanceof FullRepresentation || rep instanceof RefRepresentation) {
+            DelegatingResourceDescription description = new DelegatingResourceDescription();
+            description.addProperty("encounter", rep);
+            description.addProperty("orders", rep);
+            return description;
+        }
+        return null;
     }
 
     @Override

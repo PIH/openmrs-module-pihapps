@@ -4,11 +4,7 @@
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
     ui.includeJavascript("pihapps", "pagingDataTable.js")
     ui.includeJavascript("pihapps", "conceptUtils.js")
-    ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
-
-    def now = new Date()
-    def specimenCollectionEncounterRole = pihAppsConfig.labOrderConfig.specimenCollectionEncounterRole
 %>
 
 ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ]) }
@@ -16,16 +12,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 <script type="text/javascript">
 
     const patientUuid = '${patient.patient.uuid}';
-    const defaultOrderer = '${sessionContext.currentProvider.uuid}';
-    const defaultLocation = '${sessionContext.sessionLocation.uuid}'
-    const patientListPage = '${ui.pageLink("pihapps", "labs/labPatientList")}';
-
-    const messageCodes = {
-        specimenCollectionDateCannotBeFuture: '${ ui.message("pihapps.specimenCollectionDateCannotBeFuture") }',
-        specimenReceivedDateCannotBeFuture: '${ ui.message("pihapps.specimenReceivedDateCannotBeFuture") }',
-        specimenReceivedCannotBeBeforeCollected: '${ ui.message("pihapps.specimenReceivedCannotBeBeforeCollected") }',
-        removeReasonRequired: '${ ui.message("pihapps.reasonRequired") }'
-    };
+    const patientListPage = '${ui.pageLink("pihapps", "labs/labPatientList")}'
 
     const breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
@@ -45,14 +32,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
 
-            const dateFormat = pihAppsConfig.dateFormat ?? "DD-MMM-YYYY";
-            const dateTimeFormat = pihAppsConfig.dateTimeFormat ?? "DD-MMM-YYYY HH:mm";
             const conceptUtils = new PihAppsConceptUtils(jq);
-            const patientUtils = new PihAppsPatientUtils(jq);
-            const dateUtils = new PihAppsDateUtils(moment);
+            const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
 
             // Column functions
-            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated, dateFormat, dateTimeFormat); };
+            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated); };
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getOrderer = (order) => { return order.orderer.person.display; }
             const getLabTest = function(order) {
@@ -72,21 +56,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             }
 
-            const getSelectedOrderData = function() {
-                const ret = [];
-                jq("#orders-table").find(".order-selector").each(function(index, element) {
-                    if (jq(element).prop("checked")) {
-                        const columns = jq(element).closest("tr").find("td");
-                        ret.push({
-                            "uuid": jq(element).val(),
-                            "orderDate": columns.eq(1).html(),
-                            "orderNumber": columns.eq(2).html(),
-                            "labTest": columns.eq(3).html(),
-                            "orderedBy": columns.eq(4).html(),
-                        });
-                    }
+            const getSelectedOrders = function() {
+                const orderUuids = [];
+                jq("#orders-table").find(".order-selector:checked").each(function(index, element) {
+                    orderUuids.push(jq(element).val())
                 });
-                return ret;
+                return pagingDataTable.getRowObjects().filter((o) => orderUuids.includes(o.uuid));
             }
 
             jq("#select-all-orders").change(function () {
@@ -98,56 +73,25 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
-            const populateOrderWidgetsSection = function(ordersWidgetsSection, selectedOrderData) {
-                let headerRow = jq("<div>").addClass("row table-header");
-                headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.labTest") }"));
-                headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.orderDate") }"));
-                headerRow.append(jq("<div>").addClass("col-4").html("${ ui.message("pihapps.orderNumber") }"));
-                ordersWidgetsSection.append(headerRow);
-                selectedOrderData.forEach((orderRow) => {
-                    let row = jq("<div>").addClass("row");
-                    row.append(jq("<div>").addClass("col-4").html(orderRow.labTest));
-                    row.append(jq("<div>").addClass("col-4").html(orderRow.orderDate));
-                    row.append(jq("<div>").addClass("col-4").html(orderRow.orderNumber));
-                    ordersWidgetsSection.append(row);
-                });
-            }
-
             jq("#back-button").click(() => { document.location.href = patientListPage; })
 
             jq("#process-orders-button").click(function() {
-                const ordersWidgetsSection = jq("#process-orders-form .orders-widgets");
-                ordersWidgetsSection.html("");
-                const selectedOrderData = getSelectedOrderData();
-                if (selectedOrderData.length > 0) {
-                    populateOrderWidgetsSection(ordersWidgetsSection, selectedOrderData);
-
-                    // Populate default values each time form is opened
-                    jq("#process-orders-errors-section").html("");
-                    jq("#process-orders-form").find(":input").val("");
-                    const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
-                    jq("#specimen-date-estimated").attr("value", pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid).removeAttr("checked");
-                    jq("#specimen-date-picker-wrapper").datetimepicker("option", "maxDateTime", currentDatetime);
-                    jq("#specimen-date-picker-wrapper").datetimepicker("setDate", currentDatetime);
-                    jq("#specimen-location-picker-field").val(defaultLocation);
-
-                    const testLocationQuestion = pihAppsConfig.labOrderConfig.testLocationQuestion;
-                    if (!testLocationQuestion || testLocationQuestion.answers.length === 0) {
-                        jq("#lab-location-section").hide();
-                    }
-
-                    // Open the form
-                    jq("#view-orders-section").hide();
-                    jq("#process-orders-section").show();
-                }
+                jq("#view-orders-section").hide();
+                const selectedOrders = getSelectedOrders();
+                initializeSpecimenCollectionForm({
+                    patientUuid: patientUuid,
+                    orders: selectedOrders,
+                    pihAppsConfig: pihAppsConfig,
+                    onSuccessFunction: () => { document.location.href = patientListPage; }
+                });
             });
 
             jq("#remove-orders-button").click(function() {
                 const ordersWidgetsSection = jq("#remove-orders-form .orders-widgets");
                 ordersWidgetsSection.html("");
-                const selectedOrderData = getSelectedOrderData();
-                if (selectedOrderData.length > 0) {
-                    populateOrderWidgetsSection(ordersWidgetsSection, selectedOrderData);
+                const selectedOrders = getSelectedOrders();
+                if (selectedOrders.length > 0) {
+                    populateOrderWidgetsSection(ordersWidgetsSection, selectedOrders);
                     jq("#remove-orders-errors-section").html("");
                     jq("#remove-orders-form").find(":input").val("");
 
@@ -165,111 +109,18 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 return formData.find(e => e.name === fieldName)?.value ?? '';
             }
 
-            const getObs = function(formData, fieldName, concept) {
-                return {
-                    concept: concept,
-                    value: getFieldValue(formData, fieldName),
-                    formNamespaceAndPath: 'pihapps^' + fieldName,
-                    comment: 'result-entry-form^' + fieldName // This is here for backwards-compatibility with the labworkflow owa
-                }
-                // Note: In the labworkflow owa version, order was set on obs, but we do not do this here as there could be multiple orders
-            }
-
-            const validateProcessOrdersFormData = function(formData) {
-                const errors = [];
-                const currentDate = moment();
-                const collectionDateStr =  getFieldValue(formData, "specimen_collection_date");
-                const collectionDate = collectionDateStr ? moment(collectionDateStr) : null;
-                if (collectionDate && collectionDate.isAfter(currentDate)) {
-                    errors.push(messageCodes.specimenCollectionDateCannotBeFuture);
-                }
-                const receivedDateStr = getFieldValue(formData, "specimen-received-date");
-                const receivedDate = receivedDateStr ? moment(receivedDateStr) : null;
-                if (receivedDate && receivedDate.isAfter(currentDate)) {
-                    errors.push(messageCodes.specimenReceivedDateCannotBeFuture);
-                }
-                if (collectionDate && receivedDate && collectionDate.isAfter(receivedDate)) {
-                    errors.push(messageCodes.specimenReceivedCannotBeBeforeCollected);
-                }
-                return errors;
-            }
-
             const disableFormEntry = () => { jq(".action-button").attr("disabled", "disabled") };
             const enableFormEntry = () => { jq(".action-button").removeAttr("disabled") };
-
-            jq("#process-orders-form").submit((event) => {
-                event.preventDefault();
-                disableFormEntry();
-                const selectedOrders = getSelectedOrderData();
-                const formData = jq("#process-orders-form").serializeArray();
-
-                jq("#process-orders-errors-section").html("");
-                const validationErrors = validateProcessOrdersFormData(formData);
-                if (validationErrors && validationErrors.length > 0) {
-                    validationErrors.forEach(e => {
-                        jq("#process-orders-errors-section").append(jq("<div>").html(e));
-                    });
-                    enableFormEntry();
-                    return;
-                }
-
-                const encounterRole = pihAppsConfig.labOrderConfig.specimenCollectionEncounterRole?.uuid;
-                const provider = formData.find(e => e.name === "specimen_collection_provider")?.value;
-                const encounterProviders = (provider && encounterRole) ? [{ provider, encounterRole }] : [];
-
-                const orderNumberObs = selectedOrders.map((o, index) => {
-                    return {
-                        concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
-                        value: o.orderNumber,
-                        comment: "result-entry-form^test-order-number", // This is here for backwards-compatibility with labworkflow owa
-                        formNamespaceAndPath: "pihapps^order_number_" + index
-                    }
-                });
-
-                const encounterFulfillingOrders = {
-                        encounter: {
-                            patient: patientUuid,
-                            encounterDatetime: formData.find(e => e.name === "specimen_collection_date").value,
-                            encounterType: pihAppsConfig.labOrderConfig.specimenCollectionEncounterType?.uuid,
-                            location: formData.find(e => e.name === "specimen_collection_location").value,
-                            encounterProviders: encounterProviders,
-                            obs: [
-                                ...orderNumberObs,
-                                getObs(formData, "lab-id", pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid),
-                                getObs(formData, "estimated-checkbox", pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid),
-                                getObs(formData, "specimen-received-date", pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid),
-                                getObs(formData, "test-location-dropdown", pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)
-                            ].filter(o => o.value)
-                        },
-                        orders: selectedOrders.map(o => o.uuid)
-                }
-                jq.ajax({
-                    url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders",
-                    type: "POST",
-                    contentType: "application/json; charset=utf-8",
-                    data: JSON.stringify(encounterFulfillingOrders),
-                    dataType: "json",
-                    success: () => {
-                        document.location.href = patientListPage;
-                    },
-                    error: (xhr) => {
-                        enableFormEntry();
-                        const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
-                        const message = error?.translatedMessage ?? error.message ?? error;
-                        jq("#process-orders-errors-section").html(message);
-                    }
-                });
-            });
 
             jq("#remove-orders-form").submit((event) => {
                 event.preventDefault();
                 disableFormEntry();
-                const selectedOrders = getSelectedOrderData();
+                const selectedOrders = getSelectedOrders();
                 const formData = jq("#remove-orders-form").serializeArray();
                 jq("#remove-orders-errors-section").html("");
                 const removeReason = getFieldValue(formData, "remove-reason-dropdown");
                 if (!removeReason) {
-                    jq("#remove-orders-errors-section").append(jq("<div>").html(messageCodes.removeReasonRequired));
+                    jq("#remove-orders-errors-section").append(jq("<div>").html('${ ui.message("pihapps.reasonRequired") }'));
                     enableFormEntry();
                     return;
                 }
@@ -306,10 +157,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 event.preventDefault();
                 jq("#remove-orders-section").hide();
                 jq("#view-orders-section").show();
-            });
-
-            pihAppsConfig.labOrderConfig.testLocationQuestion?.answers?.forEach((answer) => {
-                jq("#test-location-picker-field").append(jq("<option>").attr("value", answer.uuid).html(answer.display));
             });
 
             pihAppsConfig.labOrderConfig.reasonTestNotPerformedQuestion?.answers?.forEach((answer) => {
@@ -384,12 +231,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     .table-header div {
         font-weight: bold;
     }
-    .orders-section {
-        padding: 10px 0 10px 0;
-        background-color: lightgray;
-        margin-bottom: 10px;
-        padding-left: 5px;
-    }
     .form-header {
         padding-top: 10px;
         font-weight: bold;
@@ -398,6 +239,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     .errors-section {
         font-weight: bold;
         color: red;
+    }
+    #process-orders-section {
+        display:none;
     }
 </style>
 
@@ -441,106 +285,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     </div>
 </div>
 
-<div id="process-orders-section" style="display:none;">
-    <div class="form-header">
-        ${ui.message("pihapps.processSelectedOrders")}
-    </div>
-    <div id="process-orders-errors-section" class="errors-section"></div>
-    <form id="process-orders-form">
-        <div class="dialog-content form">
-            <div class="orders-section" class="form-field-section row">
-                <span class="orders-label" class="form-field-label col-4">${ui.message("pihapps.selectedOrders")}:</span>
-                <span class="orders-widgets" class="form-field-widgets col-8">
-
-                </span>
-            </div>
-            <div id="lab-id-section" class="form-field-section row">
-                <span id="lab-id-label" class="form-field-label col-4">${ui.message("pihapps.labId")}:</span>
-                <span id="lab-id-widgets" class="form-field-widgets col-auto">
-                    ${ui.includeFragment("uicommons", "field/text", [
-                            id: "lab-id-input",
-                            label: "",
-                            formFieldName: "lab-id",
-                            left: true,
-                            size: 20,
-                            initialValue: ""
-                    ])}
-                </span>
-            </div>
-            <div id="specimen-date-section" class="form-field-section row align-items-start">
-                <span id="specimen-date-label" class="form-field-label col-4">${ui.message("pihapps.specimenCollectionDate")}:</span>
-                <span id="specimen-date-widgets" class="form-field-widgets col-auto">
-                    ${ui.includeFragment("pihapps", "field/datetimepicker", [
-                            id: "specimen-date-picker",
-                            label: "",
-                            formFieldName: "specimen_collection_date",
-                            useTime: true,
-                            left: true,
-                            defaultDate: now
-                    ])}
-                </span>
-                <span id="specimen-date-estimated-widgets" class="form-field-widgets col-auto">
-                    <input id="specimen-date-estimated" type="checkbox" name="estimated-checkbox" value="${pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid}" />
-                    ${ui.message("pihapps.dateIsEstimated")}
-                </span>
-            </div>
-
-            <% if (specimenCollectionEncounterRole) { %>
-                <div id="specimen-provider-section" class="form-field-section row">
-                    <span id="specimen-provider-label" class="form-field-label col-4">${ui.message("pihapps.specimenCollectedBy")}:</span>
-                    <span id="specimen-provider-widgets" class="form-field-widgets col-auto">
-                        ${ui.includeFragment("pihapps", "field/provider", [
-                                id: "specimen-provider-picker",
-                                initialValue: sessionContext.currentProvider,
-                                formFieldName: "specimen_collection_provider",
-                        ])}
-                    </span>
-                </div>
-            <% } %>
-            <div id="specimen-location-section" class="form-field-section row">
-                <span id="specimen-location-label" class="form-field-label col-4">${ui.message("pihapps.specimenCollectionLocation")}:</span>
-                <span id="specimen-location-widgets" class="form-field-widgets col-auto">
-                    ${ui.includeFragment("pihapps", "field/location", [
-                            id: "specimen-location-picker",
-                            label: "",
-                            valueField: "uuid",
-                            initialValue: sessionContext.sessionLocation,
-                            formFieldName: "specimen_collection_location",
-                            "withTag": "Login Location"
-                    ])}
-                </span>
-            </div>
-            <div id="specimen-date-received-section" class="form-field-section row">
-                <span id="specimen-date-received-label" class="form-field-label col-4">${ui.message("pihapps.specimenReceivedDate")}:</span>
-                <span id="specimen-date-received-widgets" class="form-field-widgets col-auto">
-                    ${ui.includeFragment("pihapps", "field/datetimepicker", [
-                            id: "specimen-received-date-picker",
-                            label: "",
-                            formFieldName: "specimen-received-date",
-                            useTime: true,
-                            left: true
-                    ])}
-                </span>
-            </div>
-            <div id="lab-location-section" class="form-field-section row">
-                <span id="lab-location-label" class="form-field-label col-4">${ui.message("pihapps.labTestLocation")}:</span>
-                <span id="lab-location-widgets" class="form-field-widgets col-auto">
-                    ${ui.includeFragment("uicommons", "field/dropDown", [
-                            id: "test-location-picker",
-                            label: "",
-                            formFieldName: "test-location-dropdown",
-                            left: true,
-                            options: [],
-                            initialValue: ""
-                    ])}
-                </span>
-            </div>
-            <br><br>
-            <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
-            <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
-        </div>
-    </form>
-</div>
+${ ui.includeFragment("pihapps", "labs/specimenCollectionEncounter", ["id": "process-orders-section"])}
 
 <div id="remove-orders-section" style="display:none;">
     <div class="form-header">
