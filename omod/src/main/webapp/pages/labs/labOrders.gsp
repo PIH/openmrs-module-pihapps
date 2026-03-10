@@ -6,6 +6,7 @@
     ui.includeJavascript("pihapps", "conceptUtils.js")
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
+    ui.includeCss("pihapps", "labs/labs.css")
 
     def now = new Date()
 %>
@@ -174,40 +175,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         });
     });
 </script>
-
-<style>
-    #test-filter-form {
-        padding-bottom: 20px;
-        table-layout: fixed;
-    }
-    #test-filter-form input {
-        min-width: unset;
-    }
-    .date .small {
-        font-size: unset;
-    }
-    .col {
-        white-space: nowrap;
-    }
-    .info-and-paging-row {
-        padding-top: 5px;
-    }
-    .paging-navigation {
-        padding-left: 10px;
-        cursor: pointer;
-    }
-    .order-actions-btn {
-        width: 50%;
-    }
-    .order-actions-btn a i.scale {
-        text-decoration: none;
-        color: black;
-    }
-    .order-actions-btn :hover {
-        transform: scale(1.5);
-    }
-</style>
-
 <div class="row justify-content-between" style="padding-top: 10px">
     <div class="col-6">
         <h3>${ ui.message("pihapps.labOrders") }</h3>

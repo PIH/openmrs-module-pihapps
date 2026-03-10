@@ -1,0 +1,95 @@
+.form-field-label {
+    line-height: 3;
+}
+.form-field-widgets {
+    padding-left: 20px;
+}
+.form-field-widgets label {
+    display: none;
+}
+.form-field-widgets p {
+    display: inline;
+}
+.dialog select option {
+    font-size: 1.0em;
+}
+form input, form select, form textarea, .form input, .form select, .form textarea {
+    min-width: auto;
+    width: fit-content;
+}
+.table-header div {
+    font-weight: bold;
+}
+.errors-section {
+    font-weight: bold;
+    color: red;
+}
+.orders-section {
+    padding: 10px 0 10px 0;
+    background-color: lightgray;
+    margin-bottom: 10px;
+    padding-left: 5px;
+}
+
+.order-actions-btn {
+    width: 50%;
+}
+.order-actions-btn a i.scale {
+    text-decoration: none;
+    color: black;
+}
+.order-actions-btn :hover {
+    transform: scale(1.5);
+}
+
+.urgency-STAT {
+    font-weight: bold;
+    color: red;
+}
+
+#test-filter-form {
+    padding-bottom: 20px;
+    table-layout: fixed;
+}
+#test-filter-form input {
+    min-width: unset;
+}
+.date .small {
+    font-size: unset;
+}
+.col {
+    white-space: nowrap;
+}
+.info-and-paging-row {
+    padding-top: 5px;
+}
+.paging-navigation {
+    padding-left: 10px;
+    cursor: pointer;
+}
+.action-menu.dropdown {
+    background: unset;
+    top: unset;
+    z-index: unset;
+    padding: unset;
+    margin: unset;
+    a:link, a:visited, a:hover, a:active {
+        color: white;
+    }
+    .dropdown-menu {
+        a:link, a:visited, a:hover, a:active {
+            color: black;
+        }
+        display: none;
+    }
+    .dropdown-menu.show {
+        display: block;
+    }
+}
+#edit-specimen-encounter-section {
+    display: none;
+}
+#orders-table a {
+    color: #007FFF;
+    text-decoration: underline;
+}

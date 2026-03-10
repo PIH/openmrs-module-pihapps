@@ -6,6 +6,7 @@
     ui.includeJavascript("pihapps", "conceptUtils.js")
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
+    ui.includeCss("pihapps", "labs/labs.css")
 
     def now = new Date()
     def collectionPage = ui.pageLink("pihapps", "labs/labPatientReception")
@@ -89,57 +90,12 @@
     });
 </script>
 
-<style>
-    #test-filter-form {
-        padding-bottom: 20px;
-        table-layout: fixed;
-    }
-    #test-filter-form input {
-        min-width: unset;
-    }
-    .date .small {
-        font-size: unset;
-    }
-    .col {
-        white-space: nowrap;
-    }
-    .info-and-paging-row {
-        padding-top: 5px;
-    }
-    .paging-navigation {
-        padding-left: 10px;
-        cursor: pointer;
-    }
-    .urgency-STAT {
-        font-weight: bold;
-        color: red;
-    }
-    .dropdown {
-        background: unset;
-        top: unset;
-        div {
-            display: none;
-        }
-        z-index: unset;
-        padding: unset;
-        margin: unset;
-        a:link, a:visited, a:hover, a:active {
-            color: white;
-        }
-        .dropdown-menu {
-            a:link, a:visited, a:hover, a:active {
-                color: black;
-            }
-        }
-    }
-</style>
-
 <div class="row justify-content-between">
     <div class="col-6">
         <h3>${ ui.message("pihapps.labPatientList") }</h3>
     </div>
     <div class="col-6 text-right">
-        <div class="dropdown show">
+        <div class="action-menu dropdown">
             <a class="btn btn-sm btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 ${ ui.message("pihapps.actions") }
             </a>
