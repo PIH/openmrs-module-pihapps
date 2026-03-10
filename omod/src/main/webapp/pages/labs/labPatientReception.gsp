@@ -96,7 +96,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 if (selectedOrders.length > 0) {
                     jq("#view-orders-section").hide();
                     initializeOrderNotFulfilledForm({
-                        patientUuid: patientUuid,
                         orders: selectedOrders,
                         pihAppsConfig: pihAppsConfig,
                         onSuccessFunction: () => {
@@ -143,56 +142,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 </script>
 
 <style>
-    .col {
-        white-space: nowrap;
-    }
-    .info-and-paging-row {
-        padding-top: 5px;
-    }
-    .paging-navigation {
-        padding-left: 10px;
-        cursor: pointer;
-    }
-    .dataTables_wrapper {
-        min-height: unset;
-    }
     #order-actions-section {
         padding-top: 20px;
-    }
-    .form-field-label {
-        line-height: 3;
-    }
-    .form-field-widgets {
-        padding-left: 20px;
-    }
-    .form-field-widgets label {
-        display: none;
-    }
-    .form-field-widgets p {
-        display: inline;
-    }
-    .dialog {
-        width: 80%;
-        height: 90%;
-    }
-    .dialog select option {
-        font-size: 1.0em;
-    }
-    form input, form select, form textarea, .form input, .form select, .form textarea {
-        min-width: auto;
-        width: fit-content;
-    }
-    .table-header div {
-        font-weight: bold;
-    }
-    .form-header {
-        padding-top: 10px;
-        font-weight: bold;
-        font-size: large;
-    }
-    .errors-section {
-        font-weight: bold;
-        color: red;
     }
     #process-orders-section {
         display:none;

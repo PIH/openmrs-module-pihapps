@@ -331,7 +331,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Transactional(readOnly = true)
 	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
 	@SuppressWarnings({ "unchecked" })
-	public Encounter getFulfillerEncouterForOrder(Order order) {
+	public Encounter getFulfillerEncounterForOrder(Order order) {
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
 		c.add(eq("voided", false));
 		c.add(eq("person", order.getPatient()));
@@ -347,14 +347,42 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_OBS)
+	@SuppressWarnings({ "unchecked" })
+	public Obs getReasonOrderNotFulfilled(Order order) {
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
+		c.add(eq("voided", false));
+		c.add(eq("person", order.getPatient()));
+		c.add(eq("concept", labOrderConfig.getReasonTestNotPerformedQuestion()));
+		c.add(eq("order", order));
+		c.addOrder(org.hibernate.criterion.Order.desc("obsDatetime"));
+		c.setMaxResults(1);
+		List<Obs> l = c.list();
+		if (l == null || l.isEmpty()) {
+			return null;
+		}
+		return l.get(0);
+	}
+
+	@Override
 	@Transactional
 	@Authorized(PrivilegeConstants.EDIT_ORDERS)
 	public void markOrdersAsNotFulfilled(List<Order> orders, Concept reason) {
 		for (Order order : orders) {
 			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.EXCEPTION, null);
+			Obs existingValue = getReasonOrderNotFulfilled(order);
 			if (reason != null) {
 				if (labOrderConfig.getReasonTestNotPerformedQuestion() == null) {
 					throw new IllegalArgumentException("Reason test not performed question is not configured");
+				}
+				if (existingValue != null) {
+					if (reason.equals(existingValue.getValueCoded())) {
+						continue;
+					}
+					else {
+						obsService.voidObs(existingValue, "Updated by pihAppsService.markOrdersAsNotFulfilled");
+					}
 				}
 				Obs obs = new Obs();
 				obs.setPerson(order.getPatient());
@@ -364,7 +392,15 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				obs.setValueCoded(reason);
 				obs.setAccessionNumber(order.getAccessionNumber());
 				obs.setComment("result-entry-form^did-not-perform-dropdown"); // This is here for backwards-compatibility with the labworkflow owa
+				if (existingValue != null) {
+					obs.setPreviousVersion(existingValue);
+					obs.setEncounter(existingValue.getEncounter());
+				}
+
 				obsService.saveObs(obs, "");
+			}
+			else {
+				obsService.voidObs(existingValue, "Voided by pihAppsService.markOrdersAsNotFulfilled");
 			}
 		}
 	}

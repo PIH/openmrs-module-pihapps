@@ -21,6 +21,8 @@
 
     const patientRep = "(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
     const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
+    const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:" + conceptRep
+
     const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid),reasonTestNotPerformedQuestion:(uuid,answers:(uuid,display)))";
     const pihAppsConfigRep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
@@ -32,13 +34,11 @@
 
     const viewSpecimenEncounter = function(encounterUuid) {
         const encounterRep = "id,uuid,patient:" + patientRep + ",encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(uuid,concept:(uuid,datatype:(name)),value,comment,formNamespaceAndPath)";
-        const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:" + conceptRep
         const rep = "encounter:(" + encounterRep + "),orders:(" + orderRep + ")";
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq.get(openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterUuid + "?v=custom:(" + rep + ")", function (encAndOrders) {
-                jq("#view-orders-section").hide();
-                jq("#specimen-edit-emr-id").html(patientUtils.getPreferredIdentifier(encAndOrders.encounter.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
-                jq("#specimen-edit-patient-name").html(encAndOrders.encounter.patient.person.display);
+                jq(".specimen-edit-emr-id").html(patientUtils.getPreferredIdentifier(encAndOrders.encounter.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                jq(".specimen-edit-patient-name").html(encAndOrders.encounter.patient.person.display);
                 initializeSpecimenCollectionForm({
                     patientUuid: encAndOrders.encounter.patient.uuid,
                     orders: encAndOrders.orders,
@@ -46,13 +46,37 @@
                     pihAppsConfig: pihAppsConfig,
                     onSuccessFunction: () => { closeEncounterEdit(); pagingDataTable.updateTable(); }
                 });
+                jq("#view-orders-section").hide();
                 jq("#edit-specimen-encounter-section").show();
             });
         });
     };
 
+    const viewOrderNotPerformed = function(orderUuid) {
+        const rep = orderRep + ",reasonOrderNotFulfilled:(uuid,concept:" + conceptRep + ",valueCoded:" + conceptRep + ")";
+        jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
+            jq.get(openmrsContextPath + "/ws/rest/v1/order/" + orderUuid + "?v=custom:(" + rep + ")", function (order) {
+                jq(".specimen-edit-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                jq(".specimen-edit-patient-name").html(order.patient.person.display);
+                initializeOrderNotFulfilledForm({
+                    orders: [order],
+                    reason: order.reasonOrderNotFulfilled,
+                    pihAppsConfig: pihAppsConfig,
+                    onSuccessFunction: () => { closeReasonNotPerformed(); pagingDataTable.updateTable(); }
+                });
+                jq("#view-orders-section").hide();
+                jq("#edit-reason-not-performed-section").show();
+            });
+        });
+    }
+
     const closeEncounterEdit = function() {
         jq("#edit-specimen-encounter-section").hide();
+        jq("#view-orders-section").show();
+    }
+
+    const closeReasonNotPerformed = function() {
+        jq("#edit-reason-not-performed-section").hide();
         jq("#view-orders-section").show();
     }
 
@@ -74,7 +98,7 @@
             const getAccessionNumber = (order) => { return order.accessionNumber; }
             const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };
             const getFulfillerStatus = (order) => { return patientUtils.getFulfillerStatusOption(order, fulfillerStatusOptions).display; };
-            const getOrderFulfillmentStatus = (order) => { return patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display; };
+
             const getLabTest = function(order) {
                 const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
                 return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
@@ -86,6 +110,14 @@
                 }
                 const specimenDate = dateUtils.formatDateWithTimeIfPresent(fulfillerEncounter.encounterDatetime);
                 return "<a href=\"javascript:viewSpecimenEncounter('" + fulfillerEncounter.uuid +  "')\">" + specimenDate + "</a>";
+            };
+
+            const getOrderFulfillmentStatus = (order) => {
+                const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
+                if (order.fulfillerStatus === 'EXCEPTION') {
+                    return "<a href=\"javascript:viewOrderNotPerformed('" + order.uuid +  "')\">" + statusDisplay + "</a>";
+                }
+                return statusDisplay;
             };
 
             const getFilterParameterValues = function() {
@@ -148,6 +180,11 @@
         });
     });
 </script>
+
+<style>
+    #edit-specimen-encounter-section { display: none; }
+    #edit-reason-not-performed-section { display: none; }
+</style>
 
 <div id="view-orders-section">
     <div class="row justify-content-between">
@@ -249,10 +286,23 @@
         <div class="col-6">
             <h3>
                 ${ ui.message("pihapps.specimenCollectionDetails") } -
-                <span id="specimen-edit-patient-name"></span>
-                (<span id="specimen-edit-emr-id"></span>)
+                <span class="specimen-edit-patient-name"></span>
+                (<span class="specimen-edit-emr-id"></span>)
             </h3>
         </div>
     </div>
     ${ ui.includeFragment("pihapps", "labs/specimenCollectionEncounter", ["id": "specimen-encounter-section"])}
+</div>
+
+<div id="edit-reason-not-performed-section">
+    <div class="row justify-content-between">
+        <div class="col-6">
+            <h3>
+                ${ ui.message("pihapps.removeSelectedOrders") } -
+                <span class="specimen-edit-patient-name"></span>
+                (<span class="specimen-edit-emr-id"></span>)
+            </h3>
+        </div>
+    </div>
+    ${ ui.includeFragment("pihapps", "labs/recordOrderNotFulfilled", ["id": "reason-not-performed-section"])}
 </div>

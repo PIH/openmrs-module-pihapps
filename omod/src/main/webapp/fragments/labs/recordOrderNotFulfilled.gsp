@@ -16,8 +16,8 @@
 <script type="text/javascript">
     function initializeOrderNotFulfilledForm(formConfig) {
 
-        const patientUuid = formConfig.patientUuid;
         const orders = formConfig.orders;
+        const reason = formConfig.reason;
         const pihAppsConfig = formConfig.pihAppsConfig;
         const onSuccessFunction = formConfig.onSuccessFunction;
 
@@ -41,6 +41,7 @@
         // Populate default values each time form is opened
         parentElement.find(".errors-section").html("");
         parentElement.find(":input").val("");
+        reasonPicker.val(reason?.valueCoded?.uuid ?? '')
 
         const formElement = parentElement.find("form");
         formElement.off("submit");
@@ -71,9 +72,10 @@
                 dataType: "json",
                 success: () => {
                     onSuccessFunction();
+                    parentElement.find(".action-button").removeAttr("disabled");
                 },
                 error: (xhr) => {
-                    jq(".action-button").removeAttr("disabled");
+                    parentElement.find(".action-button").removeAttr("disabled");
                     const error = xhr?.responseJSON?.error;
                     const message = error?.translatedMessage ?? error.message ?? error;
                     errorsSection.html(message);
