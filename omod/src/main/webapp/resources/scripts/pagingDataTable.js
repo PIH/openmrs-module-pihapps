@@ -44,6 +44,7 @@ class PagingDataTable {
         this.pagedTable = null;
         this.lastUpdateDate = null;
         this.rowObjects = [];
+        this.tableUpdateCallback = options.tableUpdateCallback ?? (() => {});
 
         // Set up the event handlers for navigating between pages
         this.getTableInfoElement().find(".first").click(() => this.goToFirstPage());
@@ -106,6 +107,10 @@ class PagingDataTable {
         this.lastUpdateDate = lastUpdateDate;
     }
 
+    setTableUpdateCallback(tableUpdateCallback) {
+        this.tableUpdateCallback = tableUpdateCallback;
+    }
+
     getDefaultDataTableOptions() {
         return {
             bFilter: false,
@@ -163,6 +168,7 @@ class PagingDataTable {
                 this.setTotalCount(0);
                 this.pageNumber = 0;
                 this.getTableInfoElement().hide();
+                this.onTableUpdate();
                 return;
             }
             let tableRows = [];
@@ -205,6 +211,7 @@ class PagingDataTable {
             else {
                 this.getTableInfoElement().hide();
             }
+            this.tableUpdateCallback();
         });
     }
 

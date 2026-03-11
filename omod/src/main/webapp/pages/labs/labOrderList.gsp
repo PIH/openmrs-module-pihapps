@@ -146,6 +146,38 @@
                 }
             }
 
+            const orderTableUpdated = function() {
+                const rowObjects = pagingDataTable.getRowObjects();
+                const selectAllCheckbox = jq("#select-all-orders");
+                selectAllCheckbox.removeAttr("checked").attr("disabled", "disabled");
+
+                // Only enable the select all checkbox if all orders in the table are for the same patient
+                const distinctPatients = [...new Set(rowObjects.map(o => o.patient.uuid))];
+                if (distinctPatients.length === 1) {
+                    selectAllCheckbox.removeAttr("disabled");
+                }
+
+                // Only enable checking boxes that are for the same patient as any boxes already checked
+                jq(".order-selector").change(function() {
+                    const selectedOrders = getSelectedOrders();
+                    if (selectedOrders.length === 0) {
+                        jq(".order-selector").removeAttr("disabled");
+                    }
+                    else {
+                        const firstPatient = selectedOrders[0].patient.uuid;
+                        rowObjects.forEach((o, index) => {
+                            const checkbox = jq(".order-selector").eq(index + 1);
+                            if (o.patient.uuid === firstPatient) {
+                               checkbox.removeAttr("disabled")
+                            }
+                            else {
+                                checkbox.removeAttr("checked").attr("disabled", "disabled");
+                            }
+                        });
+                    }
+                });
+            }
+
             pagingDataTable.initialize({
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
@@ -164,6 +196,9 @@
                         sLoadingRecords:  "${ ui.message("uicommons.dataTable.loadingRecords") }",
                         sProcessing:  "${ ui.message("uicommons.dataTable.processing") }",
                     }
+                },
+                tableUpdateCallback: () => {
+                    orderTableUpdated();
                 }
             });
 
