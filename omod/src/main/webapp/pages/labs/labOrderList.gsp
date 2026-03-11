@@ -237,7 +237,10 @@
 
             jq("#record-results-button").click(function() {
                 const selectedOrders = getSelectedOrders();
-                if (selectedOrders.length > 0) {
+                const selectedPatients = [...new Set(selectedOrders.map(o => o.patient.uuid))];
+                if (selectedOrders.length > 0 && selectedPatients.length === 1) {
+                    jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(selectedOrders[0].patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                    jq(".lab-patient-name").html(selectedOrders[0].patient.person.display);
                     initializeLabResultsForm({
                         orders: selectedOrders,
                         pihAppsConfig: pihAppsConfig,
@@ -393,7 +396,9 @@
     <div class="row justify-content-between">
         <div class="col-6">
             <h3>
-                ${ ui.message("pihapps.recordLabResults") }
+                ${ ui.message("pihapps.recordLabResults") } -
+                <span class="lab-patient-name"></span>
+                (<span class="lab-emr-id"></span>)
             </h3>
         </div>
     </div>
