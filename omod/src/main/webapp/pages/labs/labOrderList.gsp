@@ -37,8 +37,8 @@
         const rep = "encounter:(" + encounterRep + "),orders:(" + orderRep + ")";
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq.get(openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterUuid + "?v=custom:(" + rep + ")", function (encAndOrders) {
-                jq(".specimen-edit-emr-id").html(patientUtils.getPreferredIdentifier(encAndOrders.encounter.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
-                jq(".specimen-edit-patient-name").html(encAndOrders.encounter.patient.person.display);
+                jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(encAndOrders.encounter.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                jq(".lab-patient-name").html(encAndOrders.encounter.patient.person.display);
                 initializeSpecimenCollectionForm({
                     patientUuid: encAndOrders.encounter.patient.uuid,
                     orders: encAndOrders.orders,
@@ -46,8 +46,7 @@
                     pihAppsConfig: pihAppsConfig,
                     onSuccessFunction: () => { closeEncounterEdit(); pagingDataTable.updateTable(); }
                 });
-                jq("#view-orders-section").hide();
-                jq("#edit-specimen-encounter-section").show();
+                openEncounterEdit();
             });
         });
     };
@@ -56,29 +55,35 @@
         const rep = orderRep + ",reasonOrderNotFulfilled:(uuid,concept:" + conceptRep + ",valueCoded:" + conceptRep + ")";
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq.get(openmrsContextPath + "/ws/rest/v1/order/" + orderUuid + "?v=custom:(" + rep + ")", function (order) {
-                jq(".specimen-edit-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
-                jq(".specimen-edit-patient-name").html(order.patient.person.display);
+                jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                jq(".lab-patient-name").html(order.patient.person.display);
                 initializeOrderNotFulfilledForm({
                     orders: [order],
                     reason: order.reasonOrderNotFulfilled,
                     pihAppsConfig: pihAppsConfig,
                     onSuccessFunction: () => { closeReasonNotPerformed(); pagingDataTable.updateTable(); }
                 });
-                jq("#view-orders-section").hide();
-                jq("#edit-reason-not-performed-section").show();
+                openReasonNotPerformed();
             });
         });
     }
 
-    const closeEncounterEdit = function() {
-        jq("#edit-specimen-encounter-section").hide();
+    const openSection = function(selector) {
+        jq("#view-orders-section").hide();
+        jq(selector).show();
+    }
+
+    const closeSection = function(selector) {
+        jq(selector).hide();
         jq("#view-orders-section").show();
     }
 
-    const closeReasonNotPerformed = function() {
-        jq("#edit-reason-not-performed-section").hide();
-        jq("#view-orders-section").show();
-    }
+    const openEncounterEdit = () => openSection("#edit-specimen-encounter-section");
+    const closeEncounterEdit = () => closeSection("#edit-specimen-encounter-section");
+    const openReasonNotPerformed = () => openSection("#edit-reason-not-performed-section");
+    const closeReasonNotPerformed = () => closeSection("#edit-reason-not-performed-section");
+    const openLabResults = () => openSection("#record-lab-results-section");
+    const closeLabResults = () => closeSection("#record-lab-results-section");
 
     jq(document).ready(function() {
 
@@ -86,8 +91,6 @@
 
             const primaryIdentifierType = pihAppsConfig.primaryIdentifierType?.uuid ?? '';
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
-            const orderStatusOptions = pihAppsConfig.labOrderConfig.orderStatusOptions;
-            const fulfillerStatusOptions = pihAppsConfig.labOrderConfig.fulfillerStatusOptions;
             const orderFulfillmentStatusOptions = pihAppsConfig.labOrderConfig.orderFulfillmentStatusOptions;
 
             // Column functions
@@ -96,8 +99,10 @@
             const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated); };
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getAccessionNumber = (order) => { return order.accessionNumber; }
-            const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };
-            const getFulfillerStatus = (order) => { return patientUtils.getFulfillerStatusOption(order, fulfillerStatusOptions).display; };
+
+            const getSelectCheckbox = (order) => {
+                return '<input class="order-selector" type="checkbox" value="' + order.uuid + '" />';
+            }
 
             const getLabTest = function(order) {
                 const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
@@ -120,6 +125,14 @@
                 return statusDisplay;
             };
 
+            const getSelectedOrders = function() {
+                const orderUuids = [];
+                jq("#orders-table").find(".order-selector:checked").each(function(index, element) {
+                    orderUuids.push(jq(element).val())
+                });
+                return pagingDataTable.getRowObjects().filter((o) => orderUuids.includes(o.uuid));
+            }
+
             const getFilterParameterValues = function() {
                 return {
                     "orderType": pihAppsConfig.labOrderConfig.labTestOrderType?.uuid,
@@ -140,7 +153,7 @@
                 representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep,
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getEmrId, getPatientName, getOrderNumber, getOrderDate, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest
+                    getSelectCheckbox, getEmrId, getPatientName, getOrderNumber, getOrderDate, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest
                 ],
                 datatableOptions: {
                     oLanguage: {
@@ -177,6 +190,34 @@
                 event.preventDefault();
                 closeEncounterEdit();
             });
+
+            jq("#select-all-orders").change(function () {
+                if (jq(this).prop("checked")) {
+                    jq(".order-selector").prop("checked", "checked");
+                }
+                else {
+                    jq(".order-selector").removeAttr("checked");
+                }
+            });
+
+            jq("#record-results-button").click(function() {
+                const selectedOrders = getSelectedOrders();
+                if (selectedOrders.length > 0) {
+                    initializeLabResultsForm({
+                        orders: selectedOrders,
+                        pihAppsConfig: pihAppsConfig,
+                        onSuccessFunction: () => {
+                            document.location.href = patientListPage;
+                        }
+                    });
+                    openLabResults();
+                }
+            });
+
+            jq("#record-lab-results-section button.cancel").click((event) => {
+                event.preventDefault();
+                closeLabResults();
+            });
         });
     });
 </script>
@@ -184,6 +225,7 @@
 <style>
     #edit-specimen-encounter-section { display: none; }
     #edit-reason-not-performed-section { display: none; }
+    #record-lab-results-section { display: none; }
 </style>
 
 <div id="view-orders-section">
@@ -253,6 +295,7 @@
     <table id="orders-table">
         <thead>
             <tr>
+                <th><input id="select-all-orders" type="checkbox" /> ${ ui.message("pihapps.all") }</th>
                 <th>${ ui.message("pihapps.emrId") }</th>
                 <th>${ ui.message("pihapps.name") }</th>
                 <th>${ ui.message("pihapps.orderNumber") }</th>
@@ -279,6 +322,10 @@
             <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
         </div>
     </div>
+
+    <div id="order-actions-section" style="padding-top: 20px;">
+        <input type="button" id="record-results-button" value="${ ui.message("pihapps.recordLabResults") }" />
+    </div>
 </div>
 
 <div id="edit-specimen-encounter-section">
@@ -286,8 +333,8 @@
         <div class="col-6">
             <h3>
                 ${ ui.message("pihapps.specimenCollectionDetails") } -
-                <span class="specimen-edit-patient-name"></span>
-                (<span class="specimen-edit-emr-id"></span>)
+                <span class="lab-patient-name"></span>
+                (<span class="lab-emr-id"></span>)
             </h3>
         </div>
     </div>
@@ -299,10 +346,21 @@
         <div class="col-6">
             <h3>
                 ${ ui.message("pihapps.removeSelectedOrders") } -
-                <span class="specimen-edit-patient-name"></span>
-                (<span class="specimen-edit-emr-id"></span>)
+                <span class="lab-patient-name"></span>
+                (<span class="lab-emr-id"></span>)
             </h3>
         </div>
     </div>
     ${ ui.includeFragment("pihapps", "labs/recordOrderNotFulfilled", ["id": "reason-not-performed-section"])}
+</div>
+
+<div id="record-lab-results-section">
+    <div class="row justify-content-between">
+        <div class="col-6">
+            <h3>
+                ${ ui.message("pihapps.recordLabResults") }
+            </h3>
+        </div>
+    </div>
+    ${ ui.includeFragment("pihapps", "labs/recordLabResults", ["id": "lab-results-section"])}
 </div>
