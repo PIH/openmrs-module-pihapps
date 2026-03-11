@@ -166,7 +166,7 @@
                     else {
                         const firstPatient = selectedOrders[0].patient.uuid;
                         rowObjects.forEach((o, index) => {
-                            const checkbox = jq(".order-selector").eq(index + 1);
+                            const checkbox = jq(".order-selector").eq(index);
                             if (o.patient.uuid === firstPatient) {
                                checkbox.removeAttr("disabled")
                             }
