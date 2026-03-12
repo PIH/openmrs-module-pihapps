@@ -14,8 +14,8 @@
     }
     .order-section {
         border-bottom: 1px solid black;
-        margin: 20px;
-        padding: 10px;
+        margin: 10px;
+        padding: 5px;
     }
     .results-header {
         border-bottom: 1px solid black;
@@ -35,6 +35,8 @@
     }
     form input, form select, form textarea, form ul.select, .form input, .form select, .form textarea, .form ul.select {
         min-width: unset;
+        padding-top: 2px;
+        padding-bottom: 2px;
     }
     .result-units {
         padding-left: 10px;
