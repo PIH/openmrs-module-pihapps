@@ -176,7 +176,7 @@
         </div>
         <div class="result-entry-form-results">
             <div class="row results-header align-items-start">
-                <span class="col-2">${ ui.message("pihapps.labTest") }</span>
+                <span class="col-4">${ ui.message("pihapps.labTest") }</span>
                 <span class="col-4">${ ui.message("pihapps.results") }</span>
                 <span class="col-auto">${ ui.message("pihapps.normalRange") }</span>
             </div>
