@@ -41,6 +41,12 @@
     .result-units {
         padding-left: 10px;
     }
+    .field-error.abnormal-value {
+        color: orange;
+    }
+    .field-error.critical-value {
+        color: orange;
+    }
 </style>
 
 <script type="text/javascript">
@@ -49,6 +55,14 @@
         const orders = formConfig.orders;
         const pihAppsConfig = formConfig.pihAppsConfig;
         const onSuccessFunction = formConfig.onSuccessFunction;
+
+        const messages = {
+            valueMustBeInteger: '${ ui.message("pihapps.valueCannotBeDecimal") }',
+            abnormalValue: '${ ui.message("pihapps.abnormalValue") }',
+            criticalValue: '${ ui.message("pihapps.criticalValue") }',
+            minimumAllowedValue: '${ ui.message("pihapps.minimumAllowedValue") }',
+            maximumAllowedValue: '${ ui.message("pihapps.maximumAllowedValue") }',
+        };
 
         if (!orders || orders.length === 0) {
             return;
@@ -69,13 +83,26 @@
         jq(selectorPrefix + "result-date-picker-wrapper").datetimepicker("option", "maxDateTime", currentDatetime);
         jq(selectorPrefix + "result-date-picker-wrapper").datetimepicker("setDate", resultDate);
 
-        // Returns a validation error code if invalid, null if valid
-        const validateInput = function(concept, value) {
+        // Returns a validation result - with result type of [error, critical, abnormal], and message
+        const validateInput = function(messages, concept, refRange, value) {
             if (value) {
-                if (!concept.allowDecimal && !Number.isInteger(+value)) {
-                    return "pihapps.resultMustBeInteger";
+                console.log(refRange);
+                const numericValue = +value;
+                if (!concept.allowDecimal && !Number.isInteger(numericValue)) {
+                    return {type: "error", message: messages.valueMustBeInteger};
                 }
-                // TODO: Reference ranges
+                if (refRange.lowAbsolute && value < refRange.lowAbsolute) {
+                    return {type: "error", message: messages.minimumAllowedValue + ": " + refRange.lowAbsolute};
+                }
+                if (refRange.hiAbsolute && value > refRange.hiAbsolute) {
+                    return {type: "error", message: messages.maximumAllowedValue + ": " + refRange.hiAbsolute};
+                }
+                if ((refRange.lowCritical && value < refRange.lowCritical) || (refRange.hiCritical && value > refRange.hiCritical)) {
+                    return {type: "critical", message: messages.criticalValue};
+                }
+                if ((refRange.lowNormal && value < refRange.lowNormal) || (refRange.hiNormal && value > refRange.hiNormal)) {
+                    return {type: "abnormal", message: messages.abnormalValue};
+                }
             }
             return null;
         }
@@ -93,7 +120,7 @@
 
             const wrapper = jq("<p>").attr("id", id).addClass("lab-results-widget left");
             if (concept.answers && concept.answers.length > 0) {
-                const dropdown = jq("<select>").attr("id", id + "-field").attr("name", name);
+                const dropdown = jq("<select>").attr("id", id + "-field").attr("name", id);
                 dropdown.append(jq("<option>").attr("value", "").html(""));
                 concept.answers.forEach((a) => {
                    dropdown.append(jq("<option>").attr("value", a.uuid).html(a.display));
@@ -101,7 +128,7 @@
                 wrapper.append(dropdown);
             }
             else if (concept.datatype.name === "Numeric") {
-                const textbox = jq("<input>").addClass("result-numeric-input").attr("type", "number").attr("id", id + "field").attr("name", name).attr("size", "10");
+                const textbox = jq("<input>").addClass("result-numeric-input").attr("type", "number").attr("id", id + "field").attr("name", id).attr("size", "10");
                 wrapper.append(textbox);
                 wrapper.append(jq("<span>").addClass("result-units").html(concept.units ?? ""));
                 const referenceRangeSection = jq("<span>").addClass("reference-range form-field-label");
@@ -109,6 +136,14 @@
                 const refRangeQuery = "patient=" + order.patient.uuid + "&encounter=" + order.encounter.uuid + "&concept=" + concept.uuid;
                 jq.get(openmrsContextPath + "/ws/rest/v1/conceptreferencerange?" + refRangeQuery + "&v=custom:(" + refRangeRep + ")", function (data) {
                     const refRange = data.results && data.results.length > 0 ? data.results[0] : null;
+                    textbox.on("blur", () => {
+                        const validationError = validateInput(messages, concept, refRange, textbox.val());
+                        const fieldErrorDiv = textbox.siblings(".field-error");
+                        fieldErrorDiv.html("").removeClass("abnormal-value").removeClass("critical-value").removeClass("error");
+                        if (validationError) {
+                            fieldErrorDiv.html(validationError.message).addClass(validationError.type + "-value");
+                        }
+                    });
                     const refRangeDisplay =
                             !refRange ? "" :
                             refRange.lowNormal && refRange.hiNormal ? (refRange.lowNormal + " - " + refRange.hiNormal) :
@@ -119,13 +154,13 @@
                 widgetInfoSection.append(jq("<p>").append(referenceRangeSection));
             }
             else if (concept.datatype.name === "Text") {
-                const textbox = jq("<input>").addClass("result-text-input").attr("type", "text").attr("id", id + "field").attr("name", name).attr("size", "30");
+                const textbox = jq("<input>").addClass("result-text-input").attr("type", "text").attr("id", id + "field").attr("name", id).attr("size", "30");
                 wrapper.append(textbox);
             }
             else {
                 wrapper.append("Unable to handle concept of type: " + concept.datatype.name);
             }
-            wrapper.append(jq("<div>").addClass("field-error"))
+            wrapper.append(jq("<div>").addClass("field-error"));
             widgetSection.append(wrapper);
         }
 
@@ -150,6 +185,18 @@
             });
             resultsEntrySection.append(orderRow);
         });
+
+        const formElement = parentElement.find("form");
+        formElement.off("submit");
+        formElement.on("submit", (event) => {
+
+            event.preventDefault();
+            parentElement.find(".action-button").attr("disabled", "disabled");
+            const formData = formElement.serializeArray();
+            console.log(formData);
+
+        });
+
         parentElement.show();
     }
 </script>
