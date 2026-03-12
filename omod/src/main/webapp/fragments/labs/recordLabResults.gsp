@@ -10,18 +10,31 @@
 
 <style>
     .result-date-section {
-        margin-left: 20px;
+        padding-left: 20px;
     }
     .order-section {
-        border: 1px solid black;
+        border-bottom: 1px solid black;
         margin: 20px;
         padding: 10px;
     }
-    .panel-test-row > .order-info {
-        margin-left: 20px;
+    .results-header {
+        border-bottom: 1px solid black;
+        margin: 20px;
+        padding: 10px;
+        font-weight: bold;
+    }
+    .test-name {
+        padding-left: 50px;
+    }
+    .test-name.panel-name {
+        padding-left: 20px
     }
     .result-numeric-input {
         display: inline-block;
+        min-width: unset;
+    }
+    form input, form select, form textarea, form ul.select, .form input, .form select, .form textarea, .form ul.select {
+        min-width: unset;
     }
     .result-units {
         padding-left: 10px;
@@ -47,8 +60,8 @@
         const selectorPrefix = "#" + id;
         const parentElement = jq(selectorPrefix);
 
-        const ordersWidgetsSection = parentElement.find(".result-entry-form-results");
-        ordersWidgetsSection.empty();
+        const resultsEntrySection = parentElement.find(".result-entry-form-results");
+        resultsEntrySection.find(".order-section").remove();
 
         const resultDate = currentDatetime;
         jq(selectorPrefix + "result-date-picker-wrapper").datetimepicker("option", "maxDateTime", currentDatetime);
@@ -65,7 +78,17 @@
             return null;
         }
 
-        const createResultsWidget = function(id, name, concept) {
+        const addResultRow = function(orderRow, order, concept, indexInPanel) {
+            const id = "result-" + concept.uuid;
+            const orderableRow = jq("<div>").addClass("form-field-section row orderable-row align-items-start");
+            orderRow.append(orderableRow);
+            const orderInfo = jq("<span>").addClass("form-field-label test-name col-2").append(concept.displayStringForLab);
+            orderableRow.append(orderInfo);
+            const widgetSection = jq("<span>").addClass("form-field-widgets col-4");
+            const widgetInfoSection = jq("<span>").addClass("form-field-widgets col-auto");
+            orderableRow.append(widgetSection);
+            orderableRow.append(widgetInfoSection);
+
             const wrapper = jq("<p>").attr("id", id).addClass("lab-results-widget left");
             if (concept.answers && concept.answers.length > 0) {
                 const dropdown = jq("<select>").attr("id", id + "-field").attr("name", name);
@@ -79,20 +102,29 @@
                 const textbox = jq("<input>").addClass("result-numeric-input").attr("type", "number").attr("id", id + "field").attr("name", name).attr("size", "10");
                 wrapper.append(textbox);
                 wrapper.append(jq("<span>").addClass("result-units").html(concept.units ?? ""));
-                textbox.on("blur", () => {
-                   const validationError = validateInput(concept, textbox.val());
-                   textbox.siblings(".field-error").html(validationError ?? "");
+                const referenceRangeSection = jq("<span>").addClass("reference-range form-field-label");
+                const refRangeRep = "hiNormal,hiAbsolute,hiCritical,lowNormal,lowAbsolute,lowCritical";
+                const refRangeQuery = "patient=" + order.patient.uuid + "&encounter=" + order.encounter.uuid + "&concept=" + concept.uuid;
+                jq.get(openmrsContextPath + "/ws/rest/v1/conceptreferencerange?" + refRangeQuery + "&v=custom:(" + refRangeRep + ")", function (data) {
+                    const refRange = data.results && data.results.length > 0 ? data.results[0] : null;
+                    const refRangeDisplay =
+                            !refRange ? "" :
+                            refRange.lowNormal && refRange.hiNormal ? (refRange.lowNormal + " - " + refRange.hiNormal) :
+                            refRange.lowNormal ? (">= " + refRange.lowNormal) :
+                            refRange.hiNormal ? ("=< " + refRange.hiNormal) : "";
+                    referenceRangeSection.html(refRangeDisplay);
                 });
+                widgetInfoSection.append(jq("<p>").append(referenceRangeSection));
             }
             else if (concept.datatype.name === "Text") {
                 const textbox = jq("<input>").addClass("result-text-input").attr("type", "text").attr("id", id + "field").attr("name", name).attr("size", "30");
                 wrapper.append(textbox);
             }
             else {
-                return "ERROR";
+                wrapper.append("ERROR");
             }
             wrapper.append(jq("<div>").addClass("field-error"))
-            return wrapper;
+            widgetSection.append(wrapper);
         }
 
         orders.forEach((order) => {
@@ -100,33 +132,20 @@
             const baseConceptRep = "uuid,displayStringForLab,datatype:(uuid,name),conceptClass:(uuid,name),set,allowDecimal,units";
             const testRep = baseConceptRep + ",answers:(" + baseConceptRep + "),setMembers:(" + baseConceptRep + ")";
             jq.get(openmrsContextPath + "/ws/rest/v1/concept/" + order.concept.uuid + "?v=custom:(" + testRep + ")", function (orderable) {
-                const orderableRow = jq("<div>").addClass("form-field-section row align-items-start");
-                const orderInfo = jq("<span>").addClass("form-field-label order-info col-auto").append(orderable.displayStringForLab);
-                const nonPanelTestWidgets = jq("<span>").addClass("form-field-widgets col");
                 if (orderable.setMembers.length === 0) {
-                    orderableRow.addClass("test-row");
-                    const id = "result-" + orderable.uuid;
-                    nonPanelTestWidgets.append(createResultsWidget(id, id, orderable));
-                } else {
-                    orderableRow.addClass("panel-row");
+                    addResultRow(orderRow, order, orderable);
                 }
-                orderableRow.append(orderInfo);
-                orderableRow.append(nonPanelTestWidgets);
-                orderRow.append(orderableRow);
-                orderable.setMembers.forEach((test, index) => {
-                    const testRow = jq("<div>").addClass("panel-test-row test-row form-field-section row align-items-start");
-                    const testInfo = jq("<span>").addClass("form-field-label order-info col-auto").append(test.displayStringForLab);
-                    const id = "result-" + test.uuid;
-                    const testWidgets = jq("<span>").addClass("form-field-widgets col").append(createResultsWidget(id, id, test));
-                    if (index % 2 === 0) {
-                        testRow.addClass("even");
-                    }
-                    testRow.append(testInfo).append(testWidgets);
-                    orderRow.append(testRow);
-                });
+                else {
+                    const row = jq("<div>").addClass("row align-items-start");
+                    const panelInfo = jq("<span>").addClass("form-field-label panel-name test-name col").append(orderable.displayStringForLab);
+                    row.append(panelInfo);
+                    orderRow.append(row);
+                    orderable.setMembers.forEach((test, index) => {
+                        addResultRow(orderRow, order, test, index);
+                    })
+                }
             });
-
-            ordersWidgetsSection.append(orderRow);
+            resultsEntrySection.append(orderRow);
         });
         parentElement.show();
     }
@@ -139,7 +158,7 @@
         <div class="dialog-content form result-entry-form">
             <div class="result-date-section form-field-section row align-items-start">
                 <span class="form-field-label col-2">${ui.message("pihapps.resultDate")}:</span>
-                <span class="form-field-widgets col-auto">
+                <span class="form-field-widgets col-6">
                     ${ui.includeFragment("pihapps", "field/datetimepicker", [
                             id: id+"result-date-picker",
                             label: "",
@@ -149,9 +168,16 @@
                             defaultDate: new Date()
                     ])}
                 </span>
+                <span class="col-auto"></span>
             </div>
         </div>
-        <div class="result-entry-form-results"></div>
+        <div class="result-entry-form-results">
+            <div class="row results-header align-items-start">
+                <span class="col-2">${ ui.message("pihapps.labTest") }</span>
+                <span class="col-4">${ ui.message("pihapps.results") }</span>
+                <span class="col-auto">${ ui.message("pihapps.normalRange") }</span>
+            </div>
+        </div>
         <br><br>
         <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
         <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
