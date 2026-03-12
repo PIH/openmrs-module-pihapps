@@ -84,7 +84,7 @@
             const id = "result-" + concept.uuid;
             const orderableRow = jq("<div>").addClass("form-field-section row orderable-row align-items-start");
             orderRow.append(orderableRow);
-            const orderInfo = jq("<span>").addClass("form-field-label test-name col-2").append(concept.displayStringForLab);
+            const orderInfo = jq("<span>").addClass("form-field-label test-name col-4").append(concept.displayStringForLab);
             orderableRow.append(orderInfo);
             const widgetSection = jq("<span>").addClass("form-field-widgets col-4");
             const widgetInfoSection = jq("<span>").addClass("form-field-widgets col-auto");
@@ -96,7 +96,7 @@
                 const dropdown = jq("<select>").attr("id", id + "-field").attr("name", name);
                 dropdown.append(jq("<option>").attr("value", "").html(""));
                 concept.answers.forEach((a) => {
-                   dropdown.append(jq("<option>").attr("value", a.uuid).html(a.displayStringForLab));
+                   dropdown.append(jq("<option>").attr("value", a.uuid).html(a.display));
                 });
                 wrapper.append(dropdown);
             }
@@ -123,7 +123,7 @@
                 wrapper.append(textbox);
             }
             else {
-                wrapper.append("ERROR");
+                wrapper.append("Unable to handle concept of type: " + concept.datatype.name);
             }
             wrapper.append(jq("<div>").addClass("field-error"))
             widgetSection.append(wrapper);
@@ -131,8 +131,9 @@
 
         orders.forEach((order) => {
             const orderRow = jq("<div>").addClass("order-section");
-            const baseConceptRep = "uuid,displayStringForLab,datatype:(uuid,name),conceptClass:(uuid,name),set,allowDecimal,units";
-            const testRep = baseConceptRep + ",answers:(" + baseConceptRep + "),setMembers:(" + baseConceptRep + ")";
+            const baseConceptRep = "uuid,display,displayStringForLab,datatype:(uuid,name),conceptClass:(uuid,name),set,allowDecimal,units";
+            const baseConceptRepWithAnswers = baseConceptRep + ",answers:(" + baseConceptRep + ")";
+            const testRep = baseConceptRepWithAnswers + ",setMembers:(" + baseConceptRepWithAnswers + ")";
             jq.get(openmrsContextPath + "/ws/rest/v1/concept/" + order.concept.uuid + "?v=custom:(" + testRep + ")", function (orderable) {
                 if (orderable.setMembers.length === 0) {
                     addResultRow(orderRow, order, orderable);
