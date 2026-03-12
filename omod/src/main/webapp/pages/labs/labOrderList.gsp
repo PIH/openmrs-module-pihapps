@@ -176,11 +176,6 @@
                         });
                     }
                 });
-
-                // For testing onlky
-                jq(".order-selector").eq(1).prop("checked", "checked");
-                jq(".order-selector").eq(2).prop("checked", "checked");
-                jq("#record-results-button").click();
             }
 
             pagingDataTable.initialize({
