@@ -100,6 +100,8 @@
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getAccessionNumber = (order) => { return order.accessionNumber; }
 
+            const recordResultsButton = jq("#record-results-button");
+
             const getSelectCheckbox = (order) => {
                 return '<input class="order-selector" type="checkbox" value="' + order.uuid + '" />';
             }
@@ -158,10 +160,12 @@
                 }
 
                 // Only enable checking boxes that are for the same patient as any boxes already checked
+                // Only enable recording lab results for orders that have specimens collected
                 jq(".order-selector").change(function() {
                     const selectedOrders = getSelectedOrders();
                     if (selectedOrders.length === 0) {
                         jq(".order-selector").removeAttr("disabled");
+                        recordResultsButton.attr("disabled", "disabled");
                     }
                     else {
                         const firstPatient = selectedOrders[0].patient.uuid;
@@ -174,15 +178,29 @@
                                 checkbox.removeAttr("checked").attr("disabled", "disabled");
                             }
                         });
-                    }
+                        const numMissingSpecimenEncounters = selectedOrders.filter((o) => !o.fulfillerEncounter).length;
+                        if (numMissingSpecimenEncounters === 0) {
+                            recordResultsButton.removeAttr("disabled");
+                        }
+                        else {
+                            recordResultsButton.attr("disabled", "disabled");}
+                        }
                 });
+
+                // For testing only
+                jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT");
+                setTimeout(() => {
+                    jq(".order-selector").eq(1).prop("checked", "checked");
+                    jq(".order-selector").eq(2).prop("checked", "checked");
+                    jq("#record-results-button").click();
+                }, 1000);
             }
 
             pagingDataTable.initialize({
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
                 endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
-                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep,
+                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
                     getSelectCheckbox, getEmrId, getPatientName, getOrderNumber, getOrderDate, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest
@@ -235,7 +253,7 @@
                 }
             });
 
-            jq("#record-results-button").click(function() {
+            recordResultsButton.click(function() {
                 const selectedOrders = getSelectedOrders();
                 const selectedPatients = [...new Set(selectedOrders.map(o => o.patient.uuid))];
                 if (selectedOrders.length > 0 && selectedPatients.length === 1) {
@@ -362,7 +380,7 @@
     </div>
 
     <div id="order-actions-section" style="padding-top: 20px;">
-        <input type="button" id="record-results-button" value="${ ui.message("pihapps.recordLabResults") }" />
+        <input type="button" id="record-results-button" disabled="disabled" value="${ ui.message("pihapps.recordLabResults") }" />
     </div>
 </div>
 
