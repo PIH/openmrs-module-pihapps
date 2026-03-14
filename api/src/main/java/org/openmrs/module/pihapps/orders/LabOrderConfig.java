@@ -394,6 +394,14 @@ public class LabOrderConfig {
         return conceptService.getConceptByReference(getSpecimenReceivedDateQuestionReference());
     }
 
+    public String getResultsDateQuestionReference() {
+        return ConfigUtil.getProperty("pihapps.labs.resultsDateConcept", "PIH:10783");
+    }
+
+    public Concept getResultsDateQuestion() {
+        return conceptService.getConceptByReference(getResultsDateQuestionReference());
+    }
+
     public String getReasonTestNotPerformedQuestionReference() {
         String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.didNotPerformReason");
         if (StringUtils.isBlank(configVal)) {

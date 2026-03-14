@@ -23,7 +23,7 @@
     const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
     const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:" + conceptRep
 
-    const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid),reasonTestNotPerformedQuestion:(uuid,answers:(uuid,display)))";
+    const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid),resultsDateQuestion:(uuid),reasonTestNotPerformedQuestion:(uuid,answers:(uuid,display)))";
     const pihAppsConfigRep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
     moment.locale(window.sessionContext?.locale ?? 'en');
@@ -186,14 +186,6 @@
                             recordResultsButton.attr("disabled", "disabled");}
                         }
                 });
-
-                // For testing only
-                jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT");
-                setTimeout(() => {
-                    jq(".order-selector").eq(1).prop("checked", "checked");
-                    jq(".order-selector").eq(2).prop("checked", "checked");
-                    jq("#record-results-button").click();
-                }, 1000);
             }
 
             pagingDataTable.initialize({
@@ -263,7 +255,8 @@
                         orders: selectedOrders,
                         pihAppsConfig: pihAppsConfig,
                         onSuccessFunction: () => {
-                            document.location.href = patientListPage;
+                            closeLabResults();
+                            pagingDataTable.updateTable();
                         }
                     });
                     openLabResults();
@@ -274,6 +267,14 @@
                 event.preventDefault();
                 closeLabResults();
             });
+
+            // For testing only
+            jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT").trigger("change");
+            setTimeout(() => {
+                jq(".order-selector").eq(1).prop("checked", "checked");
+                jq(".order-selector").eq(2).prop("checked", "checked");
+                jq("#record-results-button").click();
+            }, 1000);
         });
     });
 </script>
