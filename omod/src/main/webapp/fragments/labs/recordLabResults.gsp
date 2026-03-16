@@ -52,8 +52,9 @@
             parentElement.find(".specimen-provider-section").hide();
         }
 
-        const specimenEncounterRep = "uuid,encounterDatetime,location:(uuid,display),encounterProviders:(provider:(uuid,display)),obs:(concept:(uuid),valueCoded:(uuid,display),valueDatetime)";
+        const specimenEncounterRep = "uuid,encounterDatetime,location:(uuid,display),encounterProviders:(provider:(uuid,display)),obs:(concept:(uuid),valueCoded:(uuid,display),valueDatetime,valueText)";
         jq.get(openmrsContextPath + "/ws/rest/v1/encounter/" + fulfillerEncounter.uuid + "?v=custom:(" + specimenEncounterRep + ")", function (e) {
+            const labId = e.obs.find((o) => o.concept.uuid === pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid)?.valueText;
             const estimatedObs = e.obs.find((o) => o.concept.uuid === pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid);
             const estimated = estimatedObs?.valueCoded?.uuid === pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid;
             const receivedDate = e.obs.find((o) => o.concept.uuid === pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid)?.valueDatetime;
@@ -61,22 +62,24 @@
             const providers = e.encounterProviders?.map((p) => p.display).join(", ");
             const estimatedText = estimated ? '<span class="estimated-text">(' + messages.estimated + ")</span>" : "";
 
-            orderAndSpecimenSection.find(".specimenCollectionDate").html(dateUtils.formatDateWithTimeIfPresent(e.encounterDatetime) + estimatedText);
-            orderAndSpecimenSection.find(".specimenCollectionLocation").html(e.location?.display);
-            orderAndSpecimenSection.find(".specimenReceivedDate").html(dateUtils.formatDateWithTimeIfPresent(receivedDate));
-            orderAndSpecimenSection.find(".labTestLocation").html(testLocation);
+            orderAndSpecimenSection.find(".lab-id").html(labId);
+            orderAndSpecimenSection.find(".specimen-collection-date").html(dateUtils.formatDateWithTimeIfPresent(e.encounterDatetime) + estimatedText);
+            orderAndSpecimenSection.find(".specimen-collection-location").html(e.location?.display);
+            orderAndSpecimenSection.find(".specimen-received-date").html(dateUtils.formatDateWithTimeIfPresent(receivedDate));
+            orderAndSpecimenSection.find(".lab-test-location").html(testLocation);
             if (providers) {
-                orderAndSpecimenSection.find(".specimenCollectedBy").html(providers);
+                orderAndSpecimenSection.find(".specimen-collected-by").html(providers);
             }
             else {
-                orderAndSpecimenSection.find(".specimenCollectedBy").parent().hide();
+                orderAndSpecimenSection.find(".specimen-collected-by").parent().hide();
             }
         });
 
         orderAndSpecimenSection.find(".orderable").html(order.concept.displayStringForLab);
-        orderAndSpecimenSection.find(".orderDate").html(dateUtils.formatDateWithTimeIfPresent(order.dateActivated));
-        orderAndSpecimenSection.find(".testOrderedBy").html(order.orderer?.display);
-        orderAndSpecimenSection.find(".orderNumber").html(order.orderNumber);
+        orderAndSpecimenSection.find(".order-date").html(dateUtils.formatDateWithTimeIfPresent(order.dateActivated));
+        orderAndSpecimenSection.find(".test-ordered-by").html(order.orderer?.display);
+        orderAndSpecimenSection.find(".order-number").html(order.orderNumber);
+        orderAndSpecimenSection.find(".order-location").html(order.encounter.location?.display);
 
         // Populate results form with widgets and initial values
 
@@ -338,24 +341,28 @@
             <fieldset class="specimen-details-section">
                 <legend>${ ui.message("pihapps.specimenCollectionDetails") }</legend>
                 <div class="order-detail-component row align-items-start">
+                    <span class="col">${ ui.message("pihapps.labId") }</span>
+                    <span class="col lab-id"></span>
+                </div>
+                <div class="order-detail-component row align-items-start">
                     <span class="col">${ ui.message("pihapps.specimenCollectionDate") }</span>
-                    <span class="col specimenCollectionDate"></span>
+                    <span class="col specimen-collection-date"></span>
                 </div>
                 <div class="order-detail-component row align-items-start">
                     <span class="col">${ ui.message("pihapps.specimenCollectedBy") }</span>
-                    <span class="col specimenCollectedBy"></span>
+                    <span class="col specimen-collected-by"></span>
                 </div>
                 <div class="order-detail-component row align-items-start">
                     <span class="col">${ ui.message("pihapps.specimenCollectionLocation") }</span>
-                    <span class="col specimenCollectionLocation"></span>
+                    <span class="col specimen-collection-location"></span>
                 </div>
                 <div class="order-detail-component row align-items-start">
                     <span class="col">${ ui.message("pihapps.specimenReceivedDate") }</span>
-                    <span class="col specimenReceivedDate"></span>
+                    <span class="col specimen-received-date"></span>
                 </div>
                 <div class="order-detail-component row align-items-start">
                     <span class="col">${ ui.message("pihapps.labTestLocation") }</span>
-                    <span class="col labTestLocation"></span>
+                    <span class="col lab-test-location"></span>
                 </div>
             </fieldset>
         </div>
@@ -368,15 +375,19 @@
                 </div>
                 <div class="order-detail-component row align-items-start">
                     <span class="col">${ ui.message("pihapps.orderDate") }</span>
-                    <span class="col orderDate"></span>
+                    <span class="col order-date"></span>
+                </div>
+                <div class="order-detail-component row align-items-start">
+                    <span class="col">${ ui.message("pihapps.orderLocation") }</span>
+                    <span class="col order-location"></span>
                 </div>
                 <div class="order-detail-component row align-items-start">
                     <span class="col">${ ui.message("pihapps.testOrderedBy") }</span>
-                    <span class="col testOrderedBy"></span>
+                    <span class="col test-ordered-by"></span>
                 </div>
                 <div class="order-detail-component row align-items-start">
                     <span class="col">${ ui.message("pihapps.orderNumber") }</span>
-                    <span class="col orderNumber"></span>
+                    <span class="col order-number"></span>
                 </div>
             </fieldset>
         </div>

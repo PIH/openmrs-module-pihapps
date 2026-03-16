@@ -163,7 +163,7 @@
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
                 endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
-                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
+                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
                     getEmrId, getPatientName, getOrderNumber, getOrderDate, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest, getActions
