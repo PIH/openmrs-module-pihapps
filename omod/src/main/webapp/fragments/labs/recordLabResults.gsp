@@ -237,9 +237,7 @@
                     errors.push(messages.resultDateCannotBeBeforeSpecimenDate);
                 }
                 obs.push({
-                    order: obs.order,
-                    person: obs.person,
-                    encounter: obs.encounter,
+                    order: order.uuid,
                     concept: pihAppsConfig.labOrderConfig.resultsDateQuestion.uuid,
                     value: dateUtils.formatDateWithTimeIfPresent(resultDate),
                     formNamespaceAndPath: 'pihapps^result-date',
@@ -251,16 +249,13 @@
             resultElements.each((index, element) => {
                 const value = jq(element).val().trim();
                 const data = jq(element).data();
-                const orderUuid = data.orderUuid;
                 const concept = data.conceptUuid;
                 const orderable = data.orderConceptUuid;
                 const resultNum = data.resultNum;
                 const formPath = orderable + (orderable === concept ? "" : "^" + concept) + (resultNum === 0 ? "" : "_" + resultNum);
                 if (value) {
                     const labResultObs = {
-                        order: orderUuid,
-                        person: order.patient.uuid,
-                        encounter: order.encounter.uuid,
+                        order: order.uuid,
                         concept: concept,
                         value: value,
                         formNamespaceAndPath: 'pihapps^' + formPath,
@@ -273,9 +268,7 @@
                         let obsGroup = obs.find((o) => o.concept === orderable);
                         if (!obsGroup) {
                             obsGroup = {
-                                order: orderUuid,
-                                person: order.patient.uuid,
-                                encounter: fulfillerEncounter?.uuid,
+                                order: order.uuid,
                                 concept: orderable,
                                 formNamespaceAndPath: 'pihapps^' + formPath,
                                 comments: "result-entry-form^" + formPath,
