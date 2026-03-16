@@ -2,7 +2,6 @@
     ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
     ui.includeJavascript("pihapps", "pagingDataTable.js")
-    ui.includeJavascript("pihapps", "conceptUtils.js")
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
     ui.includeCss("pihapps", "labs/labs.css")

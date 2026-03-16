@@ -3,7 +3,6 @@
     ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
     ui.includeJavascript("pihapps", "pagingDataTable.js")
-    ui.includeJavascript("pihapps", "conceptUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
     ui.includeCss("pihapps", "labs/labs.css")
 %>
@@ -27,13 +26,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
     jq(document).ready(function() {
 
-        const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
+        const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
         const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid),reasonTestNotPerformedQuestion:(uuid,answers:(uuid,display)))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
 
-            const conceptUtils = new PihAppsConceptUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
 
             // Column functions
@@ -41,8 +39,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getOrderer = (order) => { return order.orderer.person.display; }
             const getLabTest = function(order) {
-                const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
-                return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
+                return (order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '') + order.concept.displayStringForLab;
             }
             const getSelectCheckbox = (order) => {
                 return '<input class="order-selector" type="checkbox" value="' + order.uuid + '" />';
@@ -121,7 +118,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
                 endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
-                representation: "custom:(id,uuid,display,orderNumber,orderer:(person:(display)),dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))",
+                representation: "custom:(id,uuid,display,orderNumber,orderer:(person:(display)),dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,concept:(id,uuid,allowDecimal,display,displayStringForLab)",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
                     getSelectCheckbox, getOrderDate, getOrderNumber, getLabTest, getOrderer

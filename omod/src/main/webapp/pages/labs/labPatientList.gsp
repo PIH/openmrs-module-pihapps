@@ -3,7 +3,6 @@
     ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
     ui.includeJavascript("pihapps", "pagingDataTable.js")
-    ui.includeJavascript("pihapps", "conceptUtils.js")
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
     ui.includeCss("pihapps", "labs/labs.css")
@@ -27,14 +26,13 @@
 
     jq(document).ready(function() {
 
-        const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
+        const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
         const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display))";
         const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
 
             const primaryIdentifierType = pihAppsConfig.primaryIdentifierType?.uuid ?? '';
-            const conceptUtils = new PihAppsConceptUtils(jq);
             const patientUtils = new PihAppsPatientUtils(jq);
             const collectionPage = "${collectionPage}";
 
@@ -45,7 +43,7 @@
             }
             const getPatientName = (patientWithOrders) => { return patientWithOrders.patient.person.display; }
             const getLabTest = function(order) {
-                return "<span class=\"urgency-" + order.urgency + "\">" + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale) + "</span>";
+                return "<span class=\"urgency-" + order.urgency + "\">" + order.concept.displayStringForLab + "</span>";
             }
             const getTestNames = (patientWithOrders) => {return patientWithOrders.orders.map((o) => getLabTest(o)).join(", ");};
 
@@ -59,7 +57,7 @@
             }
 
             const patientRep = "(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
-            const orderRep = "(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,concept:(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType)))";
+            const orderRep = "(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,concept:(id,uuid,allowDecimal,display,displayStringForLab))";
 
             pagingDataTable.initialize({
                 tableSelector: "#orders-table",

@@ -3,7 +3,6 @@
     ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
     ui.includeJavascript("pihapps", "pagingDataTable.js")
-    ui.includeJavascript("pihapps", "conceptUtils.js")
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
     ui.includeCss("pihapps", "labs/labs.css")
@@ -20,7 +19,7 @@
     ];
 
     const patientRep = "(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
-    const conceptRep = "(id,uuid,allowDecimal,display,names:(id,uuid,name,locale,localePreferred,voided,conceptNameType))";
+    const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
     const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:" + conceptRep
 
     const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid),labIdentifierConcept:(uuid),specimenReceivedDateQuestion:(uuid),resultsDateQuestion:(uuid),reasonTestNotPerformedQuestion:(uuid,answers:(uuid,display)))";
@@ -29,7 +28,6 @@
     moment.locale(window.sessionContext?.locale ?? 'en');
 
     const pagingDataTable = new PagingDataTable(jq);
-    const conceptUtils = new PihAppsConceptUtils(jq);
     const patientUtils = new PihAppsPatientUtils(jq);
 
     const viewSpecimenEncounter = function(encounterUuid) {
@@ -100,15 +98,8 @@
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getAccessionNumber = (order) => { return order.accessionNumber; }
 
-            const recordResultsButton = jq("#record-results-button");
-
-            const getSelectCheckbox = (order) => {
-                return '<input class="order-selector" type="checkbox" value="' + order.uuid + '" />';
-            }
-
             const getLabTest = function(order) {
-                const urgency = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
-                return urgency + conceptUtils.getConceptShortName(order.concept, window.sessionContext?.locale);
+                return (order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '') + order.concept.displayStringForLab;
             }
             const getSpecimenDate = function(order) {
                 const fulfillerEncounter = order.fulfillerEncounter;
@@ -127,12 +118,14 @@
                 return statusDisplay;
             };
 
-            const getSelectedOrders = function() {
-                const orderUuids = [];
-                jq("#orders-table").find(".order-selector:checked").each(function(index, element) {
-                    orderUuids.push(jq(element).val())
-                });
-                return pagingDataTable.getRowObjects().filter((o) => orderUuids.includes(o.uuid));
+            const getActions = (order) => {
+                const actions = jq("<span>").addClass("actions");
+                if (order.fulfillerEncounter) {
+                    const editAction = jq("<i>").addClass("icon-pencil enter-results-action").attr("data-order-uuid", order.uuid);
+                    editAction.on("click", () => { console.log("Hello world");})
+                    actions.append(editAction);
+                }
+                return actions.html();
             }
 
             const getFilterParameterValues = function() {
@@ -149,42 +142,20 @@
             }
 
             const orderTableUpdated = function() {
-                const rowObjects = pagingDataTable.getRowObjects();
-                const selectAllCheckbox = jq("#select-all-orders");
-                selectAllCheckbox.removeAttr("checked").attr("disabled", "disabled");
-
-                // Only enable the select all checkbox if all orders in the table are for the same patient
-                const distinctPatients = [...new Set(rowObjects.map(o => o.patient.uuid))];
-                if (distinctPatients.length === 1) {
-                    selectAllCheckbox.removeAttr("disabled");
-                }
-
-                // Only enable checking boxes that are for the same patient as any boxes already checked
-                // Only enable recording lab results for orders that have specimens collected
-                jq(".order-selector").change(function() {
-                    const selectedOrders = getSelectedOrders();
-                    if (selectedOrders.length === 0) {
-                        jq(".order-selector").removeAttr("disabled");
-                        recordResultsButton.attr("disabled", "disabled");
-                    }
-                    else {
-                        const firstPatient = selectedOrders[0].patient.uuid;
-                        rowObjects.forEach((o, index) => {
-                            const checkbox = jq(".order-selector").eq(index);
-                            if (o.patient.uuid === firstPatient) {
-                               checkbox.removeAttr("disabled")
-                            }
-                            else {
-                                checkbox.removeAttr("checked").attr("disabled", "disabled");
-                            }
-                        });
-                        const numMissingSpecimenEncounters = selectedOrders.filter((o) => !o.fulfillerEncounter).length;
-                        if (numMissingSpecimenEncounters === 0) {
-                            recordResultsButton.removeAttr("disabled");
+                jq(".enter-results-action").on("click", (event) => {
+                    const orderUuid = jq(event.target).data().orderUuid;
+                    const order = getOrderFromTable(orderUuid);
+                    jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                    jq(".lab-patient-name").html(order.patient.person.display);
+                    initializeLabResultsForm({
+                        order: order,
+                        pihAppsConfig: pihAppsConfig,
+                        onSuccessFunction: () => {
+                            closeLabResults();
+                            pagingDataTable.updateTable();
                         }
-                        else {
-                            recordResultsButton.attr("disabled", "disabled");}
-                        }
+                    });
+                    openLabResults();
                 });
             }
 
@@ -192,10 +163,10 @@
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
                 endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
-                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
+                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getSelectCheckbox, getEmrId, getPatientName, getOrderNumber, getOrderDate, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest
+                    getEmrId, getPatientName, getOrderNumber, getOrderDate, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest, getActions
                 ],
                 datatableOptions: {
                     oLanguage: {
@@ -213,9 +184,9 @@
             });
 
             pihAppsConfig.labOrderConfig.availableLabTestsByCategory.forEach((labCategory) => {
-                const optGroup = jq("<optGroup>").attr("label", conceptUtils.getConceptShortName(labCategory.category, window.sessionContext?.locale));
+                const optGroup = jq("<optGroup>").attr("label", labCategory.category.displayStringForLab);
                 labCategory.labTests.forEach((labTest) => {
-                    const labOpt = jq("<option>").attr("value", labTest.uuid).html(conceptUtils.getConceptShortName(labTest, window.sessionContext?.locale));
+                    const labOpt = jq("<option>").attr("value", labTest.uuid).html(labTest.displayStringForLab);
                     optGroup.append(labOpt);
                 });
                 jq("#testConcept-filter").append(optGroup);
@@ -236,32 +207,9 @@
                 closeEncounterEdit();
             });
 
-            jq("#select-all-orders").change(function () {
-                if (jq(this).prop("checked")) {
-                    jq(".order-selector").prop("checked", "checked");
-                }
-                else {
-                    jq(".order-selector").removeAttr("checked");
-                }
-            });
-
-            recordResultsButton.click(function() {
-                const selectedOrders = getSelectedOrders();
-                const selectedPatients = [...new Set(selectedOrders.map(o => o.patient.uuid))];
-                if (selectedOrders.length > 0 && selectedPatients.length === 1) {
-                    jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(selectedOrders[0].patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
-                    jq(".lab-patient-name").html(selectedOrders[0].patient.person.display);
-                    initializeLabResultsForm({
-                        orders: selectedOrders,
-                        pihAppsConfig: pihAppsConfig,
-                        onSuccessFunction: () => {
-                            closeLabResults();
-                            pagingDataTable.updateTable();
-                        }
-                    });
-                    openLabResults();
-                }
-            });
+            const getOrderFromTable = function(orderUuid) {
+                return pagingDataTable.getRowObjects().find((o) => o.uuid === orderUuid);
+            }
 
             jq("#record-lab-results-section button.cancel").click((event) => {
                 event.preventDefault();
@@ -352,7 +300,6 @@
     <table id="orders-table">
         <thead>
             <tr>
-                <th><input id="select-all-orders" type="checkbox" /> ${ ui.message("pihapps.all") }</th>
                 <th>${ ui.message("pihapps.emrId") }</th>
                 <th>${ ui.message("pihapps.name") }</th>
                 <th>${ ui.message("pihapps.orderNumber") }</th>
@@ -361,6 +308,7 @@
                 <th>${ ui.message("pihapps.labId") }</th>
                 <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>
                 <th>${ ui.message("pihapps.labTest") }</th>
+                <th>${ ui.message("pihapps.actions") }</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -378,10 +326,6 @@
         <div class="row justify-content-between info-and-paging-row">
             <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
         </div>
-    </div>
-
-    <div id="order-actions-section" style="padding-top: 20px;">
-        <input type="button" id="record-results-button" disabled="disabled" value="${ ui.message("pihapps.recordLabResults") }" />
     </div>
 </div>
 
