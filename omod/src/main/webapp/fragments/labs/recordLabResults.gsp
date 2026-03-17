@@ -241,7 +241,10 @@
                     // Track any validation errors as data is processed
                     const errors = [];
                     const currentDate = moment();
-                    const obs = [];
+
+                    // Fulfiller Status
+                    const fulfillerStatusToSubmit = jq("#" + id + "-fulfiller-status").val();
+                    const ordersToSubmit = [{ uuid: order.uuid, fulfillerStatus: fulfillerStatusToSubmit }];
 
                     const encounterToSubmit = {
                         uuid: fulfillerEncounter.uuid,
@@ -253,9 +256,6 @@
                         }),
                         obs: []
                     }
-
-                    // Fulfiller Status
-                    const fulfillerStatusToSubmit = jq("#" + id + "-fulfiller-status").val();
 
                     // Result Date
 
@@ -271,73 +271,78 @@
                         }
                     }
 
-                    const initialResultDateValueStr = dateUtils.formatDateWithTimeIfPresent(initialResultDateObs?.valueDatetime);
-                    const currentResultDateValueStr = dateUtils.formatDateWithTimeIfPresent(resultDateStr);
-
-                    if (initialResultDateObs) {
-                        if (initialResultDateValueStr !== currentResultDateValueStr) {
-                            encounterToSubmit.obs.push({uuid: initialResultDateObs.uuid, voided: true });
-                        }
-                    }
-                    if (currentResultDateValueStr && initialResultDateValueStr !== currentResultDateValueStr) {
+                    // Add result date if there is an existing or new value
+                    if (initialResultDateObs || resultDateStr) {
                         encounterToSubmit.obs.push({
+                            uuid: initialResultDateObs?.uuid,
                             order: order.uuid,
                             concept: resultDateQuestion,
-                            value: currentResultDateValueStr,
+                            valueDatetime: resultDateStr,
                             formNamespaceAndPath: "pihapps^result-date",
-                            comments: "result-entry-form^result-date",
-                            previousVersion: initialResultDateObs?.uuid });
+                            comment: "result-entry-form^result-date"
+                        });
                     }
 
-                    // Results
-                    const resultElements = jq(".result-value-field");
-                    let testObsList = encounterToSubmit.obs;
-                    resultElements.each((index, element) => {
-                        const value = jq(element).val().trim();
+                    // Add result obs if there is an existing or new value
+
+                    // TODO: Support multiple values per concept
+                    const resultObs = jq(".result-value-field").get().map((element) => {
                         const data = jq(element).data();
+                        const value = jq(element).val();
                         const concept = data.conceptUuid;
-                        const orderable = data.orderConceptUuid;
                         const resultNum = data.resultNum;
+                        const orderable = data.orderConceptUuid;
                         const formPath = orderable + (orderable === concept ? "" : "^" + concept) + (resultNum === 0 ? "" : "_" + resultNum);
-                        // If no existing obs group exists, and one is needed, then create one here
-                        if (value) {
-                            if (concept !== orderable) {
-                                let resultObs = encounterToSubmit.obs.find((o) => o.concept === orderable);
-                                if (!resultObs) {
-                                    resultObs = {
-                                        uuid: initialResultObs?.uuid,
-                                        order: order.uuid,
-                                        concept: orderable,
-                                        formNamespaceAndPath: 'pihapps^' + formPath,
-                                        comments: "result-entry-form^" + formPath,
-                                        groupMembers: []
-                                    }
-                                    encounterToSubmit.obs.push(resultObs);
-                                    testObsList = resultObs.groupMembers;
-                                }
-                            }
-                        }
-                        const existingValue = initialTestsObs.find((o) => o.concept === concept);
-                        if (existingValue) {
-                            if (value !== existingValue.value) {
-                                testObsList.push({uuid: existingValue.uuid, voided: true });
-                            }
-                        }
-                        if (value && value !== existingValue?.value) {
-                            testObsList.push({
+                        const obsUuid = initialTestsObs.find((o) => o.concept === concept)?.uuid;
+                        if (obsUuid || value) {
+                            return {
+                                uuid: obsUuid,
                                 order: order.uuid,
-                                concept: concept.uuid,
+                                concept: concept,
                                 value: value,
-                                formNamespaceAndPath: 'pihapps^' + formPath,
-                                comments: "result-entry-form^" + formPath,
-                                previousVersion: existingValue?.uuid });
+                                formNamespaceAndPath: 'pihapps^lab-result^' + formPath,
+                                comment: "result-entry-form^" + formPath,
+                                voided: obsUuid && !value
+                            }
+                        }
+                    }).filter(Boolean);
+
+                    if (isPanel) {
+                        const panelObs = {
+                            uuid: initialResultObs?.uuid,
+                            order: order.uuid,
+                            concept: order.concept.uuid,
+                            formNamespaceAndPath: 'pihapps^lab-result^' + order.concept.uuid,
+                            comment: "result-entry-form^" + order.concept.uuid,
+                            groupMembers: resultObs
+                        }
+                        if (panelObs.uuid || panelObs.groupMembers.length > 0) {
+                            encounterToSubmit.obs.push(panelObs);
+                        }
+                    }
+                    else {
+                        encounterToSubmit.obs.push(...resultObs);
+                    }
+
+                    const payload = { encounter: encounterToSubmit, orders: ordersToSubmit };
+                    console.log(payload)
+                    jq.ajax({
+                        url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
+                        type: "POST",
+                        contentType: "application/json; charset=utf-8",
+                        data: JSON.stringify(payload),
+                        dataType: "json",
+                        success: () => {
+                            onSuccessFunction();
+                            parentElement.find(".action-button").removeAttr("disabled");
+                        },
+                        error: (xhr) => {
+                            parentElement.find(".action-button").removeAttr("disabled");
+                            const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
+                            const message = error?.translatedMessage ?? error.message ?? error;
+                            parentElement.find(".errors-section").html(message);
                         }
                     });
-
-                    console.log(encounterToSubmit);
-                    parentElement.find(".action-button").removeAttr("disabled");
-
-                    onSuccessFunction();
                 });
 
                 parentElement.show();
