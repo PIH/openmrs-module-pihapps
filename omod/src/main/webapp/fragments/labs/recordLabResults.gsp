@@ -273,13 +273,14 @@
 
                     // Add result date if there is an existing or new value
                     if (initialResultDateObs || resultDateStr) {
+                        const voidOnly = initialResultDateObs && !resultDateStr;
                         encounterToSubmit.obs.push({
                             uuid: initialResultDateObs?.uuid,
                             order: order.uuid,
                             concept: resultDateQuestion,
-                            valueDatetime: resultDateStr,
+                            valueDatetime: voidOnly ? initialResultDateObs.valueDatetime : resultDateStr,
                             formNamespaceAndPath: "pihapps^result-date",
-                            comment: "result-entry-form^result-date"
+                            voided: voidOnly
                         });
                     }
 
@@ -292,17 +293,18 @@
                         const concept = data.conceptUuid;
                         const resultNum = data.resultNum;
                         const orderable = data.orderConceptUuid;
-                        const formPath = orderable + (orderable === concept ? "" : "^" + concept) + (resultNum === 0 ? "" : "_" + resultNum);
+                        const formPath = orderable + (orderable === concept ? "" : "/" + concept) + (resultNum === 0 ? "" : "-" + resultNum);
                         const obsUuid = initialTestsObs.find((o) => o.concept === concept)?.uuid;
+                        const initialValue = initialTestsObs.find((o) => o.concept === concept.uuid)?.value;
+                        const voidOnly = obsUuid && !value;
                         if (obsUuid || value) {
                             return {
                                 uuid: obsUuid,
                                 order: order.uuid,
                                 concept: concept,
-                                value: value,
-                                formNamespaceAndPath: 'pihapps^lab-result^' + formPath,
-                                comment: "result-entry-form^" + formPath,
-                                voided: obsUuid && !value
+                                value: voidOnly ? initialValue : value,
+                                formNamespaceAndPath: 'pihapps^lab-result/' + formPath,
+                                voided: voidOnly
                             }
                         }
                     }).filter(Boolean);
@@ -312,8 +314,7 @@
                             uuid: initialResultObs?.uuid,
                             order: order.uuid,
                             concept: order.concept.uuid,
-                            formNamespaceAndPath: 'pihapps^lab-result^' + order.concept.uuid,
-                            comment: "result-entry-form^" + order.concept.uuid,
+                            formNamespaceAndPath: 'pihapps^lab-result/' + order.concept.uuid,
                             groupMembers: resultObs
                         }
                         if (panelObs.uuid || panelObs.groupMembers.length > 0) {

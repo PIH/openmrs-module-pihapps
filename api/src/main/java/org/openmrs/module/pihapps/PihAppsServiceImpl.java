@@ -19,6 +19,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hibernate.Criteria;
+import org.hibernate.FlushMode;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Projections;
 import org.openmrs.Concept;
@@ -272,7 +273,16 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Transactional
 	@Authorized(PrivilegeConstants.ADD_ENCOUNTERS)
 	public EncounterFulfillingOrders saveEncounterFulfillingOrders(EncounterFulfillingOrders encounterFulfillingOrders) {
-		Concept accessionNumberConcept = labOrderConfig.getLabIdentifierConcept();
+		// We need to ensure that the session does not flush when we retrieve this concept, to avoid errors with ImmutableObsInterceptor
+		Concept accessionNumberConcept;
+		FlushMode flushMode = sessionFactory.getCurrentSession().getFlushMode();
+		try {
+			sessionFactory.getCurrentSession().setFlushMode(FlushMode.MANUAL);
+			accessionNumberConcept = labOrderConfig.getLabIdentifierConcept();
+		}
+		finally {
+			sessionFactory.getCurrentSession().setFlushMode(flushMode);
+		}
 		if (accessionNumberConcept == null) {
 			throw new IllegalArgumentException("Accession Number Concept configuration is required");
 		}
