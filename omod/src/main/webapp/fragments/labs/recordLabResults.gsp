@@ -190,8 +190,8 @@
                     const testNameSection = jq("<span>").addClass("test-name col-3").append(concept.displayStringForLab);
                     orderableRow.append(testNameSection);
 
-                    const widgetSection = jq("<span>").addClass("form-field-widgets col-3");
-                    const widgetInfoSection = jq("<span>").addClass("form-field-widgets col-auto");
+                    const widgetSection = jq("<span>").addClass("form-field-widgets col-6");
+                    const widgetInfoSection = jq("<span>").addClass("form-field-widgets col-3");
                     orderableRow.append(widgetSection);
                     orderableRow.append(widgetInfoSection);
 
@@ -447,8 +447,8 @@
                 <div class="result-fields">
                     <div class="row align-items-start result-field-labels">
                         <span class="col-3 result-field-label">${ ui.message("pihapps.labTest") }</span>
-                        <span class="col-3 result-field-label">${ ui.message("pihapps.result") }</span>
-                        <span class="col-auto result-field-label">${ ui.message("pihapps.normalRange") }</span>
+                        <span class="col-6 result-field-label">${ ui.message("pihapps.result") }</span>
+                        <span class="col-3 result-field-label">${ ui.message("pihapps.normalRange") }</span>
                     </div>
                 </div>
             </fieldset>
