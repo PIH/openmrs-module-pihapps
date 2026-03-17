@@ -83,7 +83,7 @@
 
             // Populate results form with widgets and initial values
             const initialResultObs = fulfillerEncounter.obs.find((o) => o.concept.uuid === order.concept.uuid);
-            const initialTestsObs = (initialResultObs ? (initialResultObs.value ? [ initialResultObs ] : initialResultObs.groupMembers) : []).map(o => {
+            const initialTestsObs = (initialResultObs ? (initialResultObs.value ? [ initialResultObs ] : initialResultObs.groupMembers ?? []) : []).map(o => {
                 const datatype = o.concept.datatype.name;
                 const isDate = (datatype === 'Date' || datatype === 'Datetime');
                 return {
@@ -316,6 +316,11 @@
                             concept: order.concept.uuid,
                             formNamespaceAndPath: 'pihapps^lab-result/' + order.concept.uuid,
                             groupMembers: resultObs
+                        }
+                        if (panelObs.uuid) {
+                            if (!panelObs.groupMembers || panelObs.groupMembers.length === 0) {
+                                panelObs.voided = true;
+                            }
                         }
                         if (panelObs.uuid || panelObs.groupMembers.length > 0) {
                             encounterToSubmit.obs.push(panelObs);
