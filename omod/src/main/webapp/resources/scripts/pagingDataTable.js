@@ -56,6 +56,7 @@ class PagingDataTable {
         const pagingSizeElement = this.getTableInfoElement().find(".paging-size");
         pagingSizeElement.html(pagingSizeElement.html().replace('_MENU_', '<select class="page-size-selector"></select>'));
         const pageSizeSelector = jq(".page-size-selector");
+        pageSizeSelector.attr("name", "page-size-selector");
         this.pagingSizes.forEach(size => {
             pageSizeSelector.append('<option value="' + size + '">' + size + '</option>');
         });

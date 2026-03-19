@@ -288,7 +288,7 @@
         </div>
         <div class="row justify-content-start align-items-end">
             <div class="col-md-6 col-sm-6">
-                <label for="patient-filter">${ ui.message("pihapps.patient") }</label>
+                <label for="patient-filter-display">${ ui.message("pihapps.patient") }</label>
                 ${ ui.includeFragment("pihapps", "field/patient", [ id: "patient-filter", formFieldName: "patient" ]) }
             </div>
             <div class="col">
