@@ -45,7 +45,6 @@
         const locale = window.sessionContext?.locale ?? 'en';
         moment.locale(locale);
         const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
-        const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
 
         const obsRep = "uuid,concept:(uuid,datatype:(name)),value,valueCoded:(uuid,display),valueDatetime,valueText,valueNumeric,comment,formNamespaceAndPath"
         const specimenEncounterRep = "uuid,encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(" + obsRep + ",groupMembers:(" + obsRep + "))";
