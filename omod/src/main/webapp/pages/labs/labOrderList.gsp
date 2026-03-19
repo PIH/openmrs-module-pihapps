@@ -216,6 +216,11 @@
                 closeLabResults();
             });
 
+            jq("#edit-reason-not-performed-section button.cancel").click((event) => {
+                event.preventDefault();
+                closeReasonNotPerformed();
+            });
+
             // For testing only
             jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT").trigger("change");
             setTimeout(() => {
