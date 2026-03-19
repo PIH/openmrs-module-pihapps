@@ -2,6 +2,7 @@
     ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
+    ui.includeJavascript("pihapps", "formHelper.js")
     ui.includeCss("pihapps", "labs/labs.css")
 
     config.require("id")
@@ -26,6 +27,7 @@
             resultDateCannotBeBeforeSpecimenDate: '${ ui.message("pihapps.resultDateCannotBeBeforeSpecimenDate") }',
             resultsMustHaveAssociatedSpecimenEncounter: '${ ui.message("pihapps.resultsMustHaveAssociatedSpecimenEncounter") }',
             noResultsEntered: '${ ui.message("pihapps.noResultsEntered") }',
+            errorsWithOneOrMoreFields: '${ ui.message("pihapps.errorsWithOneOrMoreFields") }',
         };
 
         if (!order || !order.fulfillerEncounter) {
@@ -38,34 +40,51 @@
         const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
         const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
 
-        const resultDateQuestion = pihAppsConfig.labOrderConfig.resultsDateQuestion.uuid;
-
-        const id = "${id}";
-        const selectorPrefix = "#" + id;
-        const parentElement = jq(selectorPrefix);
-
-        // Populate top sections containing specimen and order details
-
-        const orderAndSpecimenSection = parentElement.find(".order-and-specimen-section");
-        const encounterRole = pihAppsConfig.labOrderConfig.specimenCollectionEncounterRole?.uuid;
-        if (!encounterRole) {
-            parentElement.find(".specimen-provider-section").hide();
-        }
-
-        orderAndSpecimenSection.find(".orderable").html(order.concept.displayStringForLab);
-        orderAndSpecimenSection.find(".order-date").html(dateUtils.formatDateWithTimeIfPresent(order.dateActivated));
-        orderAndSpecimenSection.find(".test-ordered-by").html(order.orderer?.display);
-        orderAndSpecimenSection.find(".order-number").html(order.orderNumber);
-        orderAndSpecimenSection.find(".order-location").html(order.encounter.location?.display);
-
         const obsRep = "uuid,concept:(uuid,datatype:(name)),value,valueCoded:(uuid,display),valueDatetime,valueText,valueNumeric,comment,formNamespaceAndPath"
         const specimenEncounterRep = "uuid,encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(" + obsRep + ",groupMembers:(" + obsRep + "))";
         jq.get(openmrsContextPath + "/ws/rest/v1/encounter/" + order.fulfillerEncounter.uuid + "?v=custom:(" + specimenEncounterRep + ")", function (fulfillerEncounter) {
-            const labId = fulfillerEncounter.obs.find((o) => o.concept.uuid === pihAppsConfig.labOrderConfig.labIdentifierConcept.uuid)?.valueText;
-            const estimatedObs = fulfillerEncounter.obs.find((o) => o.concept.uuid === pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion.uuid);
-            const estimated = estimatedObs?.valueCoded?.uuid === pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer.uuid;
-            const receivedDate = fulfillerEncounter.obs.find((o) => o.concept.uuid === pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion.uuid)?.valueDatetime;
-            const testLocation = fulfillerEncounter.obs.find((o) => o.concept.uuid === pihAppsConfig.labOrderConfig.testLocationQuestion.uuid)?.valueCoded?.display;
+
+            const formHelper = new FormHelper({
+                jq: jq,
+                moment: moment,
+                locale: locale,
+                dateFormat: pihAppsConfig.dateFormat,
+                dateTimeFormat: pihAppsConfig.dateTimeFormat,
+                formName: "pihapps^labResultForm",
+                encounter: fulfillerEncounter
+            });
+
+            const labIdQuestion = pihAppsConfig.labOrderConfig.labIdentifierConcept;
+            const estimatedCollectionDateQuestion = pihAppsConfig.labOrderConfig.estimatedCollectionDateQuestion;
+            const estimatedCollectionDateAnswer = pihAppsConfig.labOrderConfig.estimatedCollectionDateAnswer;
+            const receivedDateQuestion = pihAppsConfig.labOrderConfig.specimenReceivedDateQuestion;
+            const testLocationQuestion = pihAppsConfig.labOrderConfig.testLocationQuestion;
+            const resultDateQuestion = pihAppsConfig.labOrderConfig.resultsDateQuestion;
+            const fulfillerStatusOptions = pihAppsConfig.labOrderConfig.fulfillerStatusOptions;
+
+            const id = "${id}";
+            const selectorPrefix = "#" + id;
+            const parentElement = jq(selectorPrefix);
+            parentElement.find(".errors-section").html("");
+
+            // Populate top sections containing specimen and order details
+
+            const orderAndSpecimenSection = parentElement.find(".order-and-specimen-section");
+            const encounterRole = pihAppsConfig.labOrderConfig.specimenCollectionEncounterRole?.uuid;
+            if (!encounterRole) {
+                parentElement.find(".specimen-provider-section").hide();
+            }
+
+            orderAndSpecimenSection.find(".orderable").html(order.concept.displayStringForLab);
+            orderAndSpecimenSection.find(".order-date").html(dateUtils.formatDateWithTimeIfPresent(order.dateActivated));
+            orderAndSpecimenSection.find(".test-ordered-by").html(order.orderer?.display);
+            orderAndSpecimenSection.find(".order-number").html(order.orderNumber);
+            orderAndSpecimenSection.find(".order-location").html(order.encounter.location?.display);
+
+            const labId = formHelper.getInitialObsValue(labIdQuestion.uuid)?.valueText;
+            const estimated = formHelper.getInitialObsValue(estimatedCollectionDateQuestion.uuid)?.valueCoded?.uuid === estimatedCollectionDateAnswer.uuid;
+            const receivedDate = formHelper.getInitialObsValue(receivedDateQuestion.uuid)?.valueDatetime;
+            const testLocation = formHelper.getInitialObsValue(testLocationQuestion.uuid)?.valueCoded?.display;
             const providers = fulfillerEncounter.encounterProviders?.map((p) => p.display).join(", ");
             const estimatedText = estimated ? '<span class="estimated-text">(' + messages.estimated + ")</span>" : "";
 
@@ -81,45 +100,26 @@
                 orderAndSpecimenSection.find(".specimen-collected-by").parent().hide();
             }
 
-            // Populate results form with widgets and initial values
-            const initialResultObs = fulfillerEncounter.obs.find((o) => o.concept.uuid === order.concept.uuid);
-            const initialTestsObs = (initialResultObs ? (initialResultObs.value ? [ initialResultObs ] : initialResultObs.groupMembers ?? []) : []).map(o => {
-                const datatype = o.concept.datatype.name;
-                const isDate = (datatype === 'Date' || datatype === 'Datetime');
-                return {
-                    uuid: o.uuid,
-                    concept: o.concept.uuid,
-                    value: isDate ? dateUtils.formatDateWithTimeIfPresent(o.value) : o.value?.uuid ?? o.value,
-                    formNamespaceAndPath: o.formNamespaceAndPath,
-                    comments: o.comments,
-                }
-            });
-
             // Remove any previously populated widgets/fields
             const resultsEntrySection = parentElement.find(".result-entry-section");
             resultsEntrySection.find(".result-field").empty();
             resultsEntrySection.find(".result-row").remove();
 
-            // Add result date and fulfiller status widgets
-            const fulfillerStatusSection = resultsEntrySection.find(".fulfillerStatus");
-            const fulfillerStatusWidget = jq("<select>").attr("id", id + "-fulfiller-status");
-            if (!order.fulfillerStatus) {
-                fulfillerStatusWidget.append(jq("<option>").attr("value", ""));
-            }
-            const supportedFulfillerStatuses = ["IN_PROGRESS", "COMPLETED", "EXCEPTION"];
-            pihAppsConfig.labOrderConfig.fulfillerStatusOptions.filter((option) => supportedFulfillerStatuses.includes(option.status)).forEach((option) => {
-                fulfillerStatusWidget.append(jq("<option>").attr("value", option.status).html(option.display));
+            // Add fulfiller status widget
+            const fulfillerStatusWidget = formHelper.createSelectWidget({
+                id: id + "-fulfiller-status",
+                options: fulfillerStatusOptions.filter(o => ["IN_PROGRESS", "COMPLETED", "EXCEPTION"].includes(o.status)).map(o => { return { value: o.status, display: o.display } }),
+                initialValue: order.fulfillerStatus
             });
-            fulfillerStatusWidget.val(order.fulfillerStatus);
-            fulfillerStatusSection.append(fulfillerStatusWidget);
+            resultsEntrySection.find(".fulfillerStatus").append(fulfillerStatusWidget);
 
-            const resultDateSection = resultsEntrySection.find(".resultDate");
-            const initialResultDateObs = fulfillerEncounter.obs.find((o) => o.concept.uuid === resultDateQuestion);
-            resultDateSection.append(dateUtils.createDatePickerWidget(jq, {
-                id: id + "-result-date",
-                locale: locale,
-                initialValue: initialResultDateObs?.valueDatetime
-            }));
+            // Add result date widget
+            const resultDateWidget = formHelper.createObsWidget(resultDateQuestion, {
+                id:  id + "-result-date",
+                name: "result-date",
+                orderUuid: order.uuid
+            })
+            resultsEntrySection.find(".resultDate").append(resultDateWidget);
 
             // Returns a validation result for a numeric field - with result type of [error, critical, abnormal], and message
             const validateNumericResult = function(messages, concept, refRange, value) {
@@ -144,41 +144,9 @@
                 return null;
             }
 
-            const createResultWidget = function(order, concept, resultNum) {
-                const widget = jq("<span>").addClass("result-widget");
-                const widgetType = (concept.answers && concept.answers.length > 0) ? "select" : "input";
-                const widgetField = jq("<" + widgetType + ">");
-                widgetField.addClass("result-value-field")
-                widgetField.attr("data-order-uuid", order.uuid);
-                widgetField.attr("data-order-concept-uuid", order.concept.uuid);
-                widgetField.attr("data-concept-uuid", concept.uuid);
-                widgetField.attr("data-result-num", resultNum);
-                widgetField.attr("name", "result-value");
-                widget.append(widgetField);
-
-                if (widgetType === "select") {
-                    widgetField.append(jq("<option>").attr("value", "").html(""));
-                    concept.answers.forEach((a) => {
-                        widgetField.append(jq("<option>").attr("value", a.uuid).html(a.display));
-                    });
-                }
-                else if (concept.datatype.name === "Numeric") {
-                    widgetField.addClass("result-numeric-input").attr("type", "number").attr("size", "10");
-                    widget.append(jq("<span>").addClass("result-units").html(concept.units ?? ""));
-                }
-                else if (concept.datatype.name === "Text") {
-                    widgetField.addClass("result-text-input").attr("type", "text").attr("size", "30");
-                }
-                else {
-                    widget.append("Unable to handle concept of type: " + concept.datatype.name);
-                }
-                widget.append(jq("<div>").addClass("field-error"));
-                return widget;
-            }
-
             // Add result widgets
             const resultSection = resultsEntrySection.find(".result-fields");
-            const baseConceptRep = "uuid,display,displayStringForLab,datatype:(uuid,name),conceptClass:(uuid,name),set,allowDecimal,units";
+            const baseConceptRep = "uuid,display,displayStringForLab,datatype:(uuid,name),allowDecimal,units";
             const baseConceptRepWithAnswers = baseConceptRep + ",answers:(" + baseConceptRep + ")";
             const testRep = baseConceptRepWithAnswers + ",setMembers:(" + baseConceptRepWithAnswers + ")";
             jq.get(openmrsContextPath + "/ws/rest/v1/concept/" + order.concept.uuid + "?v=custom:(" + testRep + ")", function (orderable) {
@@ -195,11 +163,12 @@
                     orderableRow.append(widgetSection);
                     orderableRow.append(widgetInfoSection);
 
-                    const widget = createResultWidget(order, concept, 0);
-
                     // TODO: Handle multiple results for same concept
-                    const initialValue = initialTestsObs.find((o) => o.concept === concept.uuid)?.value;
-                    widget.find(".result-value-field").val(initialValue);
+                    const widget = formHelper.createObsWidget(concept, {
+                        id: id + concept.uuid,
+                        orderUuid: order.uuid,
+                        groupingConceptUuid: isPanel ? orderable.uuid : null
+                    });
 
                     const widgetWrapper = jq("<div>").addClass("lab-results-widget").append(widget);
                     widgetSection.append(widgetWrapper);
@@ -214,7 +183,7 @@
                                 const textbox = jq(event.target);
                                 const validationError = validateNumericResult(messages, concept, refRange, textbox.val());
                                 const fieldErrorDiv = textbox.siblings(".field-error");
-                                fieldErrorDiv.html("").removeClass("abnormal-value").removeClass("critical-value").removeClass("error");
+                                fieldErrorDiv.html("").removeClass("abnormal-value").removeClass("critical-value").removeClass("error-value");
                                 if (validationError) {
                                     fieldErrorDiv.html(validationError.message).addClass(validationError.type + "-value");
                                 }
@@ -238,28 +207,15 @@
                     parentElement.find(".action-button").attr("disabled", "disabled");
                     parentElement.find(".errors-section").html("");
 
-                    // Track any validation errors as data is processed
-                    const errors = [];
-                    const currentDate = moment();
-
-                    // Fulfiller Status
+                    const encounterToSubmit = formHelper.constructEncounterPayload();
                     const fulfillerStatusToSubmit = jq("#" + id + "-fulfiller-status").val();
                     const ordersToSubmit = [{ uuid: order.uuid, fulfillerStatus: fulfillerStatusToSubmit }];
 
-                    const encounterToSubmit = {
-                        uuid: fulfillerEncounter.uuid,
-                        encounterDatetime: fulfillerEncounter.encounterDatetime,
-                        encounterType: fulfillerEncounter.encounterType.uuid,
-                        location: fulfillerEncounter.location.uuid,
-                        encounterProviders: fulfillerEncounter.encounterProviders.map(ep => {
-                            return { provider: ep.provider.uuid, encounterRole: ep.encounterRole.uuid }
-                        }),
-                        obs: []
-                    }
+                    // Validate
+                    const errors = [];
+                    const currentDate = moment();
 
-                    // Result Date
-
-                    const resultDateStr = jq("#" + id + "-result-date-field").val();
+                    const resultDateStr = jq("#" + id + "-result-date").val();
                     if (resultDateStr) {
                         const resultDate = moment(resultDateStr);
                         if (resultDate.isAfter(currentDate)) {
@@ -271,67 +227,20 @@
                         }
                     }
 
-                    // Add result date if there is an existing or new value
-                    if (initialResultDateObs || resultDateStr) {
-                        const voidOnly = initialResultDateObs && !resultDateStr;
-                        encounterToSubmit.obs.push({
-                            uuid: initialResultDateObs?.uuid,
-                            order: order.uuid,
-                            concept: resultDateQuestion,
-                            valueDatetime: voidOnly ? initialResultDateObs.valueDatetime : resultDateStr,
-                            formNamespaceAndPath: "pihapps^result-date",
-                            voided: voidOnly
+                    const fieldErrors = jq(".field-error.error-value").get().map(element => jq(element).html().trim()).filter(Boolean);
+                    if (fieldErrors.length > 0) {
+                        errors.push(messages.errorsWithOneOrMoreFields);
+                    }
+
+                    if (errors && errors.length > 0) {
+                        errors.forEach(e => {
+                            parentElement.find(".errors-section").append(jq("<div>").html(e));
                         });
-                    }
-
-                    // Add result obs if there is an existing or new value
-
-                    // TODO: Support multiple values per concept
-                    const resultObs = jq(".result-value-field").get().map((element) => {
-                        const data = jq(element).data();
-                        const value = jq(element).val();
-                        const concept = data.conceptUuid;
-                        const resultNum = data.resultNum;
-                        const orderable = data.orderConceptUuid;
-                        const formPath = orderable + (orderable === concept ? "" : "/" + concept) + (resultNum === 0 ? "" : "-" + resultNum);
-                        const obsUuid = initialTestsObs.find((o) => o.concept === concept)?.uuid;
-                        const initialValue = initialTestsObs.find((o) => o.concept === concept.uuid)?.value;
-                        const voidOnly = obsUuid && !value;
-                        if (obsUuid || value) {
-                            return {
-                                uuid: obsUuid,
-                                order: order.uuid,
-                                concept: concept,
-                                value: voidOnly ? initialValue : value,
-                                formNamespaceAndPath: 'pihapps^lab-result/' + formPath,
-                                voided: voidOnly
-                            }
-                        }
-                    }).filter(Boolean);
-
-                    if (isPanel) {
-                        const panelObs = {
-                            uuid: initialResultObs?.uuid,
-                            order: order.uuid,
-                            concept: order.concept.uuid,
-                            formNamespaceAndPath: 'pihapps^lab-result/' + order.concept.uuid,
-                            groupMembers: resultObs
-                        }
-                        if (panelObs.uuid) {
-                            if (!panelObs.groupMembers || panelObs.groupMembers.length === 0) {
-                                panelObs.voided = true;
-                            }
-                        }
-                        if (panelObs.uuid || panelObs.groupMembers.length > 0) {
-                            encounterToSubmit.obs.push(panelObs);
-                        }
-                    }
-                    else {
-                        encounterToSubmit.obs.push(...resultObs);
+                        jq(".action-button").removeAttr("disabled");
+                        return;
                     }
 
                     const payload = { encounter: encounterToSubmit, orders: ordersToSubmit };
-                    console.log(payload)
                     jq.ajax({
                         url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
                         type: "POST",
@@ -381,6 +290,7 @@
     .result-numeric-input {
         display: inline-block;
         min-width: unset;
+        width: 125px;
     }
     .result-units {
         padding-left: 10px;
