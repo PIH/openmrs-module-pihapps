@@ -99,6 +99,7 @@ class FormHelper {
             widgetField.addClass("result-value-field")
 
             widgetField.attr("data-concept-uuid", concept.uuid);
+            widgetField.attr("data-concept-datatype", concept.datatype.name);
             if (options?.groupingConceptUuid) {
                 widgetField.attr("data-grouping-concept-uuid", options.groupingConceptUuid);
             }
@@ -231,25 +232,40 @@ class FormHelper {
             const value = obsWidgetFields.val();
             const groupingConceptUuid = data.groupingConceptUuid;
             const conceptUuid = data.conceptUuid;
+            const dataType = data.conceptDatatype;
             const obsUuid = data.obsUuid;
             const orderUuid = data.orderUuid;
             const formPath = data.formPath;
             const groupNamespaceAndPath = this.formName + "/" + groupingConceptUuid;
             const namespaceAndPath = this.formName + formPath;
-            console.log(conceptUuid + " = " + value);
 
             if (obsUuid || value) {
-                console.log('Adding obs: ' + conceptUuid);
                 const voidOnly = obsUuid && !value;
-                let initialObs = this.initialObs.find(o => o.concept.uuid === conceptUuid);
+                const initialObs = this.initialObs.find(o => o.concept.uuid === conceptUuid);
+                const valueToSet = voidOnly ? initialObs?.value : value;
                 const obs = {
                     uuid: obsUuid,
                     order: orderUuid,
                     concept: conceptUuid,
-                    value: voidOnly ? initialObs?.value : value,
                     formNamespaceAndPath: initialObs ? initialObs.formNamespaceAndPath : namespaceAndPath,
                     voided: voidOnly
                 }
+                if (dataType === "Coded") {
+                    obs.valueCoded = valueToSet;
+                }
+                else if (dataType === "Text") {
+                    obs.valueText = valueToSet;
+                }
+                else if (dataType === "Numeric") {
+                    obs.valueNumeric = valueToSet;
+                }
+                else if (dataType === "Date" || dataType === "Datetime") {
+                    obs.valueDatetime = valueToSet;
+                }
+                else {
+                    obs.value = valueToSet;
+                }
+
                 if (groupingConceptUuid) {
                     let initialGroup = this.initialObs.find(o => o.concept.uuid === groupingConceptUuid);
                     let obsGroup = encounter.obs.find(o => o.concept === groupingConceptUuid);

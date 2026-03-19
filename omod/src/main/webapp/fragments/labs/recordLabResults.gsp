@@ -215,14 +215,15 @@
                     const errors = [];
                     const currentDate = moment();
 
-                    const resultDateStr = jq("#" + id + "-result-date").val();
+                    const resultDateStr = encounterToSubmit.obs.find(o => o.concept === resultDateQuestion.uuid)?.valueDatetime;
                     if (resultDateStr) {
                         const resultDate = moment(resultDateStr);
                         if (resultDate.isAfter(currentDate)) {
                             errors.push(messages.resultDateCannotBeFuture);
                         }
+                        // Result date is currently set as a Date obs, not a Datetime, so just validate against the date portion
                         const encounterDate = moment(encounterToSubmit.encounterDatetime);
-                        if (encounterDate.isAfter(resultDate)) {
+                        if (encounterDate.isAfter(resultDate, 'day')) {
                             errors.push(messages.resultDateCannotBeBeforeSpecimenDate);
                         }
                     }
@@ -362,18 +363,6 @@
         </div>
     </div>
     <div class="result-entry-section">
-        <div class="result-section">
-            <fieldset>
-                <legend>${ ui.message("pihapps.results") }</legend>
-                <div class="result-fields">
-                    <div class="row align-items-start result-field-labels">
-                        <span class="col-3 result-field-label">${ ui.message("pihapps.labTest") }</span>
-                        <span class="col-6 result-field-label">${ ui.message("pihapps.result") }</span>
-                        <span class="col-3 result-field-label">${ ui.message("pihapps.normalRange") }</span>
-                    </div>
-                </div>
-            </fieldset>
-        </div>
         <div class="result-status-section">
             <fieldset>
                 <legend>${ ui.message("pihapps.status") }</legend>
@@ -384,6 +373,18 @@
                 <div class="row status-row align-items-start">
                     <span class="col-3 result-field-label">${ ui.message("pihapps.resultDate") }</span>
                     <span class="col-auto result-field resultDate"></span>
+                </div>
+            </fieldset>
+        </div>
+        <div class="result-section">
+            <fieldset>
+                <legend>${ ui.message("pihapps.results") }</legend>
+                <div class="result-fields">
+                    <div class="row align-items-start result-field-labels">
+                        <span class="col-3 result-field-label">${ ui.message("pihapps.labTest") }</span>
+                        <span class="col-6 result-field-label">${ ui.message("pihapps.result") }</span>
+                        <span class="col-3 result-field-label">${ ui.message("pihapps.normalRange") }</span>
+                    </div>
                 </div>
             </fieldset>
         </div>
