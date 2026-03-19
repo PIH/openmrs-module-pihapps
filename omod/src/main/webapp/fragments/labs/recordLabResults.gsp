@@ -187,7 +187,7 @@
                                 if (validationError) {
                                     fieldErrorDiv.html(validationError.message).addClass(validationError.type + "-value");
                                 }
-                            });
+                            }).blur();
                             const refRangeDisplay =
                                 !refRange ? "" :
                                     refRange.lowNormal && refRange.hiNormal ? (refRange.lowNormal + " - " + refRange.hiNormal) :
