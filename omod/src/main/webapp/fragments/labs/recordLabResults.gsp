@@ -117,9 +117,24 @@
             const fulfillerStatusWidget = formHelper.createSelectWidget({
                 id: id + "-fulfiller-status",
                 options: fulfillerStatusOptions.filter(o => ["IN_PROGRESS", "COMPLETED", "EXCEPTION"].includes(o.status)).map(o => { return { value: o.status, display: o.display } }),
-                initialValue: order.fulfillerStatus
+                initialValue: order.fulfillerStatus,
+                includeEmptyOption: false
             });
-            resultsEntrySection.find(".fulfillerStatus").append(fulfillerStatusWidget);
+            resultsEntrySection.find(".fulfiller-status").append(fulfillerStatusWidget);
+            fulfillerStatusWidget.on("change", () => {
+                const fulfillerStatus = fulfillerStatusWidget.val();
+                parentElement.find(".status-section").hide().find(":input").val("");
+                parentElement.find(".status-section-" + fulfillerStatus).show();
+            }).change();
+
+            // Add reason not performed widget
+            const reasonQuestion = pihAppsConfig.labOrderConfig.reasonTestNotPerformedQuestion;
+            const reasonPicker = formHelper.createObsWidget(reasonQuestion, {
+                id: id + "reason-not-performed",
+                name: "reason-not-performed",
+                orderUuid: order.uuid
+            });
+            parentElement.find(".result-field.reason-not-performed").empty().append(reasonPicker);
 
             // Add result date widget
             const resultDateWidget = formHelper.createObsWidget(resultDateQuestion, {
@@ -127,7 +142,7 @@
                 name: "result-date",
                 orderUuid: order.uuid
             });
-            resultsEntrySection.find(".resultDate").append(resultDateWidget);
+            resultsEntrySection.find(".result-date").append(resultDateWidget);
 
             // Returns a validation result for a numeric field - with result type of [error, critical, abnormal], and message
             const validateNumericResult = function(messages, concept, refRange, value) {
@@ -240,8 +255,6 @@
                     if (fieldErrors.length > 0) {
                         errors.push(messages.errorsWithOneOrMoreFields);
                     }
-
-                    console.log(errors);
 
                     if (errors && errors.length > 0) {
                         errors.forEach(e => {
@@ -386,15 +399,19 @@
                 <legend>${ ui.message("pihapps.status") }</legend>
                 <div class="row status-row align-items-start">
                     <span class="col-3 result-field-label">${ ui.message("pihapps.status") }</span>
-                    <span class="col-auto result-field fulfillerStatus"></span>
+                    <span class="col-auto result-field fulfiller-status"></span>
                 </div>
-                <div class="row status-row align-items-start">
+                <div class="row status-row align-items-start status-section status-section-EXCEPTION">
+                    <span class="col-3 result-field-label">${ ui.message("pihapps.reason") }</span>
+                    <span class="col-auto result-field reason-not-performed"></span>
+                </div>
+                <div class="row status-row align-items-start status-section status-section-COMPLETED">
                     <span class="col-3 result-field-label">${ ui.message("pihapps.resultDate") }</span>
-                    <span class="col-auto result-field resultDate"></span>
+                    <span class="col-auto result-field result-date"></span>
                 </div>
             </fieldset>
         </div>
-        <div class="result-section">
+        <div class="result-section status-section status-section-COMPLETED">
             <fieldset>
                 <legend>${ ui.message("pihapps.results") }</legend>
                 <div class="result-fields">

@@ -28,7 +28,8 @@ class FormHelper {
 
     /**
      * @param concept an object representation of the concept, at minimum (uuid,datatype:(name),answers:(uuid,display),units
-     * @param options - supported properties include { id, name, valueSet, groupingConceptUuid, orderUuid, defaultValue }
+     * @param options - supported properties include { id, name, groupingConceptUuid, orderUuid, defaultValue }
+     *                - properties specific to coded options - valueSet, includeEmptyOption
      */
     createObsWidget = function(concept, options) {
         const widget = jq("<span>").addClass("obs-widget");
@@ -57,7 +58,8 @@ class FormHelper {
                     id: options?.id,
                     name: options?.name,
                     options: valueSet,
-                    initialValue: initialValue
+                    initialValue: initialValue,
+                    includeEmptyOption: options?.includeEmptyOption
                 });
             }
             widget.append(widgetField);
@@ -143,6 +145,7 @@ class FormHelper {
      *   - name
      *   - options
      *   - initialValue
+     *   - includeEmptyOption (default to true)
      */
     createSelectWidget(config) {
         const jq = this.jq;
@@ -153,7 +156,10 @@ class FormHelper {
         if (config.name) {
             widget.attr("name", config.name);
         }
-        widget.append(jq("<option>").attr("value", "").html(""));
+        if (config.includeEmptyOption !== false) {
+            console.log(config.includeEmptyOption);
+            widget.append(jq("<option>").attr("value", "").html(""));
+        }
         config?.options?.forEach((o) => {
             widget.append(jq("<option>").attr("value", o.value).html(o.display));
         });
@@ -280,7 +286,8 @@ class FormHelper {
             if (obsUuid || value) {
                 const voidOnly = obsUuid && !value;
                 const initialObs = this.initialObs.find(o => o.concept.uuid === conceptUuid);
-                const valueToSet = voidOnly ? initialObs?.value : value;
+                const initialObsValue = initialObs ? (initialObs.valueCoded?.uuid ?? initialObs.valueNumeric ?? initialObs.valueDatetime ?? initialObs.valueText ?? initialObs.value?.uuid ?? initialObs.value) : null;
+                const valueToSet = voidOnly ? initialObsValue : value;
                 const obs = {
                     uuid: obsUuid,
                     order: orderUuid,

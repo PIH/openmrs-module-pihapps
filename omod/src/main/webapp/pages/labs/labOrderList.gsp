@@ -122,7 +122,6 @@
                 const actions = jq("<span>").addClass("actions");
                 if (order.fulfillerEncounter) {
                     const editAction = jq("<i>").addClass("icon-pencil enter-results-action").attr("data-order-uuid", order.uuid);
-                    editAction.on("click", () => { console.log("Hello world");})
                     actions.append(editAction);
                 }
                 return actions.html();
