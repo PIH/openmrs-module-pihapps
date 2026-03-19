@@ -31,7 +31,7 @@
     const patientUtils = new PihAppsPatientUtils(jq);
 
     const viewSpecimenEncounter = function(encounterUuid) {
-        const encounterRep = "id,uuid,patient:" + patientRep + ",encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(uuid,concept:(uuid,datatype:(name)),value,comment,formNamespaceAndPath)";
+        const encounterRep = "id,uuid,patient:" + patientRep + ",encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(uuid,concept:(uuid,datatype:(name)),value,valueCoded:(uuid,display),valueNumeric,valueDatetime,valueText,comment,formNamespaceAndPath)";
         const rep = "encounter:(" + encounterRep + "),orders:(" + orderRep + ")";
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq.get(openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterUuid + "?v=custom:(" + rep + ")", function (encAndOrders) {

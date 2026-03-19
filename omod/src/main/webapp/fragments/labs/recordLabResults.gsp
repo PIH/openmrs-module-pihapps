@@ -1,6 +1,13 @@
 <%
     ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
+
+    ui.includeJavascript("uicommons", "datetimepicker/bootstrap-datetimepicker.min.js")
+    if (org.openmrs.api.context.Context.getLocale().getLanguage() != "en") {
+        ui.includeJavascript("uicommons", "datetimepicker/locales/bootstrap-datetimepicker.${ org.openmrs.api.context.Context.getLocale() }.js")
+    }
+    ui.includeCss("uicommons", "datetimepicker.css")
+
     ui.includeJavascript("pihapps", "dateUtils.js")
     ui.includeJavascript("pihapps", "formHelper.js")
     ui.includeCss("pihapps", "labs/labs.css")
@@ -118,7 +125,7 @@
                 id:  id + "-result-date",
                 name: "result-date",
                 orderUuid: order.uuid
-            })
+            });
             resultsEntrySection.find(".resultDate").append(resultDateWidget);
 
             // Returns a validation result for a numeric field - with result type of [error, critical, abnormal], and message

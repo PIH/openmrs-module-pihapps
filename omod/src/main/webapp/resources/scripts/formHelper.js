@@ -11,7 +11,7 @@ class FormHelper {
         this.dateTimeFormat = args.dateTimeFormat;
         this.formName = args.formName;
         this.encounter = args.encounter;
-        this.patient = this.encounter?.patient ?? args.patient ?? null;
+        this.patientUuid = this.encounter?.patient?.uuid ?? args.patientUuid ?? null;
         this.date = this.encounter?.encounterDatetime ?? args.date ?? new Date();
         this.initialObs = this.encounter?.obs?.flatMap(o => { return o.groupMembers ? [o, ...o.groupMembers] : o }) ?? [];
         this.obsWidgetFields = [];
@@ -28,7 +28,7 @@ class FormHelper {
 
     /**
      * @param concept an object representation of the concept, at minimum (uuid,datatype:(name),answers:(uuid,display),units
-     * @param options - supported properties include { id, name, valueSet, groupingConceptUuid, orderUuid }
+     * @param options - supported properties include { id, name, valueSet, groupingConceptUuid, orderUuid, defaultValue }
      */
     createObsWidget = function(concept, options) {
         const widget = jq("<span>").addClass("obs-widget");
@@ -43,13 +43,23 @@ class FormHelper {
         let widgetField = null;
 
         if (valueSet.length > 0) {
-            const initialValue = initialObs?.value;
-            widgetField = this.createSelectWidget({
-                id: options?.id,
-                name: options?.name,
-                options: valueSet,
-                initialValue: initialValue?.uuid ?? initialValue ?? ""}
-            )
+            const initialValue = initialObs ? (initialObs.valueCoded?.uuid ?? initialObs.value?.uuid ?? initialObs.value ?? "") : options.defaultValue ?? "";
+            if (valueSet.length === 1) {
+                widgetField = this.createCheckboxWidget({
+                    id: options?.id,
+                    name: options?.name,
+                    value: valueSet[0],
+                    initialValue: initialValue
+                });
+            }
+            else {
+                widgetField = this.createSelectWidget({
+                    id: options?.id,
+                    name: options?.name,
+                    options: valueSet,
+                    initialValue: initialValue
+                });
+            }
             widget.append(widgetField);
         }
         else if (dataType === "Numeric") {
@@ -61,7 +71,7 @@ class FormHelper {
                 widgetField.attr("name", options.name);
             }
             widgetField.addClass("result-numeric-input").attr("type", "number").attr("size", "10");
-            widgetField.val(initialObs?.valueNumeric ?? initialObs?.value ?? "");
+            widgetField.val(initialObs ? (initialObs.valueNumeric ?? initialObs.value ?? "") : options.defaultValue ?? "");
             widget.append(widgetField);
             widget.append(jq("<span>").addClass("result-units").html(concept.units ?? ""));
         }
@@ -74,11 +84,12 @@ class FormHelper {
                 widgetField.attr("name", options.name);
             }
             widgetField.addClass("result-text-input").attr("type", "text").attr("size", "30");
-            widgetField.val(initialObs?.valueText ?? initialObs?.value ?? "");
+            widgetField.val(initialObs ? (initialObs.valueText ?? initialObs.value ?? "") : options.defaultValue ?? "");
             widget.append(widgetField);
         }
         else if (dataType === "Date" || dataType === "Datetime") {
             const id = options?.id ?? crypto.randomUUID();
+            const initialVal = initialObs? (initialObs.valueDatetime ?? initialObs.value ?? "") : options.defaultValue ?? "";
             const datePicker = this.createDatePickerWidget({
                 id: id,
                 locale: this.locale,
@@ -104,8 +115,8 @@ class FormHelper {
                 widgetField.attr("data-grouping-concept-uuid", options.groupingConceptUuid);
             }
             widgetField.attr("data-form-path", "/" + (options.groupingConceptUuid ? options.groupingConceptUuid + "/" : "") + concept.uuid)
-            if (this.patient) {
-                widgetField.attr("data-patient-uuid", this.patient?.uuid);
+            if (this.patientUuid) {
+                widgetField.attr("data-patient-uuid", this.patientUuid);
             }
             if (this.encounter) {
                 widgetField.attr("data-encounter-uuid", this.encounter?.uuid);
@@ -156,10 +167,33 @@ class FormHelper {
      * config;
      *   - id
      *   - name
+     *   - value
      *   - label
-     *   - locale
+     *   - initialValue
+     */
+    createCheckboxWidget(config) {
+        const jq = this.jq;
+        const widget = jq("<input>").attr("type", "checkbox");
+        if (config.name) {
+            widget.attr("name", config.name);
+        }
+        const value = config.value?.uuid ?? config.value ?? "";
+        const initialValue = config.initialValue?.uuid ?? config.initialValue ?? "";
+        widget.attr("value", value);
+        if (initialValue === value) {
+            widget.prop("checked", true)
+        }
+        return widget;
+    }
+
+    /**
+     * config;
+     *   - id
+     *   - name
+     *   - label
      *   - useTime
      *   - minuteStep
+     *   - maxDateTime
      *   - initialValue
      *   https://github.com/diasks2/bootstrap-datetimepicker-1
      */
@@ -194,12 +228,15 @@ class FormHelper {
             todayHighlight: true,
             minuteStep: config.minuteStep ?? 5,
             format: displayFormat,
-            language: config.locale ?? "en",
+            language: this.locale ?? "en",
             linkField: config.id + "-field",
             linkFormat: submitFormat,
         }
         if (!config.useTime) {
             datePickerOptions.minView = 2;
+        }
+        if (config.maxDateTime) {
+            datePickerOptions.maxDateTime = config.maxDateTime
         }
 
         widget.find(".date").datetimepicker(datePickerOptions);
@@ -216,6 +253,7 @@ class FormHelper {
     constructEncounterPayload() {
         const encounter = {
             uuid: this.encounter?.uuid,
+            patient: this.patientUuid,
             encounterDatetime: this.encounter?.encounterDatetime,
             encounterType: this.encounter?.encounterType.uuid,
             location: this.encounter?.location.uuid,
