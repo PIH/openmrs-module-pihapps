@@ -44,6 +44,7 @@ class PagingDataTable {
         this.pagedTable = null;
         this.lastUpdateDate = null;
         this.rowObjects = [];
+        this.tableUpdateCallback = options.tableUpdateCallback ?? (() => {});
 
         // Set up the event handlers for navigating between pages
         this.getTableInfoElement().find(".first").click(() => this.goToFirstPage());
@@ -55,6 +56,7 @@ class PagingDataTable {
         const pagingSizeElement = this.getTableInfoElement().find(".paging-size");
         pagingSizeElement.html(pagingSizeElement.html().replace('_MENU_', '<select class="page-size-selector"></select>'));
         const pageSizeSelector = jq(".page-size-selector");
+        pageSizeSelector.attr("name", "page-size-selector");
         this.pagingSizes.forEach(size => {
             pageSizeSelector.append('<option value="' + size + '">' + size + '</option>');
         });
@@ -104,6 +106,10 @@ class PagingDataTable {
 
     setLastUpdateDate(lastUpdateDate) {
         this.lastUpdateDate = lastUpdateDate;
+    }
+
+    setTableUpdateCallback(tableUpdateCallback) {
+        this.tableUpdateCallback = tableUpdateCallback;
     }
 
     getDefaultDataTableOptions() {
@@ -163,6 +169,7 @@ class PagingDataTable {
                 this.setTotalCount(0);
                 this.pageNumber = 0;
                 this.getTableInfoElement().hide();
+                this.onTableUpdate();
                 return;
             }
             let tableRows = [];
@@ -205,6 +212,7 @@ class PagingDataTable {
             else {
                 this.getTableInfoElement().hide();
             }
+            this.tableUpdateCallback();
         });
     }
 

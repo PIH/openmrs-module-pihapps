@@ -1,14 +1,12 @@
 <%
     ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
-    ui.includeJavascript("pihapps", "conceptUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
     ui.includeCss("pihapps", "labs/labs.css")
 %>
 <script type="text/javascript">
     function initializeSelectedOrders({ orders, pihAppsConfig, jqElement }) {
         moment.locale(window.sessionContext?.locale ?? 'en');
-        const conceptUtils = new PihAppsConceptUtils(jq);
         const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
         jqElement.html("");
         if (orders && orders.length > 0) {
@@ -20,7 +18,7 @@
             jqElement.append(headerRow);
             orders.forEach((o) => {
                 const urgency = o.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '';
-                const labTest = urgency + conceptUtils.getConceptShortName(o.concept, window.sessionContext?.locale);
+                const labTest = urgency + o.concept.displayStringForLab;
                 let row = jq("<div>").addClass("row");
                 row.append(jq("<div>").addClass("col-4").html(labTest));
                 row.append(jq("<div>").addClass("col-4").html(dateUtils.formatDateWithTimeIfPresent(o.dateActivated)));

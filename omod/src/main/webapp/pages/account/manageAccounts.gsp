@@ -4,7 +4,6 @@
 	ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
 	ui.includeJavascript("uicommons", "moment-with-locales.min.js")
 	ui.includeJavascript("pihapps", "pagingDataTable.js")
-	ui.includeJavascript("pihapps", "conceptUtils.js")
 	ui.includeJavascript("pihapps", "dateUtils.js")
 %>
 <script type="text/javascript">
@@ -17,7 +16,6 @@
 	moment.locale(window.sessionContext?.locale ?? 'en');
 
 	const pagingDataTable = new PagingDataTable(jq);
-	const conceptUtils = new PihAppsConceptUtils(jq);
 
 	const userAccountPage = "${ ui.pageLink("authenticationui", "account/userAccount") }?userId=";
 	const editAccountPage = "${ ui.pageLink("pihapps", "account/account") }?personId=";

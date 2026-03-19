@@ -2,9 +2,9 @@
     ui.includeJavascript("uicommons", "datatables/jquery.dataTables.min.js")
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
     ui.includeJavascript("pihapps", "pagingDataTable.js")
-    ui.includeJavascript("pihapps", "conceptUtils.js")
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
+    ui.includeJavascript("pihapps", "formHelper.js")
     ui.includeCss("pihapps", "labs/labs.css")
 
     def now = new Date()
@@ -29,31 +29,43 @@
         const selectorPrefix = "#" + id;
         const parentElement = jq(selectorPrefix);
 
+        const locale = window.sessionContext?.locale ?? 'en';
+        moment.locale(locale);
+
         const ordersWidgetsSection = parentElement.find(".orders-widgets");
         initializeSelectedOrders({ orders: orders, pihAppsConfig: pihAppsConfig, jqElement: ordersWidgetsSection});
 
-        const reasonPicker = jq(selectorPrefix + "remove-reason-picker-field");
-        reasonPicker.empty();
-        pihAppsConfig.labOrderConfig.reasonTestNotPerformedQuestion?.answers?.forEach((answer) => {
-            reasonPicker.append(jq("<option>").attr("value", answer.uuid).html(answer.display));
+        const formHelper = new FormHelper({
+            jq: jq,
+            moment: moment,
+            locale: locale,
+            dateFormat: pihAppsConfig.dateFormat,
+            dateTimeFormat: pihAppsConfig.dateTimeFormat,
+            formName: "pihapps^orderNotFulfilled",
         });
+
+        const reasonQuestion = pihAppsConfig.labOrderConfig.reasonTestNotPerformedQuestion;
+
+        const reasonPicker = formHelper.createSelectWidget({
+            id: id + "remove-reason-picker",
+            options: reasonQuestion?.answers?.map(a => { return {value: a.uuid, display: a.display }}),
+            initialValue: reason?.valueCoded?.uuid ?? ""
+        });
+        parentElement.find(".obs-field-remove-reason").empty().append(reasonPicker);
 
         // Populate default values each time form is opened
         parentElement.find(".errors-section").html("");
-        parentElement.find(":input").val("");
-        reasonPicker.val(reason?.valueCoded?.uuid ?? '')
 
-        const formElement = parentElement.find("form");
-        formElement.off("submit");
-        formElement.on("submit", (event) => {
+        const saveButton = parentElement.find(".action-button.confirm");
+        saveButton.off("click");
+        saveButton.on("click", (event) => {
 
             event.preventDefault();
             parentElement.find(".action-button").attr("disabled", "disabled");
-            const formData = formElement.serializeArray();
             const errorsSection = parentElement.find(".errors-section");
 
             errorsSection.html("");
-            const removeReason = formData.find(e => e.name === "remove-reason-dropdown")?.value ?? ''
+            const removeReason = reasonPicker.val();
             if (!removeReason) {
                 errorsSection.append(jq("<div>").html('${ ui.message("pihapps.reasonRequired") }'));
                 jq(".action-button").removeAttr("disabled");
@@ -98,14 +110,7 @@
             <div class="remove-reason-section form-field-section row">
                 <span class="form-field-label col-4">${ui.message("pihapps.reason")}:</span>
                 <span class="form-field-widgets col-auto">
-                    ${ui.includeFragment("uicommons", "field/dropDown", [
-                            id: id + "remove-reason-picker",
-                            label: "",
-                            formFieldName: "remove-reason-dropdown",
-                            left: true,
-                            options: [],
-                            initialValue: ""
-                    ])}
+                    <span class="obs-field-remove-reason"></span>
                 </span>
             </div>
             <br><br>
