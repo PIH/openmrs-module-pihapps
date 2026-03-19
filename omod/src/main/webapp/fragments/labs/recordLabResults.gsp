@@ -58,7 +58,8 @@
                 dateFormat: pihAppsConfig.dateFormat,
                 dateTimeFormat: pihAppsConfig.dateTimeFormat,
                 formName: "pihapps^labResultForm",
-                encounter: fulfillerEncounter
+                encounter: fulfillerEncounter,
+                patientUuid: order.patient.uuid
             });
 
             const labIdQuestion = pihAppsConfig.labOrderConfig.labIdentifierConcept;
@@ -206,7 +207,7 @@
                     widgetInfoSection.append(jq("<p>").append(referenceRangeSection));
                 });
 
-                const saveButton = jq("#save-button");
+                const saveButton = parentElement.find(".action-button.confirm");
                 saveButton.off("click");
                 saveButton.on("click", (event) => {
 
@@ -239,6 +240,8 @@
                     if (fieldErrors.length > 0) {
                         errors.push(messages.errorsWithOneOrMoreFields);
                     }
+
+                    console.log(errors);
 
                     if (errors && errors.length > 0) {
                         errors.forEach(e => {
@@ -303,11 +306,19 @@
     .result-units {
         padding-left: 10px;
     }
+    .field-error {
+        display: inline;
+        padding-left: 10px;
+        font-weight: bold;
+    }
     .field-error.abnormal-value {
         color: orange;
     }
     .field-error.critical-value {
         color: orange;
+    }
+    .field-error.error-value {
+        color: red;
     }
 </style>
 
@@ -398,6 +409,6 @@
     </div>
 
     <br><br>
-    <button id="cancel-button" class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
-    <button id="save-button" class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
+    <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
+    <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
 </div>

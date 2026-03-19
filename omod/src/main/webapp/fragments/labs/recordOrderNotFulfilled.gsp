@@ -56,7 +56,7 @@
         // Populate default values each time form is opened
         parentElement.find(".errors-section").html("");
 
-        const saveButton = jq("#save-button");
+        const saveButton = parentElement.find(".action-button.confirm");
         saveButton.off("click");
         saveButton.on("click", (event) => {
 
@@ -65,7 +65,7 @@
             const errorsSection = parentElement.find(".errors-section");
 
             errorsSection.html("");
-            const removeReason = jq(id + "remove-reason-picker").val();
+            const removeReason = reasonPicker.val();
             if (!removeReason) {
                 errorsSection.append(jq("<div>").html('${ ui.message("pihapps.reasonRequired") }'));
                 jq(".action-button").removeAttr("disabled");
@@ -114,8 +114,8 @@
                 </span>
             </div>
             <br><br>
-            <button id="save-button" class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
-            <button id="cancel-button" class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
+            <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
+            <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
         </div>
     </form>
 </div>

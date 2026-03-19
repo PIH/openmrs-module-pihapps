@@ -109,7 +109,7 @@
         const encounterRole = pihAppsConfig.labOrderConfig.specimenCollectionEncounterRole?.uuid;
         // TODO: Handle specimen collection provider with appropriate role.  Not yet implemented.
 
-        const saveButton = jq("#save-button");
+        const saveButton = parentElement.find(".action-button.confirm");
         saveButton.off("click");
         saveButton.on("click", (event) => {
 
@@ -222,8 +222,8 @@
                 </span>
             </div>
             <br><br>
-            <button id="cancel-button" class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
-            <button id="save-button" class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
+            <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
+            <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
         </div>
     </form>
 </div>
