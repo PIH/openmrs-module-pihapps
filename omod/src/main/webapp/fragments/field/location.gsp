@@ -2,13 +2,16 @@
     config.require("label")
     config.require("formFieldName")
 
-    def valueField = config.valueField ?: "id" // Enables either id or uuid to be used for the hidden value
-
     // config supports initialValue that can be set on the form
     // config supports defaultValue that is used if the form value is not set
     // config supports withTag, which is a ; delimited list of location tags to include
+    // config supports restrictToVisitLocationAndDescendants, which will only show locations that are descendants of the visit location if set true
 
+    def valueField = config.valueField ?: "id" // Enables either id or uuid to be used for the hidden value
+    def restrictToVisitLocationAndDescendants = config.restrictToVisitLocationAndDescendants
+    def withTag = config.withTag;
     def initialValue = config.initialValue
+
     if (!initialValue && config.defaultValue) {
         if (config.defaultValue == 'visitLocationForSessionLocation') {
             initialValue = visitLocationForSessionLocation
@@ -38,8 +41,8 @@
 
     def options;
     def tagList = [];
-    if (config.withTag) {
-        tagArray = config.withTag.split(";")
+    if (withTag) {
+        tagArray = withTag.split(";")
         if(tagArray.size() >0){
             tagArray.each{ t ->
                 def tag = t instanceof String ? context.locationService.getLocationTagByName(t) : t
@@ -51,7 +54,7 @@
         options = context.locationService.allLocations
     }
 
-   if (config.restrictToVisitLocationAndDescendants) {
+   if (restrictToVisitLocationAndDescendants) {
         options = options?.findAll { hasAncestorOrIsAncestor(visitLocationForSessionLocation, it) }
    }
 
