@@ -26,6 +26,16 @@
         }
     }
 
+    def hasAncestorOrIsAncestor(ancestor, child) {
+        if (child == ancestor) {
+            return true
+        }
+        if (child.parentLocation == null) {
+            return false
+        }
+        return hasAncestorOrIsAncestor(ancestor, child.parentLocation)
+    }
+
     def options;
     def tagList = [];
     if (config.withTag) {
@@ -40,6 +50,11 @@
     } else {
         options = context.locationService.allLocations
     }
+
+   if (config.restrictToVisitLocationAndDescendants) {
+        options = options?.findAll { hasAncestorOrIsAncestor(visitLocationForSessionLocation, it) }
+   }
+
     options = options.collect {
         def selected = (valueField == "uuid" ? it.uuid == initialValue : it.id.toString() == initialValue)
         [ label: ui.format(it), value: (valueField == "uuid" ? it.uuid : it.id), selected: selected ]
