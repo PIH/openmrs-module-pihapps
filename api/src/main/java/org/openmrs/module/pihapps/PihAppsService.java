@@ -19,6 +19,8 @@ import org.openmrs.Location;
 import org.openmrs.Obs;
 import org.openmrs.Order;
 import org.openmrs.api.OpenmrsService;
+import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
+import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
@@ -43,4 +45,6 @@ public interface PihAppsService extends OpenmrsService {
 	Obs getReasonOrderNotFulfilled(Order order);
 
 	void markOrdersAsNotFulfilled(List<Order> orders, Concept reason);
+
+	ObsSearchResult getObs(ObsSearchCriteria searchCriteria);
 }

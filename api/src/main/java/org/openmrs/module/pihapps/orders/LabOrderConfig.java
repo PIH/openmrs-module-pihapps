@@ -18,8 +18,6 @@ import org.openmrs.messagesource.MessageSourceService;
 import org.openmrs.util.ConfigUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,6 +80,20 @@ public class LabOrderConfig {
 
     public Concept getLabOrderablesConceptSet() {
         return conceptService.getConceptByReference(getLabOrderablesConceptSetReference());
+    }
+
+    // Lab Results Concept Set
+
+    public String getLabResultCategoriesConceptSetReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.labResultCategoriesConceptSet");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("labworkflowowa.labCategoriesConceptSet");
+        }
+        return configVal;
+    }
+
+    public Concept getLabResultCategoriesConceptSet() {
+        return conceptService.getConceptByReference(getLabResultCategoriesConceptSetReference());
     }
 
     // Lab Order Reasons by Concept

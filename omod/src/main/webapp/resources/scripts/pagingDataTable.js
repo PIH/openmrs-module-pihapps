@@ -169,7 +169,7 @@ class PagingDataTable {
                 this.setTotalCount(0);
                 this.pageNumber = 0;
                 this.getTableInfoElement().hide();
-                this.onTableUpdate();
+                this.tableUpdateCallback();
                 return;
             }
             let tableRows = [];
