@@ -31,10 +31,10 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab";
         const configRep =
             "dateFormat,dateTimeFormat,labOrderConfig:(" +
-                "labResultCategoriesConceptSet:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + ")))" +
+                "labResultCategoriesConceptSet:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + "))))" +
             ")";
 
-        const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value,referenceRange"
+        const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value,referenceRange"
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
@@ -61,7 +61,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     const refRange = obs.referenceRange;
                     if ((refRange.lowNormal && obs.valueNumeric < refRange.lowNormal) ||
                         (refRange.hiNormal && obs.valueNumeric > refRange.hiNormal)) {
-                        return "<span class='abnormal-value'>" + value + "</span>";
+                        return "<span class='abnormal-value'>(" + value + ")</span>";
                     }
                 }
                 return value;
@@ -82,6 +82,28 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 return "";
             }
 
+            const addGroupRows = () => {
+                let displayedGroup = null;
+                const tableRowObjects = pagingDataTable.getRowObjects();
+                const tableRowData = pagingDataTable.getTableElement().find("tbody tr");
+                tableRowObjects.forEach((obs, index) => {
+                    const currentGroup = obs.obsGroup?.uuid;
+                    if (currentGroup !== displayedGroup) {
+                        if (currentGroup) {
+                            const newRow = jq("<tr>").addClass("obs-group-row");
+                            const newCell = jq("<td>").attr("colspan", pagingDataTable.columnTransformFunctions.length).html(obs.obsGroup.concept.displayStringForLab);
+                            newRow.append(newCell);
+                            newRow.insertBefore(tableRowData[index]);
+                        }
+                        displayedGroup = currentGroup;
+                    }
+                    if (currentGroup) {
+                        const testNameCell = jq(tableRowData[index]).find("td")[0];
+                        const contents = jq(testNameCell).addClass("obs-group-member-row");
+                    }
+                });
+            }
+
             pagingDataTable.initialize({
                 tableSelector: "#results-table",
                 tableInfoSelector: "#results-table-info-and-paging",
@@ -89,8 +111,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 representation: "custom:(" + obsRep + ")",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getDate, getLabTest, getResults, getNormalRange
+                    getLabTest, getDate, getResults, getNormalRange
                 ],
+                tableUpdateCallback: addGroupRows,
                 datatableOptions: {
                     oLanguage: {
                         sInfo: "${ ui.message("uicommons.dataTable.info") }",
@@ -138,6 +161,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     .abnormal-value {
         font-weight: bold;
         color: red;
+    }
+    .obs-group-row {
+        text-decoration: underline;
+    }
+    .obs-group-member-row {
+        padding-left: 20px;
     }
 </style>
 <div class="row justify-content-between" style="padding-top: 10px">
@@ -187,8 +216,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 <table id="results-table">
     <thead>
         <tr>
-            <th>${ ui.message("pihapps.resultDate") }</th>
             <th>${ ui.message("pihapps.labTest") }</th>
+            <th>${ ui.message("pihapps.resultDate") }</th>
             <th>${ ui.message("pihapps.results") }</th>
             <th>${ ui.message("pihapps.normalRange") }</th>
         </tr>
