@@ -38,7 +38,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
-            const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
 
             const getFilterParameterValues = function() {
@@ -54,16 +53,33 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const getDate = (obs) => { return dateUtils.formatDateWithTimeIfPresent(obs.obsDatetime); };
             const getLabTest = (obs) => { return obs.concept.displayStringForLab; };
             const getResults = (obs) => {
-                if (obs.valueCoded) {
-                    return obs.valueCoded.displayStringForLab
+                const value = obs.valueCoded ? obs.valueCoded.displayStringForLab :
+                              obs.valueNumeric ? (obs.valueNumeric + (obs.concept.units ? " " + obs.concept.units : "")) :
+                              obs.valueDatetime ?  dateUtils.formatDateWithTimeIfPresent(obs.valueDatetime) :
+                              obs.valueText ?? obs.value;
+                if (obs.valueNumeric && obs.referenceRange) {
+                    const refRange = obs.referenceRange;
+                    if ((refRange.lowNormal && obs.valueNumeric < refRange.lowNormal) ||
+                        (refRange.hiNormal && obs.valueNumeric > refRange.hiNormal)) {
+                        return "<span class='abnormal-value'>" + value + "</span>";
+                    }
                 }
-                if (obs.valueNumeric) {
-                    return obs.valueNumeric + " " + obs.concept.units
+                return value;
+            }
+            const getNormalRange = (obs) => {
+                const refRange = obs.referenceRange;
+                if (refRange) {
+                    if (refRange.lowNormal && refRange.hiNormal) {
+                        return refRange.lowNormal + " - " + refRange.hiNormal;
+                    }
+                    if (refRange.lowNormal) {
+                        return ">= " + refRange.lowNormal;
+                    }
+                    if (refRange.hiNormal) {
+                        return "=< " + refRange.hiNormal;
+                    }
                 }
-                if (obs.valueDatetime) {
-                    return dateUtils.formatDateWithTimeIfPresent(obs.valueDatetime);
-                }
-                return obs.valueText ?? obs.value;
+                return "";
             }
 
             pagingDataTable.initialize({
@@ -73,7 +89,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 representation: "custom:(" + obsRep + ")",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getDate, getLabTest, getResults
+                    getDate, getLabTest, getResults, getNormalRange
                 ],
                 datatableOptions: {
                     oLanguage: {
@@ -118,6 +134,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         });
     });
 </script>
+<style>
+    .abnormal-value {
+        font-weight: bold;
+        color: red;
+    }
+</style>
 <div class="row justify-content-between" style="padding-top: 10px">
     <div class="col-6">
         <h3>${ ui.message("pihapps.labResults") }</h3>
@@ -168,6 +190,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             <th>${ ui.message("pihapps.resultDate") }</th>
             <th>${ ui.message("pihapps.labTest") }</th>
             <th>${ ui.message("pihapps.results") }</th>
+            <th>${ ui.message("pihapps.normalRange") }</th>
         </tr>
     </thead>
     <tbody></tbody>
