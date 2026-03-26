@@ -126,27 +126,115 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
-            const testFilter = jq("#testConcept-filter");
-            const categoryFilter = jq("#category-filter");
+            const categories = [];
 
             pihAppsConfig.labOrderConfig.labResultCategoriesConceptSet.setMembers.forEach((categoryConcept) => {
-                const optGroup = jq("<optGroup>").attr("label", categoryConcept.displayStringForLab).addClass("category-opt-group category-" + categoryConcept.uuid);
-                categoryConcept.setMembers.forEach((testOrPanel) => {
-                    const labOpt = jq("<option>").attr("value", testOrPanel.uuid).html(testOrPanel.displayStringForLab);
-                    optGroup.append(labOpt);
+
+                const panels = [];
+                const tests = [];
+
+                categories.push({
+                    value: categoryConcept.uuid,
+                    display: categoryConcept.displayStringForLab,
+                    panels: panels,
+                    tests: tests
                 });
-                testFilter.append(optGroup);
-                categoryFilter.append(jq("<option>").attr("value", categoryConcept.uuid).html(categoryConcept.displayStringForLab));
+
+                categoryConcept.setMembers.forEach((testOrPanel) => {
+                    if (testOrPanel.setMembers && testOrPanel.setMembers.length > 0) {
+                        panels.push({
+                            value: testOrPanel.uuid,
+                            display: testOrPanel.displayStringForLab,
+                        });
+                        testOrPanel.setMembers.forEach(test => {
+                            let labTest = tests.find(t => t.value === test.uuid);
+                            if (!labTest) {
+                                labTest = {
+                                    value: test.uuid,
+                                    display: test.displayStringForLab,
+                                    panels: []
+                                }
+                                tests.push(labTest);
+                            }
+                            labTest.panels.push(testOrPanel.uuid);
+                        });
+                    } else {
+                        let labTest = tests.find(t => t.value === testOrPanel.uuid);
+                        if (!labTest) {
+                            labTest = {
+                                value: testOrPanel.uuid,
+                                display: testOrPanel.displayStringForLab,
+                                panels: []
+                            }
+                            tests.push(labTest);
+                        }
+                    }
+                });
+                const conceptComparator = (a, b) => {return a.display.localeCompare(b.display, undefined, 'base')};
+                panels.sort(conceptComparator);
+                tests.sort(conceptComparator);
             });
-            categoryFilter.on("change", () => {
+
+            const categoryFilter = jq("#category-filter");
+            const panelFilter = jq("#panel-filter");
+            const testFilter = jq("#testConcept-filter");
+
+            categories.forEach(c => {
+                categoryFilter.append(jq("<option>").attr("value", c.value).html(c.display));
+                const panelGroup = jq("<optGroup>").attr("label", c.display).addClass("category-opt-group category-" + c.value);
+                panelFilter.append(panelGroup);
+                const testGroup = jq("<optGroup>").attr("label", c.display).addClass("category-opt-group category-" + c.value);
+                testFilter.append(testGroup);
+                c.panels.forEach(p => {
+                    panelGroup.append(jq("<option>").attr("value", p.value).html(p.display));
+                });
+                c.tests.forEach(t => {
+                    const testOption = jq("<option>").attr("value", t.value).html(t.display).addClass("test-option");
+                    t.panels.forEach(p => {
+                        testOption.addClass("panel-option-" + p);
+                    });
+                    testGroup.append(testOption);
+                });
+            });
+
+            const showAllTestsAndCategories = () => {
+                panelFilter.find(".category-opt-group").show();
+                testFilter.find(".category-opt-group").show();
+                testFilter.find(".test-option").show();
+            }
+
+            const filterByCategory = () => {
                 const category = categoryFilter.val();
-                if (category === "") {
-                    testFilter.find(".category-opt-group").show();
-                }
-                else {
+                if (category) {
+                    panelFilter.find(".category-opt-group").hide();
+                    panelFilter.find(".category-" + category).show();
                     testFilter.val("");
                     testFilter.find(".category-opt-group").hide();
                     testFilter.find(".category-" + category).show();
+                }
+            }
+
+            categoryFilter.on("change", () => {
+                showAllTestsAndCategories();
+                filterByCategory();
+                panelFilter.val("");
+            });
+
+            panelFilter.on("change", () => {
+                const panel = panelFilter.val();
+                showAllTestsAndCategories();
+                filterByCategory();
+                if (panel) {
+                    testFilter.val("");
+                    testFilter.find(".category-opt-group").hide();
+                    testFilter.find(".test-option").hide();
+                    categories.forEach(c => {
+                        const matchesInCategory = testFilter.find(".category-" + c.value).find(".panel-option-" + panel);
+                        if (matchesInCategory.length > 0) {
+                            testFilter.find(".category-" + c.value).show();
+                            matchesInCategory.show();
+                        }
+                    });
                 }
             });
 
@@ -201,6 +289,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         <div class="col">
             <label for="category-filter">${ ui.message("pihapps.category") }</label>
             <select id="category-filter" name="category" class="form-control">
+                <option value=""></option>
+            </select>
+        </div>
+        <div class="col">
+            <label for="panel-filter">${ ui.message("pihapps.panel") }</label>
+            <select id="panel-filter" name="testConcept" class="form-control">
                 <option value=""></option>
             </select>
         </div>
