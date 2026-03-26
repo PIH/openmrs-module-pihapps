@@ -63,7 +63,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     const refRange = obs.referenceRange;
                     if ((refRange.lowNormal && obs.valueNumeric < refRange.lowNormal) ||
                         (refRange.hiNormal && obs.valueNumeric > refRange.hiNormal)) {
-                        return "<span class='abnormal-value'>(" + value + ")</span>";
+                        return "<span class='abnormal-value'>" + value + "</span>";
                     }
                 }
                 return value;
@@ -71,14 +71,15 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const getNormalRange = (obs) => {
                 const refRange = obs.referenceRange;
                 if (refRange) {
+                    const units = obs.concept.units ? " " + obs.concept.units : "";
                     if (refRange.lowNormal && refRange.hiNormal) {
-                        return refRange.lowNormal + " - " + refRange.hiNormal;
+                        return refRange.lowNormal + " - " + refRange.hiNormal + units;
                     }
                     if (refRange.lowNormal) {
-                        return ">= " + refRange.lowNormal;
+                        return ">= " + refRange.lowNormal + units;
                     }
                     if (refRange.hiNormal) {
-                        return "=< " + refRange.hiNormal;
+                        return "=< " + refRange.hiNormal + units;
                     }
                 }
                 return "";
