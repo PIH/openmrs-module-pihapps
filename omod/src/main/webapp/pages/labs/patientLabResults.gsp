@@ -93,9 +93,26 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             }
 
             const addGroupRows = () => {
-                let displayedGroup = null;
                 const tableRowObjects = pagingDataTable.getRowObjects();
                 const tableRowData = pagingDataTable.getTableElement().find("tbody tr");
+
+                // Group by date if selected
+                const groupByDate = jq("#groupByDate-filter").is(":checked");
+                if (groupByDate) {
+                    let displayedDate = null;
+                    tableRowObjects.forEach((obs, index) => {
+                        const currentDate = dateUtils.formatAsDateWithoutTime(obs.obsDatetime);
+                        if (currentDate !== displayedDate) {
+                            const newRow = jq("<tr>").addClass("group-by-date-row");
+                            const newCell = jq("<td>").attr("colspan", pagingDataTable.columnTransformFunctions.length).html(currentDate);
+                            newRow.append(newCell);
+                            newRow.insertBefore(tableRowData[index]);
+                            displayedDate = currentDate;
+                        }
+                    });
+                }
+                // Group by panel after grouping by date
+                let displayedGroup = null;
                 tableRowObjects.forEach((obs, index) => {
                     const currentGroup = obs.obsGroup?.uuid;
                     if (currentGroup !== displayedGroup) {
@@ -109,7 +126,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     }
                     if (currentGroup) {
                         const testNameCell = jq(tableRowData[index]).find("td")[0];
-                        const contents = jq(testNameCell).addClass("obs-group-member-row");
+                        jq(testNameCell).addClass("obs-group-member-row");
                     }
                 });
             }
@@ -266,6 +283,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     .obs-group-member-row {
         padding-left: 20px;
     }
+    #groupByDate-filter {
+        margin-top:8px;
+    }
+    .group-by-date-row td {
+        background-color: lightgrey;
+    }
 </style>
 <div class="row justify-content-between" style="padding-top: 10px">
     <div class="col-6">
@@ -274,6 +297,24 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 </div>
 <form method="get" id="test-filter-form">
     <div class="row justify-content-start align-items-end">
+        <div class="col">
+            <label for="category-filter">${ ui.message("pihapps.category") }</label>
+            <select id="category-filter" name="category" class="form-control">
+                <option value=""></option>
+            </select>
+        </div>
+        <div class="col">
+            <label for="panel-filter">${ ui.message("pihapps.panel") }</label>
+            <select id="panel-filter" name="panelConcept" class="form-control">
+                <option value=""></option>
+            </select>
+        </div>
+        <div class="col">
+            <label for="testConcept-filter">${ ui.message("pihapps.labTest") }</label>
+            <select id="testConcept-filter" name="testConcept" class="form-control">
+                <option value=""></option>
+            </select>
+        </div>
         <div class="col">
             ${ ui.includeFragment("pihapps", "field/datetimepicker", [
                     id: "onOrAfter-filter",
@@ -297,22 +338,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             ])}
         </div>
         <div class="col">
-            <label for="category-filter">${ ui.message("pihapps.category") }</label>
-            <select id="category-filter" name="category" class="form-control">
-                <option value=""></option>
-            </select>
-        </div>
-        <div class="col">
-            <label for="panel-filter">${ ui.message("pihapps.panel") }</label>
-            <select id="panel-filter" name="panelConcept" class="form-control">
-                <option value=""></option>
-            </select>
-        </div>
-        <div class="col">
-            <label for="testConcept-filter">${ ui.message("pihapps.labTest") }</label>
-            <select id="testConcept-filter" name="testConcept" class="form-control">
-                <option value=""></option>
-            </select>
+            <input id="groupByDate-filter" type="checkbox" value="true"/>
+            <label for="groupByDate-filter">${ ui.message("pihapps.groupByDate") }</label>
         </div>
     </div>
 </form>
