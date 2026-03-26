@@ -41,9 +41,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
 
             const getFilterParameterValues = function() {
+                const panelVal = jq("#panel-filter").val();
+                const testVal = jq("#testConcept-filter").val();
                 return {
                     "patient": patientUuid,
-                    "labTest": jq("#testConcept-filter").val(),
+                    "labTest": (testVal === "" ? panelVal : testVal),
                     "category": jq("#category-filter").val(),
                     "onOrAfter": jq("#onOrAfter-filter-field").val(),
                     "onOrBefore": jq("#onOrBefore-filter-field").val()
@@ -294,7 +296,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         </div>
         <div class="col">
             <label for="panel-filter">${ ui.message("pihapps.panel") }</label>
-            <select id="panel-filter" name="testConcept" class="form-control">
+            <select id="panel-filter" name="panelConcept" class="form-control">
                 <option value=""></option>
             </select>
         </div>
