@@ -52,8 +52,14 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             }
 
-            const getDate = (obs) => { return dateUtils.formatDateWithTimeIfPresent(obs.obsDatetime); };
-            const getLabTest = (obs) => { return obs.concept.displayStringForLab; };
+            const getDate = (obs) => {
+                return dateUtils.formatDateWithTimeIfPresent(obs.obsDatetime);
+            }
+
+            const getLabTest = (obs) => {
+                return obs.concept.displayStringForLab;
+            }
+
             const getResults = (obs) => {
                 const value = obs.valueCoded ? obs.valueCoded.displayStringForLab :
                               obs.valueNumeric ? (obs.valueNumeric + (obs.concept.units ? " " + obs.concept.units : "")) :
@@ -68,6 +74,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
                 return value;
             }
+
             const getNormalRange = (obs) => {
                 const refRange = obs.referenceRange;
                 if (refRange) {
