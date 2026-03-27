@@ -130,13 +130,21 @@
             resultsEntrySection.find(".result-row").remove();
 
             // Add fulfiller status widget
+            const fulfillerStatuses = ["IN_PROGRESS", "COMPLETED", "EXCEPTION"]
+                .map(s => { return fulfillerStatusOptions.find(o => o.status === s) })
+                .map(o => { return { value: o.status, display: o.display  }})
+            ;
             const fulfillerStatusWidget = formHelper.createSelectWidget({
                 id: id + "-fulfiller-status",
-                options: fulfillerStatusOptions.filter(o => ["IN_PROGRESS", "COMPLETED", "EXCEPTION"].includes(o.status)).map(o => { return { value: o.status, display: o.display } }),
+                options: fulfillerStatuses,
                 initialValue: order.fulfillerStatus,
-                includeEmptyOption: false
+                includeEmptyOption: false,
             });
             resultsEntrySection.find(".fulfiller-status").append(fulfillerStatusWidget);
+            formHelper.displaySelectWidgetAsButtons(fulfillerStatusWidget, {
+                buttonClass: "btn-outline-secondary"
+            });
+
             fulfillerStatusWidget.on("change", () => {
                 const fulfillerStatus = fulfillerStatusWidget.val();
                 parentElement.find(".status-section").hide().find(":input").val("");

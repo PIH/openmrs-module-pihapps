@@ -231,6 +231,12 @@
     #edit-specimen-encounter-section { display: none; }
     #edit-reason-not-performed-section { display: none; }
     #record-lab-results-section { display: none; }
+    .select-buttons {
+        padding-bottom: 10px;
+    }
+    .select-buttons button {
+        margin-right: 5px; margin-left: 5px;
+    }
 </style>
 
 <div id="view-orders-section">

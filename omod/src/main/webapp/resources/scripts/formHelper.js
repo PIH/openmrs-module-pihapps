@@ -157,16 +157,50 @@ class FormHelper {
             widget.attr("name", config.name);
         }
         if (config.includeEmptyOption !== false) {
-            console.log(config.includeEmptyOption);
             widget.append(jq("<option>").attr("value", "").html(""));
         }
         config?.options?.forEach((o) => {
-            widget.append(jq("<option>").attr("value", o.value).html(o.display));
+            const option = jq("<option>").attr("value", o.value).html(o.display);
+            if (o.value === config.initialValue) {
+                option.attr("selected", "true");
+            }
+            widget.append(option);
         });
         if (config.initialValue) {
             widget.val(config.initialValue);
         }
         return widget;
+    }
+
+    /**
+     * Takes in a select widget and additional configuration to render as buttons
+     * config:
+     * buttonClass (optional) - the bootstrap button class
+     */
+    displaySelectWidgetAsButtons(widget, config) {
+        widget.css("display", "none");
+        const buttonGroup = jq("<div>").addClass("btn-group select-buttons");
+        widget.find("option").each((index, element) => {
+            const option = jq(element);
+            const value = option.val();
+            const selected = option.is(":selected");
+            const button = jq("<button>").addClass("btn");
+            if (config.buttonClass) {
+                button.addClass(config.buttonClass);
+            }
+            if (selected) {
+                button.addClass("active");
+            }
+            button.html(option.html());
+            button.on("click", () => {
+                widget.val(value);
+                widget.change();
+                buttonGroup.find("button").removeClass("active");
+                button.addClass("active");
+            });
+            buttonGroup.append(button);
+        });
+        buttonGroup.insertAfter(widget);
     }
 
     /**
