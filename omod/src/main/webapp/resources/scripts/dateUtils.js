@@ -18,6 +18,10 @@ class PihAppsDateUtils {
         return dateStr ? this.moment(dateStr).format(this.hasTime(dateStr) ? this.dateTimeFormat : this.dateFormat) : "";
     }
 
+    formatAsDateWithoutTime(dateStr) {
+        return dateStr ? this.moment(dateStr).format(this.dateFormat) : "";
+    }
+
     roundDownToNearestMinuteInterval(date, minuteInterval) {
         const d = new Date(date);
         d.setSeconds(0);

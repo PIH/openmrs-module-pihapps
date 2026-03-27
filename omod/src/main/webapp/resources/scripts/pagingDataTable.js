@@ -25,6 +25,7 @@ class PagingDataTable {
      *     columnTransformFunctions:  An array of functions that can transform one result returned from the endpoint to the column value at the appropriate index
      *     pagingSizes: An array of page sizes to support
      *     defaultPageSize: The default page size
+     *     tableUpdateCallback:  An optional function that executes after the table is rendered, generally for attaching event handlers and behavior
      * }
      */
     initialize(options) {
@@ -169,7 +170,7 @@ class PagingDataTable {
                 this.setTotalCount(0);
                 this.pageNumber = 0;
                 this.getTableInfoElement().hide();
-                this.onTableUpdate();
+                this.tableUpdateCallback();
                 return;
             }
             let tableRows = [];

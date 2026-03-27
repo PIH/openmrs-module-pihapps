@@ -37,6 +37,8 @@ import org.openmrs.api.OrderService;
 import org.openmrs.api.db.hibernate.DbSessionFactory;
 import org.openmrs.api.impl.BaseOpenmrsService;
 import org.openmrs.module.emrapi.EmrApiConstants;
+import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
+import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
@@ -128,12 +130,12 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	public OrderSearchResult getOrders(OrderSearchCriteria searchCriteria) {
 		OrderSearchResult result = new OrderSearchResult();
 		// First query to get total count
-		Criteria c = createHibernateCriteria(searchCriteria, false);
+		Criteria c = createHibernateOrderSearchCriteria(searchCriteria, false);
 		c.setProjection(Projections.rowCount());
 		Long totalCount = (Long) c.list().get(0);
 		result.setTotalCount(totalCount);
 		// Then query to get page of results
-		c = createHibernateCriteria(searchCriteria, true);
+		c = createHibernateOrderSearchCriteria(searchCriteria, true);
 		c.setProjection(null);
 		Integer startIndex = searchCriteria.getStartIndex();
 		Integer limit = searchCriteria.getLimit();
@@ -154,12 +156,12 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	public PatientWithOrdersSearchResult getPatientsWithOrders(OrderSearchCriteria searchCriteria) {
 		PatientWithOrdersSearchResult result = new PatientWithOrdersSearchResult();
 		// First query to get total count of distinct patients
-		Criteria c = createHibernateCriteria(searchCriteria, false);
+		Criteria c = createHibernateOrderSearchCriteria(searchCriteria, false);
 		c.setProjection(Projections.countDistinct("patient"));
 		Long totalCount = (Long) c.list().get(0);
 		result.setTotalCount(totalCount);
 		// Then query to get page of patients
-		c = createHibernateCriteria(searchCriteria, true);
+		c = createHibernateOrderSearchCriteria(searchCriteria, true);
 		c.setProjection(Projections.distinct(Projections.property("patient")));
 		Integer startIndex = searchCriteria.getStartIndex();
 		Integer limit = searchCriteria.getLimit();
@@ -170,7 +172,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		List<Patient> patients = c.list();
 		// Then retrieve the orders for these patients and organize them into results
-		c = createHibernateCriteria(searchCriteria, true);
+		c = createHibernateOrderSearchCriteria(searchCriteria, true);
 		c.add(in("patient", patients));
 		c.setProjection(null);
 		List<Order> orders = c.list();
@@ -185,7 +187,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	@SuppressWarnings({"deprecation"})
-	private Criteria createHibernateCriteria(OrderSearchCriteria searchCriteria, boolean applySortCriteria) {
+	private Criteria createHibernateOrderSearchCriteria(OrderSearchCriteria searchCriteria, boolean applySortCriteria) {
 		Date now = new Date();
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Order.class);
 		c.add(eq("voided", false));
@@ -413,5 +415,64 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				obsService.voidObs(existingValue, "Voided by pihAppsService.markOrdersAsNotFulfilled");
 			}
 		}
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_PATIENTS)
+	@SuppressWarnings({ "unchecked" })
+	public ObsSearchResult getObs(ObsSearchCriteria searchCriteria) {
+		ObsSearchResult result = new ObsSearchResult();
+		// First query to get total count
+		Criteria c = createHibernateObsSearchCriteria(searchCriteria, false);
+		c.setProjection(Projections.rowCount());
+		Long totalCount = (Long) c.list().get(0);
+		result.setTotalCount(totalCount);
+		// Then query to get page of results
+		c = createHibernateObsSearchCriteria(searchCriteria, true);
+		c.setProjection(null);
+		Integer startIndex = searchCriteria.getStartIndex();
+		Integer limit = searchCriteria.getLimit();
+		if (limit != null) {
+			startIndex = startIndex == null ? 0 : startIndex;
+			c.setFirstResult(startIndex);
+			c.setMaxResults(limit);
+		}
+		List<Obs> obs = c.list();
+		result.setObs(obs);
+		return result;
+	}
+
+	@SuppressWarnings({ "deprecation" })
+	private Criteria createHibernateObsSearchCriteria(ObsSearchCriteria searchCriteria, boolean applySortCriteria) {
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
+		c.add(eq("voided", false));
+		if (searchCriteria.getPatient() != null) {
+			c.add(eq("person", searchCriteria.getPatient()));
+		}
+		if (searchCriteria.getConcepts() != null) {
+			c.add(in("concept", searchCriteria.getConcepts()));
+		}
+		if (searchCriteria.getOnOrBefore() != null) {
+			Date onOrBefore = OpenmrsUtil.getLastMomentOfDay(searchCriteria.getOnOrBefore());
+			c.add(le("obsDatetime", onOrBefore));
+		}
+		if (searchCriteria.getOnOrAfter() != null) {
+			Date onOrAfter = OpenmrsUtil.firstSecondOfDay(searchCriteria.getOnOrAfter());
+			c.add(ge("obsDatetime", onOrAfter));
+		}
+		if (applySortCriteria) {
+			if (searchCriteria.getSortCriteria() != null) {
+				for (SortCriteria sortCriteria : searchCriteria.getSortCriteria()) {
+					if (sortCriteria.getDirection() == SortCriteria.Direction.DESC) {
+						c.addOrder(org.hibernate.criterion.Order.desc(sortCriteria.getField()));
+					} else {
+						c.addOrder(org.hibernate.criterion.Order.asc(sortCriteria.getField()));
+					}
+				}
+
+			}
+		}
+		return c;
 	}
 }
