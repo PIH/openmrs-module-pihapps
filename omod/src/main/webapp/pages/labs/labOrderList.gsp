@@ -94,21 +94,23 @@
             // Column functions
             const getEmrId = (order) => { return patientUtils.getPreferredIdentifier(order.patient, primaryIdentifierType); };
             const getPatientName = (order) => { return order.patient.person.display; }
-            const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated); };
+            const getOrderDate = (order) => { return dateUtils.formatAsDateWithoutTime(order.dateActivated); };
+            const getOrderLocation = (order) => {return order.encounter.location?.display; }
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getAccessionNumber = (order) => { return order.accessionNumber; }
 
             const getLabTest = function(order) {
                 return (order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '') + order.concept.displayStringForLab;
             }
+
             const getSpecimenDate = function(order) {
                 const fulfillerEncounter = order.fulfillerEncounter;
                 if (!fulfillerEncounter) {
                     return "";
                 }
-                const specimenDate = dateUtils.formatDateWithTimeIfPresent(fulfillerEncounter.encounterDatetime);
+                const specimenDate = dateUtils.formatAsDateWithoutTime(fulfillerEncounter.encounterDatetime);
                 return "<a href=\"javascript:viewSpecimenEncounter('" + fulfillerEncounter.uuid +  "')\">" + specimenDate + "</a>";
-            };
+            }
 
             const getOrderFulfillmentStatus = (order) => {
                 const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
@@ -116,7 +118,7 @@
                     return "<a href=\"javascript:viewOrderNotPerformed('" + order.uuid +  "')\">" + statusDisplay + "</a>";
                 }
                 return statusDisplay;
-            };
+            }
 
             const getActions = (order) => {
                 const actions = jq("<span>").addClass("actions");
@@ -152,6 +154,10 @@
                         onSuccessFunction: () => {
                             closeLabResults();
                             pagingDataTable.updateTable();
+                        },
+                        onCancelFunction: () => {
+                            closeLabResults();
+                            closeReasonNotPerformed();
                         }
                     });
                     openLabResults();
@@ -165,7 +171,7 @@
                 representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getEmrId, getPatientName, getOrderNumber, getOrderDate, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest, getActions
+                    getEmrId, getPatientName, getOrderNumber, getOrderDate, getOrderLocation, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest, getActions
                 ],
                 datatableOptions: {
                     oLanguage: {
@@ -209,16 +215,6 @@
             const getOrderFromTable = function(orderUuid) {
                 return pagingDataTable.getRowObjects().find((o) => o.uuid === orderUuid);
             }
-
-            jq("#record-lab-results-section button.cancel").click((event) => {
-                event.preventDefault();
-                closeLabResults();
-            });
-
-            jq("#edit-reason-not-performed-section button.cancel").click((event) => {
-                event.preventDefault();
-                closeReasonNotPerformed();
-            });
 
             // For testing only
             jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT").trigger("change");
@@ -308,6 +304,7 @@
                 <th>${ ui.message("pihapps.name") }</th>
                 <th>${ ui.message("pihapps.orderNumber") }</th>
                 <th>${ ui.message("pihapps.orderDate") }</th>
+                <th>${ ui.message("pihapps.orderLocation") }</th>
                 <th>${ ui.message("pihapps.specimenDate") }</th>
                 <th>${ ui.message("pihapps.labId") }</th>
                 <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>

@@ -139,6 +139,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 </script>
 
 <style>
+    #orders-table_wrapper {
+        min-height: unset;
+    }
     #order-actions-section {
         padding-top: 20px;
     }

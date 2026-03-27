@@ -22,6 +22,12 @@
         const order = formConfig.order;
         const pihAppsConfig = formConfig.pihAppsConfig;
         const onSuccessFunction = formConfig.onSuccessFunction;
+        const onCancelFunction = formConfig.onCancelFunction;
+
+        const id = "${id}";
+        const selectorPrefix = "#" + id;
+        const parentElement = jq(selectorPrefix);
+        parentElement.find(".errors-section").html("");
 
         const messages = {
             estimated: '${ ui.message("pihapps.estimated") }',
@@ -35,12 +41,28 @@
             resultsMustHaveAssociatedSpecimenEncounter: '${ ui.message("pihapps.resultsMustHaveAssociatedSpecimenEncounter") }',
             noResultsEntered: '${ ui.message("pihapps.noResultsEntered") }',
             errorsWithOneOrMoreFields: '${ ui.message("pihapps.errorsWithOneOrMoreFields") }',
+            reasonRequired: '${ ui.message("pihapps.reasonRequired") }',
         };
 
         if (!order || !order.fulfillerEncounter) {
             console.warn("recordLabResults requires an order that has a non-null fulfillerEncounter")
             return;
         }
+
+        const resetForm = () => {
+            parentElement.find(".errors-section").html("");
+            parentElement.find(".order-and-specimen-section").hide();
+            parentElement.find(".result-entry-section").hide();
+            parentElement.find(".loading-section").show();
+        }
+
+        const formLoaded = () => {
+            parentElement.find(".loading-section").hide();
+            parentElement.find(".order-and-specimen-section").show();
+            parentElement.find(".result-entry-section").show();
+        }
+
+        resetForm();
 
         const locale = window.sessionContext?.locale ?? 'en';
         moment.locale(locale);
@@ -68,11 +90,6 @@
             const testLocationQuestion = pihAppsConfig.labOrderConfig.testLocationQuestion;
             const resultDateQuestion = pihAppsConfig.labOrderConfig.resultsDateQuestion;
             const fulfillerStatusOptions = pihAppsConfig.labOrderConfig.fulfillerStatusOptions;
-
-            const id = "${id}";
-            const selectorPrefix = "#" + id;
-            const parentElement = jq(selectorPrefix);
-            parentElement.find(".errors-section").html("");
 
             // Populate top sections containing specimen and order details
 
@@ -221,6 +238,16 @@
                     widgetInfoSection.append(jq("<p>").append(referenceRangeSection));
                 });
 
+                const cancelButton = parentElement.find(".action-button.cancel");
+                cancelButton.off("click");
+                cancelButton.on("click", (event) => {
+                    event.preventDefault();
+                    resetForm();
+                    if (onCancelFunction) {
+                        onCancelFunction();
+                    }
+                });
+
                 const saveButton = parentElement.find(".action-button.confirm");
                 saveButton.off("click");
                 saveButton.on("click", (event) => {
@@ -250,7 +277,15 @@
                         }
                     }
 
-                    const fieldErrors = jq(".field-error.error-value").get().map(element => jq(element).html().trim()).filter(Boolean);
+                    // If not performed, then reason is required
+                    if (fulfillerStatusToSubmit === "EXCEPTION") {
+                        const reasonObs = encounterToSubmit.obs.find(o => o.concept === reasonQuestion.uuid);
+                        if (!reasonObs || !reasonObs.valueCoded) {
+                            errors.push(messages.reasonRequired);
+                        }
+                    }
+
+                    const fieldErrors = parentElement.find(".field-error.error-value").get().map(element => jq(element).html().trim()).filter(Boolean);
                     if (fieldErrors.length > 0) {
                         errors.push(messages.errorsWithOneOrMoreFields);
                     }
@@ -259,7 +294,7 @@
                         errors.forEach(e => {
                             parentElement.find(".errors-section").append(jq("<div>").html(e));
                         });
-                        jq(".action-button").removeAttr("disabled");
+                        parentElement.find(".action-button").removeAttr("disabled");
                         return;
                     }
 
@@ -271,8 +306,9 @@
                         data: JSON.stringify(payload),
                         dataType: "json",
                         success: () => {
-                            onSuccessFunction();
                             parentElement.find(".action-button").removeAttr("disabled");
+                            resetForm();
+                            onSuccessFunction();
                         },
                         error: (xhr) => {
                             parentElement.find(".action-button").removeAttr("disabled");
@@ -283,7 +319,7 @@
                     });
                 });
 
-                parentElement.show();
+                formLoaded();
             });
         });
     }
@@ -335,6 +371,7 @@
 </style>
 
 <div id="${id}">
+    <div class="loading-section"><i class="icon-spinner icon-spin icon-4x"></i></div>
     <div class="errors-section"></div>
     <div class="row order-and-specimen-section">
         <div class="col">
@@ -422,9 +459,8 @@
                 </div>
             </fieldset>
         </div>
+        <br><br>
+        <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
+        <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
     </div>
-
-    <br><br>
-    <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
-    <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
 </div>
