@@ -97,22 +97,35 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
                 // Group by panel after grouping by date
                 let displayedGroup = null;
+                const alternateRowColor = "rgb(255, 253, 245)";
+                let rowColor = null;
                 tableRowObjects.forEach((obs, index) => {
+                    const tableRow = jq(tableRowData[index]);
                     const currentGroup = obs.obsGroup?.uuid;
                     if (currentGroup !== displayedGroup) {
+                        rowColor = (rowColor === "white" ? alternateRowColor : "white");
                         if (currentGroup) {
-                            const newRow = jq("<tr>").addClass("obs-group-row");
+                            const newRow = jq("<tr>").addClass("obs-group-row").css("background-color", rowColor);;
                             const newCell = jq("<td>").attr("colspan", pagingDataTable.columnTransformFunctions.length).html(obs.obsGroup.concept.displayStringForLab);
                             newRow.append(newCell);
-                            newRow.insertBefore(tableRowData[index]);
+                            newRow.insertBefore(tableRow);
                         }
                         displayedGroup = currentGroup;
                     }
+                    else if (!currentGroup && !displayedGroup) {
+                        rowColor = (rowColor === "white" ? alternateRowColor : "white");
+                    }
                     if (currentGroup) {
-                        const testNameCell = jq(tableRowData[index]).find("td")[0];
+                        const testNameCell = tableRow.find("td")[0];
                         jq(testNameCell).addClass("obs-group-member-row");
                     }
+                    tableRow.css("background-color", rowColor);
                 });
+            }
+
+            const beforeRecreateTable = () => {
+                pagingDataTable.getTableElement().find(".obs-group-row").remove();
+                pagingDataTable.getTableElement().find(".group-by-date-row").remove();
             }
 
             pagingDataTable.initialize({
@@ -125,6 +138,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     getLabTest, getDate, getResults, getNormalRange
                 ],
                 tableUpdateCallback: onTableUpdate,
+                beforeRecreateTableCallback: beforeRecreateTable,
                 datatableOptions: {
                     oLanguage: {
                         sInfo: "${ ui.message("uicommons.dataTable.info") }",
@@ -254,6 +268,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 pagingDataTable.goToFirstPage();
             });
 
+            jq("#clear-all-filters").on("click", () => {
+                jq("#test-filter-form").find(":input").val("");
+                jq("#category-filter").change();
+            });
+
             const openLabTrendsView = (obs) => {
                 jq("#patient-lab-results-section").hide();
                 initializeLabTrends({ patientUuid: patientUuid, obs: obs, pihAppsConfig: pihAppsConfig, onCloseFunction: () => {
@@ -270,7 +289,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         color: red;
     }
     .obs-group-row {
-        text-decoration: underline;
     }
     .obs-group-member-row {
         padding-left: 20px;
@@ -336,6 +354,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             <div class="col">
                 <input id="groupByDate-filter" type="checkbox" value="true"/>
                 <label for="groupByDate-filter">${ ui.message("pihapps.groupByDate") }</label>
+            </div>
+            <div class="col">
+                <a id="clear-all-filters" href="#">${ ui.message("pihapps.resetFilters") }</a>
             </div>
         </div>
     </form>

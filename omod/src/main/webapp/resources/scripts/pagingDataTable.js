@@ -46,6 +46,7 @@ class PagingDataTable {
         this.lastUpdateDate = null;
         this.rowObjects = [];
         this.tableUpdateCallback = options.tableUpdateCallback ?? (() => {});
+        this.beforeRecreateTableCallback = options.beforeRecreateTableCallback ?? (() => {});
 
         // Set up the event handlers for navigating between pages
         this.getTableInfoElement().hide();
@@ -56,18 +57,21 @@ class PagingDataTable {
 
         // Set up the selector and event handler for changing the page size
         const pagingSizeElement = this.getTableInfoElement().find(".paging-size");
-        pagingSizeElement.html(pagingSizeElement.html().replace('_MENU_', '<select class="page-size-selector"></select>'));
-        const pageSizeSelector = jq(".page-size-selector");
-        pageSizeSelector.attr("name", "page-size-selector");
-        this.pagingSizes.forEach(size => {
-            pageSizeSelector.append('<option value="' + size + '">' + size + '</option>');
-        });
+        let pageSizeSelector = this.getTableInfoElement().find(".page-size-selector");
+        if (pageSizeSelector.length === 0) {
+            pagingSizeElement.html(pagingSizeElement.html().replace('_MENU_', '<select class="page-size-selector"></select>'));
+            pageSizeSelector = jq(".page-size-selector");
+            pageSizeSelector.attr("name", "page-size-selector");
+            this.pagingSizes.forEach(size => {
+                pageSizeSelector.append('<option value="' + size + '">' + size + '</option>');
+            });
+            pageSizeSelector.on("change", () => {
+                this.setPageSize(pageSizeSelector.val());
+                this.recreateTable();
+                this.goToFirstPage();
+            });
+        }
         pageSizeSelector.val(this.pageSize);
-        pageSizeSelector.on("change", () => {
-            this.setPageSize(pageSizeSelector.val());
-            this.recreateTable();
-            this.goToFirstPage();
-        });
 
         // Render the table and start at the first page
         this.recreateTable();
@@ -127,6 +131,7 @@ class PagingDataTable {
     }
 
     recreateTable() {
+        this.beforeRecreateTableCallback();
         const newDataTableOptions = {...this.datatableOptions, iDisplayLength: this.getPageSize()};
         this.pagedTable = this.getTableElement().dataTable(newDataTableOptions);
     }
