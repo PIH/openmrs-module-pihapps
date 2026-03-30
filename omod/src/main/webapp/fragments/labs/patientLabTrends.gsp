@@ -4,7 +4,7 @@
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
     ui.includeJavascript("pihapps", "lib/chartjs/chart.js")
-    ui.includeJavascript("pihapps", "lib/chartjs/chartjs-adapter-moment@^1.js")
+    ui.includeJavascript("pihapps", "lib/chartjs/chartjs-adapter-moment.js")
     ui.includeCss("pihapps", "labs/labs.css")
 
     config.require("id")
