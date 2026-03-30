@@ -38,6 +38,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
+            const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
 
             const getFilterParameterValues = function() {
@@ -57,44 +58,27 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             }
 
             const getLabTest = (obs) => {
-                return obs.concept.displayStringForLab;
+                return jq("<a>").attr("href", "#").addClass("lab-trends-link").html(obs.concept.displayStringForLab).prop("outerHTML");
             }
 
             const getResults = (obs) => {
-                const value = obs.valueCoded ? obs.valueCoded.displayStringForLab :
-                              obs.valueNumeric ? (obs.valueNumeric + (obs.concept.units ? " " + obs.concept.units : "")) :
-                              obs.valueDatetime ?  dateUtils.formatDateWithTimeIfPresent(obs.valueDatetime) :
-                              obs.valueText ?? obs.value;
-                if (obs.valueNumeric && obs.referenceRange) {
-                    const refRange = obs.referenceRange;
-                    if ((refRange.lowNormal && obs.valueNumeric < refRange.lowNormal) ||
-                        (refRange.hiNormal && obs.valueNumeric > refRange.hiNormal)) {
-                        return "<span class='abnormal-value'>" + value + "</span>";
-                    }
-                }
-                return value;
+                return patientUtils.formatObsValue(obs, dateUtils);
             }
 
             const getNormalRange = (obs) => {
-                const refRange = obs.referenceRange;
-                if (refRange) {
-                    const units = obs.concept.units ? " " + obs.concept.units : "";
-                    if (refRange.lowNormal && refRange.hiNormal) {
-                        return refRange.lowNormal + " - " + refRange.hiNormal + units;
-                    }
-                    if (refRange.lowNormal) {
-                        return ">= " + refRange.lowNormal + units;
-                    }
-                    if (refRange.hiNormal) {
-                        return "=< " + refRange.hiNormal + units;
-                    }
-                }
-                return "";
+                return patientUtils.formatReferenceRange(obs.referenceRange, obs.concept.units);
             }
 
-            const addGroupRows = () => {
+            const onTableUpdate = () => {
                 const tableRowObjects = pagingDataTable.getRowObjects();
                 const tableRowData = pagingDataTable.getTableElement().find("tbody tr");
+
+                // Clicking lab test should open result trends view
+                tableRowObjects.forEach((obs, index) => {
+                    jq(tableRowData[index]).find(".lab-trends-link").on("click", () => {
+                        openLabTrendsView(obs);
+                    });
+                });
 
                 // Group by date if selected
                 const groupByDate = jq("#groupByDate-filter").is(":checked");
@@ -140,7 +124,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 columnTransformFunctions: [
                     getLabTest, getDate, getResults, getNormalRange
                 ],
-                tableUpdateCallback: addGroupRows,
+                tableUpdateCallback: onTableUpdate,
                 datatableOptions: {
                     oLanguage: {
                         sInfo: "${ ui.message("uicommons.dataTable.info") }",
@@ -269,6 +253,14 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 pagingDataTable.setParameters(getFilterParameterValues())
                 pagingDataTable.goToFirstPage();
             });
+
+            const openLabTrendsView = (obs) => {
+                jq("#patient-lab-results-section").hide();
+                initializeLabTrends({ patientUuid: patientUuid, obs: obs, pihAppsConfig: pihAppsConfig, onCloseFunction: () => {
+                    jq("#lab-trends-section").hide()
+                    jq("#patient-lab-results-section").show()
+                }});
+            };
         });
     });
 </script>
@@ -289,83 +281,90 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     .group-by-date-row td {
         background-color: lightgrey;
     }
+    #lab-trends-section {
+        display: none;
+    }
 </style>
-<div class="row justify-content-between" style="padding-top: 10px">
-    <div class="col-6">
-        <h3>${ ui.message("pihapps.labResults") }</h3>
-    </div>
-</div>
-<form method="get" id="test-filter-form">
-    <div class="row justify-content-start align-items-end">
-        <div class="col">
-            <label for="category-filter">${ ui.message("pihapps.category") }</label>
-            <select id="category-filter" name="category" class="form-control">
-                <option value=""></option>
-            </select>
-        </div>
-        <div class="col">
-            <label for="panel-filter">${ ui.message("pihapps.panel") }</label>
-            <select id="panel-filter" name="panelConcept" class="form-control">
-                <option value=""></option>
-            </select>
-        </div>
-        <div class="col">
-            <label for="testConcept-filter">${ ui.message("pihapps.labTest") }</label>
-            <select id="testConcept-filter" name="testConcept" class="form-control">
-                <option value=""></option>
-            </select>
-        </div>
-        <div class="col">
-            ${ ui.includeFragment("pihapps", "field/datetimepicker", [
-                    id: "onOrAfter-filter",
-                    formFieldName: "onOrAfter",
-                    label: "pihapps.onOrAfter",
-                    classes: "form-control",
-                    endDate: now,
-                    useTime: false,
-                    clearButton: true
-            ])}
-        </div>
-        <div class="col">
-            ${ ui.includeFragment("pihapps", "field/datetimepicker", [
-                    id: "onOrBefore-filter",
-                    formFieldName: "onOrBefore",
-                    label: "pihapps.onOrBefore",
-                    classes: "form-control",
-                    endDate: now,
-                    useTime: false,
-                    clearButton: true
-            ])}
-        </div>
-        <div class="col">
-            <input id="groupByDate-filter" type="checkbox" value="true"/>
-            <label for="groupByDate-filter">${ ui.message("pihapps.groupByDate") }</label>
+<div id="patient-lab-results-section">
+    <div class="row justify-content-between" style="padding-top: 10px">
+        <div class="col-6">
+            <h3>${ ui.message("pihapps.labResults") }</h3>
         </div>
     </div>
-</form>
+    <form method="get" id="test-filter-form">
+        <div class="row justify-content-start align-items-end">
+            <div class="col">
+                <label for="category-filter">${ ui.message("pihapps.category") }</label>
+                <select id="category-filter" name="category" class="form-control">
+                    <option value=""></option>
+                </select>
+            </div>
+            <div class="col">
+                <label for="panel-filter">${ ui.message("pihapps.panel") }</label>
+                <select id="panel-filter" name="panelConcept" class="form-control">
+                    <option value=""></option>
+                </select>
+            </div>
+            <div class="col">
+                <label for="testConcept-filter">${ ui.message("pihapps.labTest") }</label>
+                <select id="testConcept-filter" name="testConcept" class="form-control">
+                    <option value=""></option>
+                </select>
+            </div>
+            <div class="col">
+                ${ ui.includeFragment("pihapps", "field/datetimepicker", [
+                        id: "onOrAfter-filter",
+                        formFieldName: "onOrAfter",
+                        label: "pihapps.onOrAfter",
+                        classes: "form-control",
+                        endDate: now,
+                        useTime: false,
+                        clearButton: true
+                ])}
+            </div>
+            <div class="col">
+                ${ ui.includeFragment("pihapps", "field/datetimepicker", [
+                        id: "onOrBefore-filter",
+                        formFieldName: "onOrBefore",
+                        label: "pihapps.onOrBefore",
+                        classes: "form-control",
+                        endDate: now,
+                        useTime: false,
+                        clearButton: true
+                ])}
+            </div>
+            <div class="col">
+                <input id="groupByDate-filter" type="checkbox" value="true"/>
+                <label for="groupByDate-filter">${ ui.message("pihapps.groupByDate") }</label>
+            </div>
+        </div>
+    </form>
 
-<table id="results-table">
-    <thead>
-        <tr>
-            <th>${ ui.message("pihapps.labTest") }</th>
-            <th>${ ui.message("pihapps.resultDate") }</th>
-            <th>${ ui.message("pihapps.results") }</th>
-            <th>${ ui.message("pihapps.normalRange") }</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-<div id="results-table-info-and-paging" style="font-size: .9em">
-    <div class="row justify-content-between info-and-paging-row">
-        <div class="col paging-info"></div>
-        <div class="col text-right">
-            <a class="first paging-navigation">${ ui.message("uicommons.dataTable.first") }</a>
-            <a class="previous paging-navigation">${ ui.message("uicommons.dataTable.previous") }</a>
-            <a class="next paging-navigation">${ ui.message("uicommons.dataTable.next") }</a>
-            <a class="last paging-navigation">${ ui.message("uicommons.dataTable.last") }</a>
+    <table id="results-table">
+        <thead>
+            <tr>
+                <th>${ ui.message("pihapps.labTest") }</th>
+                <th>${ ui.message("pihapps.resultDate") }</th>
+                <th>${ ui.message("pihapps.results") }</th>
+                <th>${ ui.message("pihapps.normalRange") }</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div id="results-table-info-and-paging" style="font-size: .9em">
+        <div class="row justify-content-between info-and-paging-row">
+            <div class="col paging-info"></div>
+            <div class="col text-right">
+                <a class="first paging-navigation">${ ui.message("uicommons.dataTable.first") }</a>
+                <a class="previous paging-navigation">${ ui.message("uicommons.dataTable.previous") }</a>
+                <a class="next paging-navigation">${ ui.message("uicommons.dataTable.next") }</a>
+                <a class="last paging-navigation">${ ui.message("uicommons.dataTable.last") }</a>
+            </div>
+        </div>
+        <div class="row justify-content-between info-and-paging-row">
+            <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
         </div>
     </div>
-    <div class="row justify-content-between info-and-paging-row">
-        <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
-    </div>
 </div>
+
+${ ui.includeFragment("pihapps", "labs/patientLabTrends", ["id": "lab-trends-section"])}

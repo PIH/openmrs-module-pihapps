@@ -66,4 +66,42 @@ class PihAppsPatientUtils {
         }
         return orderFulfillmentStatusOptions.filter((option) => option.status === 'AWAITING_FULFILLMENT')[0];
     }
+
+    formatReferenceRange(referenceRange, units) {
+        if (referenceRange) {
+            const unitSuffix = (units ? " " + units : "");
+            if (referenceRange.lowNormal && referenceRange.hiNormal) {
+                return referenceRange.lowNormal + " - " + referenceRange.hiNormal + unitSuffix;
+            }
+            if (referenceRange.lowNormal) {
+                return ">= " + referenceRange.lowNormal + unitSuffix;
+            }
+            if (referenceRange.hiNormal) {
+                return "=< " + referenceRange.hiNormal + unitSuffix;
+            }
+        }
+        return "";
+    }
+
+    isObsValueAbnormal(obs) {
+        const refRange = obs.referenceRange;
+        const val = obs.valueNumeric;
+        if (refRange && val) {
+            return (refRange.lowNormal && val < refRange.lowNormal) || (refRange.hiNormal && val > refRange.hiNormal);
+        }
+        return false;
+    }
+
+    formatObsValue(obs, dateUtils) {
+        if (obs.valueCoded) { return obs.valueCoded.displayStringForLab; }
+        if (obs.valueDatetime) { dateUtils.formatDateWithTimeIfPresent(obs.valueDatetime); }
+        if (obs.valueNumeric) {
+            const numericVal = obs.valueNumeric + (obs.concept.units ? " " + obs.concept.units : "");
+            if (this.isObsValueAbnormal(obs)) {
+                return "<span class='abnormal-value'>" + numericVal + "</span>";
+            }
+            return numericVal;
+        }
+        return obs.valueText ?? obs.value ?? "";
+    }
 }
