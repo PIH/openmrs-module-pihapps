@@ -93,3 +93,7 @@ form input, form select, form textarea, .form input, .form select, .form textare
     color: #007FFF;
     text-decoration: underline;
 }
+#results-table a {
+    color: #007FFF;
+    text-decoration: underline;
+}

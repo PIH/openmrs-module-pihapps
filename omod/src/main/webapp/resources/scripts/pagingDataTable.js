@@ -48,6 +48,7 @@ class PagingDataTable {
         this.tableUpdateCallback = options.tableUpdateCallback ?? (() => {});
 
         // Set up the event handlers for navigating between pages
+        this.getTableInfoElement().hide();
         this.getTableInfoElement().find(".first").click(() => this.goToFirstPage());
         this.getTableInfoElement().find(".previous").click(() => this.goToPreviousPage());
         this.getTableInfoElement().find(".next").click(() => this.goToNextPage());
@@ -120,14 +121,12 @@ class PagingDataTable {
             iDisplayLength: this.getPageSize(),
             bSort: false,
             bAutoWidth: false,
+            bDestroy: true,
             sDom: 'ft<\"fg-toolbar ui-toolbar ui-corner-bl ui-corner-br ui-helper-clearfix\">',
         }
     }
 
     recreateTable() {
-        if (this.pagedTable) {
-            this.pagedTable.fnDestroy();
-        }
         const newDataTableOptions = {...this.datatableOptions, iDisplayLength: this.getPageSize()};
         this.pagedTable = this.getTableElement().dataTable(newDataTableOptions);
     }
@@ -147,8 +146,8 @@ class PagingDataTable {
         const representationParameters = this.representation ? { "v": this.representation } : {};
         const requestParameters = { ...this.parameters, ...pagingParameters, ...representationParameters};
 
-        this.pagedTable.fnClearTable();
         this.getTableInfoElement().hide();
+        this.pagedTable.fnClearTable();
 
         const skeletonRows = [];
         Array.from({length: 5 }).forEach(() => {
