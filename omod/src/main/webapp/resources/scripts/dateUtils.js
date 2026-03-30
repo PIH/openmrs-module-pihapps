@@ -22,6 +22,18 @@ class PihAppsDateUtils {
         return dateStr ? this.moment(dateStr).format(this.dateFormat) : "";
     }
 
+    getDate(dateStr) {
+        return dateStr ? this.moment(dateStr).toDate() : null;
+    }
+
+    formatAsIsoDate(dateStr) {
+        return dateStr ? this.moment(dateStr).format("YYYY-MM-DD") : "";
+    }
+
+    formatAsIsoDateTime(dateStr) {
+        return dateStr ? this.moment(dateStr).format("YYYY-MM-DD HH:mm:ss") : "";
+    }
+
     roundDownToNearestMinuteInterval(date, minuteInterval) {
         const d = new Date(date);
         d.setSeconds(0);
