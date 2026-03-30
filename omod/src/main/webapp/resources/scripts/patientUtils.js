@@ -96,10 +96,11 @@ class PihAppsPatientUtils {
         if (obs.valueCoded) { return obs.valueCoded.displayStringForLab; }
         if (obs.valueDatetime) { dateUtils.formatDateWithTimeIfPresent(obs.valueDatetime); }
         if (obs.valueNumeric) {
+            const numericVal = obs.valueNumeric + (obs.concept.units ? " " + obs.concept.units : "");
             if (this.isObsValueAbnormal(obs)) {
-                return "<span class='abnormal-value'>" + obs.valueNumeric + "</span>";
+                return "<span class='abnormal-value'>" + numericVal + "</span>";
             }
-            return obs.valueNumeric;
+            return numericVal;
         }
         return obs.valueText ?? obs.value ?? "";
     }
