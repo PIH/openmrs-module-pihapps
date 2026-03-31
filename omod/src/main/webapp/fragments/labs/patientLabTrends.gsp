@@ -59,7 +59,8 @@
                 parentElement.find(".loaded-content-section").show();
                 if (obs.concept.datatype?.name === 'Numeric') {
                     const data = labTrendsTable.getRowObjects().map(o => {
-                        return { x: dateUtils.getDate(o.obsDatetime), y: o.valueNumeric }
+                        const obsDateTime = moment(o.obsDatetime).startOf('minute');
+                        return { x: obsDateTime, y: o.valueNumeric }
                     });
                     const pointColors = labTrendsTable.getRowObjects().map(o => {
                         return patientUtils.isObsValueAbnormal(o) ? 'rgb(255, 0, 0)'  : 'rgb(0, 0, 0)'; // Red or black
@@ -90,10 +91,17 @@
                                     },
                                     time: {
                                         displayFormats: {
+                                            minute: dateUtils.dateTimeFormat,
+                                            hour: dateUtils.dateTimeFormat,
                                             day: dateUtils.dateFormat
                                         },
-                                        tooltipFormat: dateUtils.dateTimeFormat
-                                    }
+                                        tooltipFormat: dateUtils.dateTimeFormat,
+                                        minUnit: 'minute'
+                                    },
+                                    bounds: 'ticks',
+                                    ticks: {
+                                        includeBounds: true
+                                    },
                                 },
                                 y: {
                                     title: {
@@ -104,7 +112,10 @@
                             },
                             plugins: {
                                 legend: {
-                                    onClick: () => {}
+                                    onClick: () => {},
+                                    labels: {
+                                        boxWidth: 0
+                                    }
                                 }
                             }
                         }
