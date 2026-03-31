@@ -216,13 +216,14 @@
                 return pagingDataTable.getRowObjects().find((o) => o.uuid === orderUuid);
             }
 
-            // For testing only
+            // Set default status to "COLLECTED"
             jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT").trigger("change");
-            setTimeout(() => {
-                jq(".order-selector").eq(1).prop("checked", "checked");
-                jq(".order-selector").eq(2).prop("checked", "checked");
-                jq("#record-results-button").click();
-            }, 1000);
+
+            // Add clear buttons to filters
+            jq(".clearable-input-wrapper").find(".icon-remove").on("click", (event) => {
+                const icon = jq(event.target);
+                icon.siblings(".clearable-input").val("").change();
+            })
         });
     });
 </script>
@@ -283,13 +284,19 @@
             </div>
             <div class="col">
                 <label for="orderFulfillmentStatus-filter">${ ui.message("pihapps.orderStatus") }</label>
-                <select id="orderFulfillmentStatus-filter" name="orderFulfillmentStatus" class="form-control"></select>
+                <div class="clearable-input-wrapper">
+                    <select id="orderFulfillmentStatus-filter" name="orderFulfillmentStatus" class="clearable-input"></select>
+                    <i class="icon-remove small"></i>
+                </div>
             </div>
             <div class="col">
                 <label for="testConcept-filter">${ ui.message("pihapps.labTest") }</label>
-                <select id="testConcept-filter" name="testConcept" class="form-control">
-                    <option value=""></option>
-                </select>
+                <div class="clearable-input-wrapper">
+                    <select id="testConcept-filter" name="testConcept" class="clearable-input">
+                        <option value=""></option>
+                    </select>
+                    <i class="icon-remove small"></i>
+                </div>
             </div>
         </div>
         <div class="row justify-content-start align-items-end">
@@ -299,7 +306,10 @@
             </div>
             <div class="col">
                 <label for="lab-id-filter">${ ui.message("pihapps.labId") }:</label>
-                <input id="lab-id-filter" type="text" name="labId" value=""/>
+                <div class="clearable-input-wrapper">
+                    <input id="lab-id-filter" class="clearable-input" type="text" name="labId" value=""/>
+                    <i class="icon-remove small"></i>
+                </div>
             </div>
         </div>
     </form>

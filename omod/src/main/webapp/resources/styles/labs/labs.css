@@ -97,3 +97,10 @@ form input, form select, form textarea, .form input, .form select, .form textare
     color: #007FFF;
     text-decoration: underline;
 }
+
+.clearable-input-wrapper .clearable-input {
+    display:inline;
+}
+.clearable-input-wrapper .icon-remove {
+    font-size:unset;
+}
