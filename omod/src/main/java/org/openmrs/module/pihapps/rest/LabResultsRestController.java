@@ -5,7 +5,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Concept;
 import org.openmrs.Obs;
-import org.openmrs.OrderType;
 import org.openmrs.Patient;
 import org.openmrs.api.ConceptService;
 import org.openmrs.api.OrderService;
@@ -142,16 +141,25 @@ public class LabResultsRestController {
     List<Concept> getSetMembersRecursively(Concept concept) {
         List<Concept> ret = new ArrayList<>();
         if (concept != null) {
-            if (concept.getSetMembers() != null) {
-                for (Concept setMember : concept.getSetMembers()) {
-                    if (setMember.getSetMembers() != null && !setMember.getSetMembers().isEmpty()) {
-                        ret.addAll(getSetMembersRecursively(setMember));
-                    } else {
-                        ret.add(setMember);
-                    }
+            List<Concept> setMembers = getSetMembers(concept);
+            for (Concept setMember : setMembers) {
+                List<Concept> childSetMembers = getSetMembers(setMember);
+                if (!childSetMembers.isEmpty()) {
+                    ret.addAll(getSetMembersRecursively(setMember));
+                } else {
+                    ret.add(setMember);
                 }
             }
         }
+        return ret;
+    }
+
+    List<Concept> getSetMembers(Concept concept) {
+        List<Concept> ret = new ArrayList<>();
+        if (concept.getSetMembers() != null) {
+            ret.addAll(concept.getSetMembers());
+        }
+        ret.remove(concept);
         return ret;
     }
 
