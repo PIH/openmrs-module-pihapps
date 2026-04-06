@@ -94,6 +94,9 @@
             });
             parentElement.find(".obs-field-test-location").empty().append(testLocationWidget);
         }
+        else {
+            parentElement.find(".lab-location-section").hide();
+        }
 
         jq.get(openmrsContextPath + "/ws/rest/v1/location" + "?tag=Login Location&v=custom:(uuid,display)", function (data) {
             const specimenLocationWidget = formHelper.createSelectWidget({
