@@ -65,13 +65,13 @@ class PagingDataTable {
             this.pagingSizes.forEach(size => {
                 pageSizeSelector.append('<option value="' + size + '">' + size + '</option>');
             });
+            pageSizeSelector.val(this.pageSize);
             pageSizeSelector.on("change", () => {
                 this.setPageSize(pageSizeSelector.val());
                 this.recreateTable();
                 this.goToFirstPage();
             });
         }
-        pageSizeSelector.val(this.pageSize);
 
         // Render the table and start at the first page
         this.recreateTable();
@@ -142,82 +142,86 @@ class PagingDataTable {
 
     updateTable() {
         const currentUpdateDate = new Date();
-        this.setLastUpdateDate(currentUpdateDate);
+        const table = this;
+        table.setLastUpdateDate(currentUpdateDate);
         const pagingParameters = {
             "totalCount": true,
-            "startIndex": this.getPageNumber() * this.getPageSize(),
-            "limit": this.pageSize
+            "startIndex": table.getPageNumber() * table.getPageSize(),
+            "limit": table.pageSize
         }
-        const representationParameters = this.representation ? { "v": this.representation } : {};
-        const requestParameters = { ...this.parameters, ...pagingParameters, ...representationParameters};
+        const representationParameters = table.representation ? { "v": table.representation } : {};
+        const requestParameters = { ...table.parameters, ...pagingParameters, ...representationParameters};
 
-        this.getTableInfoElement().hide();
-        this.pagedTable.fnClearTable();
+        table.getTableInfoElement().hide();
+        table.pagedTable.fnClearTable();
 
-        const skeletonRows = [];
-        Array.from({length: 5 }).forEach(() => {
-            const skeletonRow = [];
-            this.columnTransformFunctions.forEach(transformFunction => {
-                skeletonRow.push('<span class="skeleton"></span>');
-            });
-            skeletonRows.push(skeletonRow);
+        let loadingRow = [];
+        table.columnTransformFunctions.forEach(transformFunction => {
+            loadingRow.push('<i class="icon-spinner icon-spin"/>');
         });
-        this.pagedTable.fnAddData(skeletonRows);
+        table.pagedTable.fnAddData([loadingRow]);
 
-        jq.get(this.endpoint, requestParameters, (data) => {
+        jq.get(table.endpoint, requestParameters, (data) => {
             if (currentUpdateDate !== this.getLastUpdateDate()) {
                 return;  // This happens if a table update is requested while an existing update/search is in progress
             }
-            this.rowObjects = data?.results ?? [];
-            if (this.rowObjects.length === 0) {
-                this.getPagedTable().fnClearTable();
-                this.setTotalCount(0);
-                this.pageNumber = 0;
-                this.getTableInfoElement().hide();
-                this.tableUpdateCallback();
+            table.rowObjects = data?.results ?? [];
+            if (table.rowObjects.length === 0) {
+                table.pagedTable.fnClearTable();
+                table.setTotalCount(0);
+                table.pageNumber = 0;
+                table.getTableInfoElement().hide();
+                table.tableUpdateCallback();
                 return;
             }
             let tableRows = [];
-            this.rowObjects.forEach((result) => {
+            table.rowObjects.forEach((result) => {
                 let tableRow = [];
-                this.columnTransformFunctions.forEach(transformFunction => {
+                table.columnTransformFunctions.forEach(transformFunction => {
                     tableRow.push(transformFunction(result));
                 });
                 tableRows.push(tableRow);
             });
-            this.pagedTable.fnClearTable();
-            this.pagedTable.fnAddData(tableRows);
-            this.setTotalCount(data.totalCount);
+            table.pagedTable.fnClearTable();
+            table.pagedTable.fnAddData(tableRows);
+            table.setTotalCount(data.totalCount);
 
-            const infoTemplate = this.datatableOptions.oLanguage.sInfo || 'Showing _START_ to _END_ of _TOTAL_ entries';
-            const infoMessage = infoTemplate.replace('_START_', this.getFirstNumberForPage()).replace('_END_', this.getLastNumberForPage()).replace('_TOTAL_', this.totalCount);
-            this.getTableInfoElement().find(".paging-info").html(infoMessage);
+            const infoTemplate = table.datatableOptions.oLanguage.sInfo || 'Showing _START_ to _END_ of _TOTAL_ entries';
+            const infoMessage = infoTemplate.replace('_START_', table.getFirstNumberForPage()).replace('_END_', table.getLastNumberForPage()).replace('_TOTAL_', table.totalCount);
+            table.getTableInfoElement().find(".paging-info").html(infoMessage);
 
-            if (this.hasPreviousRecords()) {
-                this.getTableInfoElement().find(".first").removeClass("ui-state-disabled");
-                this.getTableInfoElement().find(".previous").removeClass("ui-state-disabled");
+            if (table.hasPreviousRecords()) {
+                table.getTableInfoElement().find(".first").removeClass("ui-state-disabled");
+                table.getTableInfoElement().find(".previous").removeClass("ui-state-disabled");
             }
             else {
-                this.getTableInfoElement().find(".first").addClass("ui-state-disabled");
-                this.getTableInfoElement().find(".previous").addClass("ui-state-disabled");
+                table.getTableInfoElement().find(".first").addClass("ui-state-disabled");
+                table.getTableInfoElement().find(".previous").addClass("ui-state-disabled");
             }
-            if (this.hasNextRecords()) {
-                this.getTableInfoElement().find(".next").removeClass("ui-state-disabled");
-                this.getTableInfoElement().find(".last").removeClass("ui-state-disabled");
+            if (table.hasNextRecords()) {
+                table.getTableInfoElement().find(".next").removeClass("ui-state-disabled");
+                table.getTableInfoElement().find(".last").removeClass("ui-state-disabled");
             }
             else {
-                this.getTableInfoElement().find(".next").addClass("ui-state-disabled");
-                this.getTableInfoElement().find(".last").addClass("ui-state-disabled");
+                table.getTableInfoElement().find(".next").addClass("ui-state-disabled");
+                table.getTableInfoElement().find(".last").addClass("ui-state-disabled");
             }
 
-            this.pagedTable.fnDraw();
-            if (data.totalCount > this.getPageSize()) {
-                this.getTableInfoElement().show();
+            table.pagedTable.fnDraw();
+            if (data.totalCount > table.getPageSize()) {
+                table.getTableInfoElement().show();
             }
             else {
-                this.getTableInfoElement().hide();
+                table.getTableInfoElement().hide();
             }
-            this.tableUpdateCallback();
+            table.tableUpdateCallback();
+        }).fail(function(response) {
+            table.pagedTable.fnClearTable();
+            table.setTotalCount(0);
+            table.pageNumber = 0;
+            table.getTableInfoElement().hide();
+            table.getTableElement().find(".dataTables_empty").html(response.responseJSON?.error?.message ?? "Error");
+            console.log(response);
         });
     }
 

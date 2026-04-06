@@ -80,56 +80,62 @@ public class LabOrderRestController {
                                @RequestParam(value = "sortBy", required = false) List<String> sortBy
                                ) throws ResponseException {
 
-        RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
-        Integer startIndex = requestContext.getStartIndex() == null ? 0 : requestContext.getStartIndex();
-        Integer limit = requestContext.getLimit();
+        try {
+            RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
+            Integer startIndex = requestContext.getStartIndex() == null ? 0 : requestContext.getStartIndex();
+            Integer limit = requestContext.getLimit();
 
-        OrderSearchCriteria searchCriteria = new OrderSearchCriteria();
-        searchCriteria.setOrderTypes(getOrderTypes(orderType, labOrderConfig.getTestOrderTypes()));
-        searchCriteria.setPatient(patient);
-        searchCriteria.setConcept(labTest);
-        searchCriteria.setAccessionNumber(accessionNumber);
-        searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
-        searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
-        if (orderFulfillmentStatus != null) {
-            if (orderFulfillmentStatus.getOrderStatus() != null) {
-                searchCriteria.setOrderStatus(Collections.singletonList(orderFulfillmentStatus.getOrderStatus()));
+            OrderSearchCriteria searchCriteria = new OrderSearchCriteria();
+            searchCriteria.setOrderTypes(getOrderTypes(orderType, labOrderConfig.getTestOrderTypes()));
+            searchCriteria.setPatient(patient);
+            searchCriteria.setConcept(labTest);
+            searchCriteria.setAccessionNumber(accessionNumber);
+            searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
+            searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
+            if (orderFulfillmentStatus != null) {
+                if (orderFulfillmentStatus.getOrderStatus() != null) {
+                    searchCriteria.setOrderStatus(Collections.singletonList(orderFulfillmentStatus.getOrderStatus()));
+                }
+                searchCriteria.setFulfillerStatuses(orderFulfillmentStatus.getFulfillerStatuses());
+                searchCriteria.setIncludeNullFulfillerStatus(orderFulfillmentStatus.getIncludeNullFulfillerStatus());
             }
-            searchCriteria.setFulfillerStatuses(orderFulfillmentStatus.getFulfillerStatuses());
-            searchCriteria.setIncludeNullFulfillerStatus(orderFulfillmentStatus.getIncludeNullFulfillerStatus());
-        }
-        searchCriteria.setStartIndex(requestContext.getStartIndex());
-        searchCriteria.setLimit(requestContext.getLimit());
+            searchCriteria.setStartIndex(requestContext.getStartIndex());
+            searchCriteria.setLimit(requestContext.getLimit());
 
-        List<SortCriteria> sortCriteriaList = new ArrayList<>();
-        if (sortBy != null && !sortBy.isEmpty()) {
-            for (String sortByValue : sortBy) {
-                if (StringUtils.isNotBlank(sortByValue)) {
-                    String[] components = sortByValue.split("-", 2);
-                    String field = components[0];
-                    SortCriteria.Direction direction = SortCriteria.Direction.ASC;
-                    if (components.length > 1) {
-                        direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+            List<SortCriteria> sortCriteriaList = new ArrayList<>();
+            if (sortBy != null && !sortBy.isEmpty()) {
+                for (String sortByValue : sortBy) {
+                    if (StringUtils.isNotBlank(sortByValue)) {
+                        String[] components = sortByValue.split("-", 2);
+                        String field = components[0];
+                        SortCriteria.Direction direction = SortCriteria.Direction.ASC;
+                        if (components.length > 1) {
+                            direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+                        }
+                        sortCriteriaList.add(new SortCriteria(field, direction));
                     }
-                    sortCriteriaList.add(new SortCriteria(field, direction));
                 }
             }
-        }
-        if (!sortCriteriaList.isEmpty()) {
-            searchCriteria.setSortCriteria(sortCriteriaList);
-        }
+            if (!sortCriteriaList.isEmpty()) {
+                searchCriteria.setSortCriteria(sortCriteriaList);
+            }
 
-        OrderSearchResult result = pihAppsService.getOrders(searchCriteria);
+            OrderSearchResult result = pihAppsService.getOrders(searchCriteria);
 
-        boolean hasMoreResults = false;
-        if (limit != null) {
-            int recordsProcessed = startIndex + limit + 1;
-            hasMoreResults = recordsProcessed < result.getTotalCount();
+            boolean hasMoreResults = false;
+            if (limit != null) {
+                int recordsProcessed = startIndex + limit + 1;
+                hasMoreResults = recordsProcessed < result.getTotalCount();
+            }
+
+            Converter<Order> orderConverter = ConversionUtil.getConverter(Order.class);
+            AlreadyPaged<Order> alreadyPaged = new AlreadyPaged<>(requestContext, result.getOrders(), hasMoreResults, result.getTotalCount());
+            return alreadyPaged.toSimpleObject(orderConverter);
         }
-
-        Converter<Order> orderConverter = ConversionUtil.getConverter(Order.class);
-        AlreadyPaged<Order> alreadyPaged = new AlreadyPaged<>(requestContext, result.getOrders(), hasMoreResults, result.getTotalCount());
-        return alreadyPaged.toSimpleObject(orderConverter);
+        catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
+        }
     }
 
     @RequestMapping(value = "/rest/v1/pihapps/patientsWithOrders", method = RequestMethod.GET)
@@ -145,56 +151,62 @@ public class LabOrderRestController {
                                @RequestParam(value = "sortBy", required = false) List<String> sortBy
     ) throws ResponseException {
 
-        RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
-        Integer startIndex = requestContext.getStartIndex() == null ? 0 : requestContext.getStartIndex();
-        Integer limit = requestContext.getLimit();
+        try {
+            RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
+            Integer startIndex = requestContext.getStartIndex() == null ? 0 : requestContext.getStartIndex();
+            Integer limit = requestContext.getLimit();
 
-        OrderSearchCriteria searchCriteria = new OrderSearchCriteria();
-        searchCriteria.setOrderTypes(getOrderTypes(orderType, labOrderConfig.getTestOrderTypes()));
-        searchCriteria.setPatient(patient);
-        searchCriteria.setConcept(labTest);
-        searchCriteria.setAccessionNumber(accessionNumber);
-        searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
-        searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
-        if (orderFulfillmentStatus != null) {
-            if (orderFulfillmentStatus.getOrderStatus() != null) {
-                searchCriteria.setOrderStatus(Collections.singletonList(orderFulfillmentStatus.getOrderStatus()));
+            OrderSearchCriteria searchCriteria = new OrderSearchCriteria();
+            searchCriteria.setOrderTypes(getOrderTypes(orderType, labOrderConfig.getTestOrderTypes()));
+            searchCriteria.setPatient(patient);
+            searchCriteria.setConcept(labTest);
+            searchCriteria.setAccessionNumber(accessionNumber);
+            searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
+            searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
+            if (orderFulfillmentStatus != null) {
+                if (orderFulfillmentStatus.getOrderStatus() != null) {
+                    searchCriteria.setOrderStatus(Collections.singletonList(orderFulfillmentStatus.getOrderStatus()));
+                }
+                searchCriteria.setFulfillerStatuses(orderFulfillmentStatus.getFulfillerStatuses());
+                searchCriteria.setIncludeNullFulfillerStatus(orderFulfillmentStatus.getIncludeNullFulfillerStatus());
             }
-            searchCriteria.setFulfillerStatuses(orderFulfillmentStatus.getFulfillerStatuses());
-            searchCriteria.setIncludeNullFulfillerStatus(orderFulfillmentStatus.getIncludeNullFulfillerStatus());
-        }
-        searchCriteria.setStartIndex(requestContext.getStartIndex());
-        searchCriteria.setLimit(requestContext.getLimit());
+            searchCriteria.setStartIndex(requestContext.getStartIndex());
+            searchCriteria.setLimit(requestContext.getLimit());
 
-        List<SortCriteria> sortCriteriaList = new ArrayList<>();
-        if (sortBy != null && !sortBy.isEmpty()) {
-            for (String sortByValue : sortBy) {
-                if (StringUtils.isNotBlank(sortByValue)) {
-                    String[] components = sortByValue.split("-", 2);
-                    String field = components[0];
-                    SortCriteria.Direction direction = SortCriteria.Direction.ASC;
-                    if (components.length > 1) {
-                        direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+            List<SortCriteria> sortCriteriaList = new ArrayList<>();
+            if (sortBy != null && !sortBy.isEmpty()) {
+                for (String sortByValue : sortBy) {
+                    if (StringUtils.isNotBlank(sortByValue)) {
+                        String[] components = sortByValue.split("-", 2);
+                        String field = components[0];
+                        SortCriteria.Direction direction = SortCriteria.Direction.ASC;
+                        if (components.length > 1) {
+                            direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+                        }
+                        sortCriteriaList.add(new SortCriteria(field, direction));
                     }
-                    sortCriteriaList.add(new SortCriteria(field, direction));
                 }
             }
-        }
-        if (!sortCriteriaList.isEmpty()) {
-            searchCriteria.setSortCriteria(sortCriteriaList);
-        }
+            if (!sortCriteriaList.isEmpty()) {
+                searchCriteria.setSortCriteria(sortCriteriaList);
+            }
 
-        PatientWithOrdersSearchResult result = pihAppsService.getPatientsWithOrders(searchCriteria);
+            PatientWithOrdersSearchResult result = pihAppsService.getPatientsWithOrders(searchCriteria);
 
-        boolean hasMoreResults = false;
-        if (limit != null) {
-            int recordsProcessed = startIndex + limit + 1;
-            hasMoreResults = recordsProcessed < result.getTotalCount();
+            boolean hasMoreResults = false;
+            if (limit != null) {
+                int recordsProcessed = startIndex + limit + 1;
+                hasMoreResults = recordsProcessed < result.getTotalCount();
+            }
+
+            Converter<PatientWithOrders> patientConverter = ConversionUtil.getConverter(PatientWithOrders.class);
+            AlreadyPaged<PatientWithOrders> alreadyPaged = new AlreadyPaged<>(requestContext, result.getPatients(), hasMoreResults, result.getTotalCount());
+            return alreadyPaged.toSimpleObject(patientConverter);
         }
-
-        Converter<PatientWithOrders> patientConverter = ConversionUtil.getConverter(PatientWithOrders.class);
-        AlreadyPaged<PatientWithOrders> alreadyPaged = new AlreadyPaged<>(requestContext, result.getPatients(), hasMoreResults, result.getTotalCount());
-        return alreadyPaged.toSimpleObject(patientConverter);
+        catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
+        }
     }
 
     @RequestMapping(value = "/rest/v1/pihapps/markOrdersAsNotPerformed", method = RequestMethod.POST)
