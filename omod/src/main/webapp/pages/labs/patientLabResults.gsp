@@ -365,7 +365,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         <thead>
             <tr>
                 <th>${ ui.message("pihapps.labTest") }</th>
-                <th>${ ui.message("pihapps.resultDate") }</th>
+                <th>${ ui.message("pihapps.specimenDate") }</th>
                 <th>${ ui.message("pihapps.results") }</th>
                 <th>${ ui.message("pihapps.normalRange") }</th>
             </tr>
