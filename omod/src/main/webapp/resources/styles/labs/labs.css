@@ -116,6 +116,7 @@ form input, form select, form textarea, .form input, .form select, .form textare
 .comment-section {
     display: block;
     margin-top: 4px;
+    margin-bottom: 12px;
     width: 100%;
 }
 .result-comment {
