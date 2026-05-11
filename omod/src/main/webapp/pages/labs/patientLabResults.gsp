@@ -62,13 +62,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             }
 
             const getResults = (obs) => {
-                let result = patientUtils.formatObsValue(obs, dateUtils);
-                const commentText = (obs.comment ?? "").trim();
-                if (commentText.length > 0) {
-                    const escapedComment = jq("<div>").text(commentText).html();
-                    result += ' <span class="result-comment-inline">(' + escapedComment + ')</span>';
-                }
-                return result;
+                return patientUtils.formatObsValue(obs, dateUtils);
             }
 
             const getNormalRange = (obs) => {

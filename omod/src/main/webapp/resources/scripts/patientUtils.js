@@ -93,15 +93,25 @@ class PihAppsPatientUtils {
     }
 
     formatObsValue(obs, dateUtils) {
-        if (obs.valueCoded) { return obs.valueCoded.displayStringForLab; }
-        if (obs.valueDatetime) { dateUtils.formatDateWithTimeIfPresent(obs.valueDatetime); }
-        if (obs.valueNumeric) {
-            const numericVal = obs.valueNumeric + (obs.concept.units ? " " + obs.concept.units : "");
-            if (this.isObsValueAbnormal(obs)) {
-                return "<span class='abnormal-value'>" + numericVal + "</span>";
-            }
-            return numericVal;
+        let value;
+        if (obs.valueCoded) {
+            value = obs.valueCoded.displayStringForLab;
         }
-        return obs.valueText ?? obs.value ?? "";
+        else if (obs.valueDatetime) {
+            value = dateUtils.formatDateWithTimeIfPresent(obs.valueDatetime);
+        }
+        else if (obs.valueNumeric) {
+            const numericVal = obs.valueNumeric + (obs.concept.units ? " " + obs.concept.units : "");
+            value = this.isObsValueAbnormal(obs) ? "<span class='abnormal-value'>" + numericVal + "</span>" : numericVal;
+        }
+        else {
+            value = obs.valueText ?? obs.value ?? "";
+        }
+        const commentText = (obs.comment ?? "").trim();
+        if (commentText.length > 0) {
+            const escapedComment = this.jq("<div>").text(commentText).html();
+            value += ' <span class="result-comment-inline">(' + escapedComment + ')</span>';
+        }
+        return value;
     }
 }
