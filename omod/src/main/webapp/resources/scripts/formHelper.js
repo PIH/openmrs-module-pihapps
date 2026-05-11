@@ -130,6 +130,8 @@ class FormHelper {
                 widgetField.attr("data-obs-uuid", initialObs.uuid);
             }
 
+            widget.append(jq("<div>").addClass("field-error"));
+
             if (options?.withComment) {
                 const initialComment = initialObs?.comment ?? "";
                 const commentToggle = jq("<i>")
@@ -152,13 +154,17 @@ class FormHelper {
                     .val(initialComment);
                 commentSection.append(commentTextarea);
 
+                // One-way reveal: clicking the icon shows the comment section. We
+                // intentionally do not hide it on subsequent clicks - any text the
+                // user has typed would otherwise vanish from view. A page reload
+                // resets the initial visibility.
                 commentToggle.on("click", () => {
-                    commentSection.toggle();
+                    commentSection.show();
                 });
                 commentToggle.on("keydown", (event) => {
                     if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        commentSection.toggle();
+                        commentSection.show();
                     }
                 });
                 commentTextarea.on("input", () => {
@@ -173,7 +179,6 @@ class FormHelper {
                 widget.append(commentSection);
             }
 
-            widget.append(jq("<div>").addClass("field-error"));
             this.obsWidgetFields.push(widgetField);
         }
 
