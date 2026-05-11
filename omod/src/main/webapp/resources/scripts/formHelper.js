@@ -130,6 +130,43 @@ class FormHelper {
                 widgetField.attr("data-obs-uuid", initialObs.uuid);
             }
 
+            if (options?.withComment) {
+                const initialComment = initialObs?.comment ?? "";
+                const commentToggle = jq("<i>")
+                    .addClass("comment-toggle icon-edit")
+                    .attr("title", options.commentTooltip ?? "")
+                    .attr("role", "button")
+                    .attr("tabindex", "0");
+                if (initialComment.trim().length > 0) {
+                    commentToggle.addClass("has-comment");
+                }
+
+                const commentSection = jq("<span>").addClass("comment-section");
+                if (initialComment.trim().length === 0) {
+                    commentSection.hide();
+                }
+                const commentTextarea = jq("<textarea>")
+                    .addClass("result-comment")
+                    .attr("maxlength", "255")
+                    .attr("rows", "2")
+                    .val(initialComment);
+                commentSection.append(commentTextarea);
+
+                commentToggle.on("click", () => {
+                    commentSection.toggle();
+                });
+                commentTextarea.on("input", () => {
+                    if (commentTextarea.val().trim().length > 0) {
+                        commentToggle.addClass("has-comment");
+                    } else {
+                        commentToggle.removeClass("has-comment");
+                    }
+                });
+
+                widget.append(commentToggle);
+                widget.append(commentSection);
+            }
+
             widget.append(jq("<div>").addClass("field-error"));
             this.obsWidgetFields.push(widgetField);
         }
