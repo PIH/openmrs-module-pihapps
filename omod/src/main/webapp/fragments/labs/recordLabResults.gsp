@@ -216,7 +216,7 @@
                         id: id + concept.uuid,
                         orderUuid: order.uuid,
                         groupingConceptUuid: isPanel ? orderable.uuid : null,
-                        withComment: true,
+                        withComment: pihAppsConfig.labOrderConfig.collectResultComments,
                         commentTooltip: messages.addComment
                     });
 

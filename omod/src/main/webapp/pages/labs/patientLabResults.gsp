@@ -31,12 +31,14 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab";
         const configRep =
             "dateFormat,dateTimeFormat,labOrderConfig:(" +
-                "labResultCategoriesConceptSet:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + "))))" +
+                "labResultCategoriesConceptSet:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + "))))," +
+                "collectResultComments" +
             ")";
 
-        const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value,comment,referenceRange"
-
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
+
+            const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
+            const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
 
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
