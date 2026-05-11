@@ -62,7 +62,13 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             }
 
             const getResults = (obs) => {
-                return patientUtils.formatObsValue(obs, dateUtils);
+                let result = patientUtils.formatObsValue(obs, dateUtils);
+                const commentText = (obs.comment ?? "").trim();
+                if (commentText.length > 0) {
+                    const escapedComment = jq("<div>").text(commentText).html();
+                    result += ' <span class="result-comment-inline">(' + escapedComment + ')</span>';
+                }
+                return result;
             }
 
             const getNormalRange = (obs) => {
@@ -121,27 +127,11 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     }
                     tableRow.css("background-color", rowColor);
                 });
-
-                // Insert a comment sub-row beneath any obs that has a non-empty comment
-                const columnCount = pagingDataTable.columnTransformFunctions.length;
-                tableRowObjects.forEach((obs, index) => {
-                    const commentText = (obs.comment ?? "").trim();
-                    if (commentText.length === 0) {
-                        return;
-                    }
-                    const parentRow = jq(tableRowData[index]);
-                    const commentRow = jq("<tr>").addClass("comment-row");
-                    commentRow.css("background-color", parentRow.css("background-color"));
-                    const commentCell = jq("<td>").attr("colspan", columnCount).text(commentText);
-                    commentRow.append(commentCell);
-                    parentRow.after(commentRow);
-                });
             }
 
             const beforeRecreateTable = () => {
                 pagingDataTable.getTableElement().find(".obs-group-row").remove();
                 pagingDataTable.getTableElement().find(".group-by-date-row").remove();
-                pagingDataTable.getTableElement().find(".comment-row").remove();
             }
 
             pagingDataTable.initialize({

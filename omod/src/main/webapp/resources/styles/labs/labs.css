@@ -131,10 +131,9 @@ form input, form select, form textarea, .form input, .form select, .form textare
     resize: vertical;
 }
 
-/* Lab result comment sub-row on patientLabResults */
-.comment-row td {
+/* Lab result comment displayed inline after the result value on patientLabResults */
+.result-comment-inline {
     font-style: italic;
-    font-size: 0.9em;
-    padding-left: 24px;
     color: #555;
+    margin-left: 8px;
 }
