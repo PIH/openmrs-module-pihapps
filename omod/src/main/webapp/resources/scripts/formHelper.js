@@ -155,6 +155,12 @@ class FormHelper {
                 commentToggle.on("click", () => {
                     commentSection.toggle();
                 });
+                commentToggle.on("keydown", (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        commentSection.toggle();
+                    }
+                });
                 commentTextarea.on("input", () => {
                     if (commentTextarea.val().trim().length > 0) {
                         commentToggle.addClass("has-comment");
