@@ -42,6 +42,7 @@
             noResultsEntered: '${ ui.message("pihapps.noResultsEntered") }',
             errorsWithOneOrMoreFields: '${ ui.message("pihapps.errorsWithOneOrMoreFields") }',
             reasonRequired: '${ ui.message("pihapps.reasonRequired") }',
+            addComment: '${ ui.message("pihapps.addComment") }',
         };
 
         if (!order || !order.fulfillerEncounter) {
@@ -214,7 +215,9 @@
                     const widget = formHelper.createObsWidget(concept, {
                         id: id + concept.uuid,
                         orderUuid: order.uuid,
-                        groupingConceptUuid: isPanel ? orderable.uuid : null
+                        groupingConceptUuid: isPanel ? orderable.uuid : null,
+                        withComment: true,
+                        commentTooltip: messages.addComment
                     });
 
                     const widgetWrapper = jq("<div>").addClass("lab-results-widget").append(widget);
