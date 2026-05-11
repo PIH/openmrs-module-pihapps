@@ -388,6 +388,12 @@ class FormHelper {
                     obs.value = valueToSet;
                 }
 
+                const commentTextarea = obsWidgetFields.siblings(".result-comment");
+                if (commentTextarea.length > 0) {
+                    const commentValue = commentTextarea.val().trim();
+                    obs.comment = commentValue.length > 0 ? commentValue : null;
+                }
+
                 if (groupingConceptUuid) {
                     let initialGroup = this.initialObs.find(o => o.concept.uuid === groupingConceptUuid);
                     let obsGroup = encounter.obs.find(o => o.concept === groupingConceptUuid);
