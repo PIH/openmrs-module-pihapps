@@ -43,6 +43,7 @@
             errorsWithOneOrMoreFields: '${ ui.message("pihapps.errorsWithOneOrMoreFields") }',
             reasonRequired: '${ ui.message("pihapps.reasonRequired") }',
             addComment: '${ ui.message("pihapps.addComment") }',
+            removeComment: '${ ui.message("pihapps.removeComment") }',
         };
 
         if (!order || !order.fulfillerEncounter) {
@@ -217,7 +218,8 @@
                         orderUuid: order.uuid,
                         groupingConceptUuid: isPanel ? orderable.uuid : null,
                         withComment: pihAppsConfig.labOrderConfig.collectResultComments,
-                        commentTooltip: messages.addComment
+                        addCommentLabel: messages.addComment,
+                        removeCommentLabel: messages.removeComment
                     });
 
                     const widgetWrapper = jq("<div>").addClass("lab-results-widget").append(widget);

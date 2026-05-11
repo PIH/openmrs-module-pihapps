@@ -134,17 +134,17 @@ class FormHelper {
 
             if (options?.withComment) {
                 const initialComment = initialObs?.comment ?? "";
-                const commentToggle = jq("<i>")
-                    .addClass("comment-toggle icon-edit")
-                    .attr("title", options.commentTooltip ?? "")
-                    .attr("role", "button")
-                    .attr("tabindex", "0");
-                if (initialComment.trim().length > 0) {
-                    commentToggle.addClass("has-comment");
-                }
+                const addLabel = options.addCommentLabel ?? "";
+                const removeLabel = options.removeCommentLabel ?? "";
+                const hasInitialComment = initialComment.trim().length > 0;
+
+                const commentToggle = jq("<a>")
+                    .addClass("comment-toggle")
+                    .attr("href", "#")
+                    .text(hasInitialComment ? removeLabel : addLabel);
 
                 const commentSection = jq("<span>").addClass("comment-section");
-                if (initialComment.trim().length === 0) {
+                if (!hasInitialComment) {
                     commentSection.hide();
                 }
                 const commentTextarea = jq("<textarea>")
@@ -154,24 +154,19 @@ class FormHelper {
                     .val(initialComment);
                 commentSection.append(commentTextarea);
 
-                // One-way reveal: clicking the icon shows the comment section. We
-                // intentionally do not hide it on subsequent clicks - any text the
-                // user has typed would otherwise vanish from view. A page reload
-                // resets the initial visibility.
-                commentToggle.on("click", () => {
-                    commentSection.show();
-                });
-                commentToggle.on("keydown", (event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        commentSection.show();
-                    }
-                });
-                commentTextarea.on("input", () => {
-                    if (commentTextarea.val().trim().length > 0) {
-                        commentToggle.addClass("has-comment");
+                // The toggle has two states. "Add comment" reveals the textarea
+                // (initial state when there is no existing comment). "Remove
+                // comment" clears the textarea and hides it - on save this sends
+                // an empty comment so the value is cleared server-side.
+                commentToggle.on("click", (event) => {
+                    event.preventDefault();
+                    if (commentSection.is(":visible")) {
+                        commentTextarea.val("");
+                        commentSection.hide();
+                        commentToggle.text(addLabel);
                     } else {
-                        commentToggle.removeClass("has-comment");
+                        commentSection.show();
+                        commentToggle.text(removeLabel);
                     }
                 });
 

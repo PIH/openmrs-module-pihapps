@@ -107,16 +107,11 @@ form input, form select, form textarea, .form input, .form select, .form textare
 
 /* Lab result comment widget (used inside .obs-widget on recordLabResults) */
 .comment-toggle {
-    cursor: pointer;
-    color: #888;
-    padding-left: 8px;
-    font-size: 1em;
-}
-.comment-toggle:hover {
-    color: #333;
-}
-.comment-toggle.has-comment {
     color: #007FFF;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-left: 30px;
+    font-size: 0.9em;
 }
 .comment-section {
     display: block;
