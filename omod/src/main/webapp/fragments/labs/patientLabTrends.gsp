@@ -29,7 +29,8 @@
 
         // Populate data table and construct chart from data after loaded, if appropriate
         const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab";
-        const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value,referenceRange"
+        const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
+        const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
         const labTrendsTable = new PagingDataTable(jq);
         labTrendsTable.initialize({
             tableSelector: "#lab-result-trends-table",

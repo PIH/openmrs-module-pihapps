@@ -131,6 +131,49 @@ class FormHelper {
             }
 
             widget.append(jq("<div>").addClass("field-error"));
+
+            if (options?.withComment) {
+                const initialComment = initialObs?.comment ?? "";
+                const addLabel = options.addCommentLabel ?? "";
+                const removeLabel = options.removeCommentLabel ?? "";
+                const hasInitialComment = initialComment.trim().length > 0;
+
+                const commentToggle = jq("<a>")
+                    .addClass("comment-toggle")
+                    .attr("href", "#")
+                    .text(hasInitialComment ? removeLabel : addLabel);
+
+                const commentSection = jq("<span>").addClass("comment-section");
+                if (!hasInitialComment) {
+                    commentSection.hide();
+                }
+                const commentTextarea = jq("<textarea>")
+                    .addClass("result-comment")
+                    .attr("maxlength", "255")
+                    .attr("rows", "2")
+                    .val(initialComment);
+                commentSection.append(commentTextarea);
+
+                // The toggle has two states. "Add comment" reveals the textarea
+                // (initial state when there is no existing comment). "Remove
+                // comment" clears the textarea and hides it - on save this sends
+                // an empty comment so the value is cleared server-side.
+                commentToggle.on("click", (event) => {
+                    event.preventDefault();
+                    if (commentSection.is(":visible")) {
+                        commentTextarea.val("");
+                        commentSection.hide();
+                        commentToggle.text(addLabel);
+                    } else {
+                        commentSection.show();
+                        commentToggle.text(removeLabel);
+                    }
+                });
+
+                widget.append(commentToggle);
+                widget.append(commentSection);
+            }
+
             this.obsWidgetFields.push(widgetField);
         }
 
@@ -343,6 +386,12 @@ class FormHelper {
                 }
                 else {
                     obs.value = valueToSet;
+                }
+
+                const commentTextarea = obsWidgetFields.closest(".obs-widget").find(".result-comment");
+                if (commentTextarea.length > 0) {
+                    const commentValue = commentTextarea.val().trim();
+                    obs.comment = commentValue.length > 0 ? commentValue : null;
                 }
 
                 if (groupingConceptUuid) {

@@ -426,6 +426,18 @@ public class LabOrderConfig {
         return conceptService.getConceptByReference(getReasonTestNotPerformedQuestionReference());
     }
 
+    // Whether to collect and display free-text comments alongside lab result observations.
+    // Defaults to true. Set to "false" to suppress the comment entry widget and inline
+    // comment display - useful while legacy data in the obs.comments column is being cleaned up.
+
+    public String getCollectResultCommentsReference() {
+        return ConfigUtil.getProperty("pihapps.labs.collectResultComments", "true");
+    }
+
+    public boolean getCollectResultComments() {
+        return !"false".equalsIgnoreCase(getCollectResultCommentsReference());
+    }
+
     private Map<String, String> map(String... keysAndValues) {
         Map<String, String> ret = new LinkedHashMap<>();
         for (int i = 0; i < keysAndValues.length; i += 2) {
