@@ -388,7 +388,7 @@ class FormHelper {
                     obs.value = valueToSet;
                 }
 
-                const commentTextarea = obsWidgetFields.siblings(".result-comment");
+                const commentTextarea = obsWidgetFields.closest(".obs-widget").find(".result-comment");
                 if (commentTextarea.length > 0) {
                     const commentValue = commentTextarea.val().trim();
                     obs.comment = commentValue.length > 0 ? commentValue : null;
