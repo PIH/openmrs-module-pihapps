@@ -26,6 +26,18 @@ class FormHelper {
         return this.getInitialObsValues(conceptUuid)[0] ?? null;
     }
 
+    // Returns the obs comment if it is user-entered text, or empty string if
+    // it is missing or matches a legacy non-comment prefix that the comment
+    // column was previously dual-purposed for.
+    getDisplayableComment(comment) {
+        const value = comment ?? "";
+        const legacyPrefixes = ["result-entry-form^", "pihapps^"];
+        if (legacyPrefixes.some(p => value.startsWith(p))) {
+            return "";
+        }
+        return value;
+    }
+
     /**
      * @param concept an object representation of the concept, at minimum (uuid,datatype:(name),answers:(uuid,display),units
      * @param options - supported properties include { id, name, groupingConceptUuid, orderUuid, defaultValue }
@@ -131,7 +143,7 @@ class FormHelper {
             }
 
             if (options?.withComment) {
-                const initialComment = initialObs?.comment ?? "";
+                const initialComment = this.getDisplayableComment(initialObs?.comment);
                 const commentToggle = jq("<i>")
                     .addClass("comment-toggle icon-edit")
                     .attr("title", options.commentTooltip ?? "")

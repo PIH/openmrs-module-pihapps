@@ -107,11 +107,26 @@ class PihAppsPatientUtils {
         else {
             value = obs.valueText ?? obs.value ?? "";
         }
-        const commentText = (obs.comment ?? "").trim();
+        const commentText = this.getDisplayableComment(obs.comment);
         if (commentText.length > 0) {
             const escapedComment = this.jq("<div>").text(commentText).html();
             value += ' <span class="result-comment-inline">(' + escapedComment + ')</span>';
         }
         return value;
+    }
+
+    // Returns the obs comment if it is user-entered text, or empty string if
+    // it is missing or matches a legacy non-comment prefix that the comment
+    // column was previously dual-purposed for.
+    getDisplayableComment(comment) {
+        const trimmed = (comment ?? "").trim();
+        if (trimmed.length === 0) {
+            return "";
+        }
+        const legacyPrefixes = ["result-entry-form^", "pihapps^"];
+        if (legacyPrefixes.some(p => trimmed.startsWith(p))) {
+            return "";
+        }
+        return trimmed;
     }
 }
