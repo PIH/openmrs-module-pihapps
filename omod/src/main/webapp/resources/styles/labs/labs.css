@@ -104,3 +104,37 @@ form input, form select, form textarea, .form input, .form select, .form textare
 .clearable-input-wrapper .icon-remove {
     font-size:unset;
 }
+
+/* Lab result comment widget (used inside .obs-widget on recordLabResults) */
+.comment-toggle {
+    cursor: pointer;
+    color: #888;
+    padding-left: 8px;
+    font-size: 1em;
+}
+.comment-toggle:hover {
+    color: #333;
+}
+.comment-toggle.has-comment {
+    color: #007FFF;
+}
+.comment-section {
+    display: block;
+    margin-top: 4px;
+    width: 100%;
+}
+.result-comment {
+    display: block;
+    width: 100%;
+    min-height: 3em;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+/* Lab result comment sub-row on patientLabResults */
+.comment-row td {
+    font-style: italic;
+    font-size: 0.9em;
+    padding-left: 24px;
+    color: #555;
+}
