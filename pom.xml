@@ -52,7 +52,7 @@
         <appuiVersion>1.18.0</appuiVersion>
         <authenticationVersion>2.3.0</authenticationVersion>
         <coreappsVersion>3.4.0</coreappsVersion>
-        <emrapiVersion>3.3.0</emrapiVersion>
+        <emrapiVersion>3.4.0</emrapiVersion>
         <htmlformentryVersion>7.1.0</htmlformentryVersion>
         <metadatamappingVersion>2.0.0</metadatamappingVersion>
         <uicommonsVersion>3.1.0</uicommonsVersion>
