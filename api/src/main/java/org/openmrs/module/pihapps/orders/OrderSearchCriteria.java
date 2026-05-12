@@ -2,6 +2,7 @@ package org.openmrs.module.pihapps.orders;
 
 import lombok.Data;
 import org.openmrs.Concept;
+import org.openmrs.Location;
 import org.openmrs.Order;
 import org.openmrs.OrderType;
 import org.openmrs.Patient;
@@ -14,6 +15,7 @@ import java.util.List;
 public class OrderSearchCriteria {
     private Patient patient;
     private List<OrderType> orderTypes;
+    private List<Location> orderLocations;
     private Concept concept;
     private String accessionNumber;
     private List<String> orderNumbers;

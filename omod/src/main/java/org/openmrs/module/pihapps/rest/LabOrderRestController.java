@@ -4,6 +4,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Concept;
+import org.openmrs.Location;
 import org.openmrs.Order;
 import org.openmrs.OrderType;
 import org.openmrs.Patient;
@@ -73,6 +74,7 @@ public class LabOrderRestController {
                                @RequestParam(value = "patient", required = false) Patient patient,
                                @RequestParam(value = "labTest", required = false) Concept labTest,
                                @RequestParam(value = "orderType", required = false) List<String> orderType,
+                               @RequestParam(value = "orderLocation", required = false) List<Location> orderLocation,
                                @RequestParam(value = "activatedOnOrBefore", required = false) String activatedOnOrBefore,
                                @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
                                @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
@@ -89,6 +91,7 @@ public class LabOrderRestController {
             searchCriteria.setOrderTypes(getOrderTypes(orderType, labOrderConfig.getTestOrderTypes()));
             searchCriteria.setPatient(patient);
             searchCriteria.setConcept(labTest);
+            searchCriteria.setOrderLocations(orderLocation);
             searchCriteria.setAccessionNumber(accessionNumber);
             searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
             searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
@@ -144,6 +147,7 @@ public class LabOrderRestController {
                                @RequestParam(value = "patient", required = false) Patient patient,
                                @RequestParam(value = "labTest", required = false) Concept labTest,
                                @RequestParam(value = "orderType", required = false) List<String> orderType,
+                               @RequestParam(value = "orderLocation", required = false) List<Location> orderLocation,
                                @RequestParam(value = "activatedOnOrBefore", required = false) String activatedOnOrBefore,
                                @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
                                @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
@@ -160,6 +164,7 @@ public class LabOrderRestController {
             searchCriteria.setOrderTypes(getOrderTypes(orderType, labOrderConfig.getTestOrderTypes()));
             searchCriteria.setPatient(patient);
             searchCriteria.setConcept(labTest);
+            searchCriteria.setOrderLocations(orderLocation);
             searchCriteria.setAccessionNumber(accessionNumber);
             searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
             searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));

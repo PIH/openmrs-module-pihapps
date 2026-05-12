@@ -10,6 +10,7 @@
     def now = new Date()
     def collectionPage = ui.pageLink("pihapps", "labs/labPatientReception")
     def orderListPage = ui.pageLink("pihapps", "labs/labOrderList")
+    def visitLocationUuid = visitLocationForSessionLocation ? visitLocationForSessionLocation.uuid : ""
 %>
 
 <script type="text/javascript">
@@ -19,6 +20,7 @@
     ];
 
     const orderFulfillmentStatus = '${orderFulfillmentStatus.name()}';
+    const visitLocationUuid = '${ visitLocationUuid }';
 
     moment.locale(window.sessionContext?.locale ?? 'en');
 
@@ -50,6 +52,7 @@
             const getFilterParameterValues = function() {
                 return {
                     "orderType": pihAppsConfig.labOrderConfig.labTestOrderType?.uuid,
+                    "orderLocation": visitLocationUuid,
                     "orderFulfillmentStatus": "AWAITING_FULFILLMENT",
                     "patient": jq("#patient-filter-field").val(),
                     "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?

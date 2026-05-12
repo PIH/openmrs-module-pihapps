@@ -1,24 +1,24 @@
 package org.openmrs.module.pihapps;
 
+import lombok.Setter;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Location;
 import org.openmrs.LocationTag;
 import org.openmrs.api.LocationService;
 import org.openmrs.module.emrapi.EmrApiConstants;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Provides utility methods to retrieve locations by tag and ensure location tags are configured appropriately
  */
-@Component
 public class LocationTagConfig {
 
     protected static Log log = LogFactory.getLog(LocationTagConfig.class);
@@ -27,11 +27,10 @@ public class LocationTagConfig {
     public static final String MULTI_DEPARTMENT = "multiDepartment";
     public static final String SINGLE_LOCATION = "singleLocation";
 
-    private final LocationService locationService;
+    @Setter
+    private LocationService locationService;
 
-    public LocationTagConfig(@Autowired LocationService locationService) {
-        this.locationService = locationService;
-    }
+    public LocationTagConfig() {}
 
     public LocationTag getVisitLocationTag() {
         return locationService.getLocationTagByName(EmrApiConstants.LOCATION_TAG_SUPPORTS_VISITS);
@@ -215,5 +214,14 @@ public class LocationTagConfig {
             }
         }
         return ret;
+    }
+
+    public Set<Location> getLocationAndDescendentLocations(Location location) {
+        Set<Location> locations = new HashSet<>();
+        locations.add(location);
+        for (Location childLocation : location.getChildLocations()) {
+            locations.addAll(getLocationAndDescendentLocations(childLocation));
+        }
+        return locations;
     }
 }
