@@ -10,6 +10,7 @@
     def now = new Date()
     def patientListPage = ui.pageLink("pihapps", "labs/labPatientList")
     def orderLabsPage = ui.pageLink("coreapps", "findpatient/findPatient", ["app": "pih.app.labs.ordering"])
+    def visitLocationUuid = visitLocationForSessionLocation ? visitLocationForSessionLocation.uuid : ""
 %>
 
 <script type="text/javascript">
@@ -17,6 +18,8 @@
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
         { label: "${ ui.encodeJavaScript(ui.message("pihapps.labOrderList")) }" , link: '${ui.pageLink("pihapps", "labs/labOrderList")}'}
     ];
+
+    const visitLocationUuid = '${ visitLocationUuid }';
 
     const patientRep = "(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
     const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
@@ -132,6 +135,7 @@
             const getFilterParameterValues = function() {
                 return {
                     "orderType": pihAppsConfig.labOrderConfig.labTestOrderType?.uuid,
+                    "orderLocation": visitLocationUuid,
                     "patient": jq("#patient-filter-field").val(),
                     "labTest": jq("#testConcept-filter").val(),
                     "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),

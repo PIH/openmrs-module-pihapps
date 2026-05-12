@@ -52,9 +52,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.hibernate.criterion.Restrictions.and;
 import static org.hibernate.criterion.Restrictions.eq;
@@ -73,6 +75,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 
 	@Setter
 	private LabOrderConfig labOrderConfig;
+
+	@Setter
+	private LocationTagConfig locationTagConfig;
 
 	@Setter
 	private LocationService locationService;
@@ -137,6 +142,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		// Then query to get page of results
 		c = createHibernateOrderSearchCriteria(searchCriteria, true);
 		c.setProjection(null);
+		c.setResultTransformer(Criteria.DISTINCT_ROOT_ENTITY);
 		Integer startIndex = searchCriteria.getStartIndex();
 		Integer limit = searchCriteria.getLimit();
 		if (limit != null) {
@@ -175,6 +181,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		c = createHibernateOrderSearchCriteria(searchCriteria, true);
 		c.add(in("patient", patients));
 		c.setProjection(null);
+		c.setResultTransformer(Criteria.DISTINCT_ROOT_ENTITY);
 		List<Order> orders = c.list();
 		Map<Patient, List<Order>> ordersForPatient = new LinkedHashMap<>();
 		for (Order  o : orders) {
@@ -207,6 +214,14 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		if (searchCriteria.getOrderNumbers() != null && !searchCriteria.getOrderNumbers().isEmpty()) {
 			c.add(in("orderNumber", searchCriteria.getOrderNumbers()));
+		}
+		if (searchCriteria.getOrderLocations() != null && !searchCriteria.getOrderLocations().isEmpty()) {
+			Set<Location> locations = new HashSet<>();
+			for (Location location : searchCriteria.getOrderLocations()) {
+				locations.addAll(locationTagConfig.getLocationAndDescendentLocations(location));
+			}
+			c.createAlias("encounter", "e");
+			c.add(in("e.location", locations));
 		}
 		if (searchCriteria.getActivatedOnOrBefore() != null) {
 			Date onOrBefore = OpenmrsUtil.getLastMomentOfDay(searchCriteria.getActivatedOnOrBefore());
