@@ -30,14 +30,23 @@ public class LocationTagConfig {
     @Setter
     private LocationService locationService;
 
+    private LocationTag visitLocationTag;
+    private LocationTag loginLocationTag;
+
     public LocationTagConfig() {}
 
     public LocationTag getVisitLocationTag() {
-        return locationService.getLocationTagByName(EmrApiConstants.LOCATION_TAG_SUPPORTS_VISITS);
+        if (visitLocationTag == null) {
+            visitLocationTag = locationService.getLocationTagByName(EmrApiConstants.LOCATION_TAG_SUPPORTS_VISITS);
+        }
+        return visitLocationTag;
     }
 
     public LocationTag getLoginLocationTag() {
-        return locationService.getLocationTagByName(EmrApiConstants.LOCATION_TAG_SUPPORTS_LOGIN);
+        if (loginLocationTag == null) {
+            loginLocationTag = locationService.getLocationTagByName(EmrApiConstants.LOCATION_TAG_SUPPORTS_LOGIN);
+        }
+        return loginLocationTag;
     }
 
     public List<Location> sortLocations(List<Location> locations) {
