@@ -126,7 +126,7 @@ public class AccountPageController {
 
                 accountService.saveAccount(account);
 
-                // TODO: extract out into EMR API account service once we have an agreed-upon pattern
+                // TODO: extract out into EMR API account service once we have an agreed-upon pattern, instead of just doing this as a separate transaction here
                 if (account.getUser() != null) {
                     User user = userService.getUser(account.getUser().getId());
                     if (allowedVisitLocationUuids != null && allowedVisitLocationUuids.length > 0) {
