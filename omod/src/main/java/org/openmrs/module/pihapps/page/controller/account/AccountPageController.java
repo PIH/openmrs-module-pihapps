@@ -165,7 +165,7 @@ public class AccountPageController {
         // re-populate visit locations for page re-render on error
         // use submitted UUIDs rather than re-reading from DB since the save failed
         List<Location> visitLocations = locationTagConfig.getVisitLocations();
-        if (visitLocations.size() > 1) {
+        if (visitLocations.size() > 1) {  // only show if there are multiple locations
             model.addAttribute("visitLocations", visitLocations);
             Set<String> allowedUuids = allowedVisitLocationUuids != null
                     ? new HashSet<>(Arrays.asList(allowedVisitLocationUuids))
@@ -180,7 +180,7 @@ public class AccountPageController {
 
     private void addVisitLocationsToModel(PageModel model, AccountDomainWrapper account, LocationTagConfig locationTagConfig) {
         List<Location> visitLocations = locationTagConfig.getVisitLocations();
-        if (visitLocations.size() > 1) {
+        if (visitLocations.size() > 1) {  // only show if there are multiple locations
             model.addAttribute("visitLocations", visitLocations);
             Set<String> allowedUuids = new HashSet<>();
             if (account.getUser() != null) {
