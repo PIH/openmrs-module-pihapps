@@ -448,9 +448,16 @@ public class LabOrderConfig {
         return configVal;
     }
 
+    private String cachedMultipleAnswerConceptsRef = null;
+    private List<Concept> cachedMultipleAnswerConcepts = null;
+
     public List<Concept> getMultipleAnswerConcepts() {
-        List<Concept> ret = new ArrayList<>();
         String configVal = getMultipleAnswerConceptsReference();
+        if (cachedMultipleAnswerConcepts != null
+                && StringUtils.equals(configVal, cachedMultipleAnswerConceptsRef)) {
+            return cachedMultipleAnswerConcepts;
+        }
+        List<Concept> ret = new ArrayList<>();
         if (StringUtils.isNotBlank(configVal)) {
             for (String lookup : configVal.split(",")) {
                 lookup = lookup.trim();
@@ -462,6 +469,8 @@ public class LabOrderConfig {
                 }
             }
         }
+        cachedMultipleAnswerConceptsRef = configVal;
+        cachedMultipleAnswerConcepts = ret;
         return ret;
     }
 
