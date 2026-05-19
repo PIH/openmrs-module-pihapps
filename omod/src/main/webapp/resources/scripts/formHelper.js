@@ -34,7 +34,9 @@ class FormHelper {
     createObsWidget = function(concept, options) {
         const widget = jq("<span>").addClass("obs-widget");
         const dataType = concept.datatype?.name;
-        const initialObs = this.getInitialObsValue(concept.uuid);
+        const initialObs = options?.initialObsUuid
+            ? this.initialObs.find(o => o.uuid === options.initialObsUuid)
+            : this.getInitialObsValue(concept.uuid);
 
         // Get possible values if this is meant to be coded
         const valueSet = options.valueSet ?? (dataType === 'Coded' && concept.answers?.length > 0 ? concept.answers.map(a => {
@@ -362,7 +364,9 @@ class FormHelper {
 
             if (obsUuid || value) {
                 const voidOnly = obsUuid && !value;
-                const initialObs = this.initialObs.find(o => o.concept.uuid === conceptUuid);
+                const initialObs = obsUuid
+                    ? this.initialObs.find(o => o.uuid === obsUuid)
+                    : this.initialObs.find(o => o.concept.uuid === conceptUuid);
                 const initialObsValue = initialObs ? (initialObs.valueCoded?.uuid ?? initialObs.valueNumeric ?? initialObs.valueDatetime ?? initialObs.valueText ?? initialObs.value?.uuid ?? initialObs.value) : null;
                 const valueToSet = voidOnly ? initialObsValue : value;
                 const obs = {
