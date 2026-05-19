@@ -28,7 +28,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
     jq(document).ready(function() {
 
-        const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab";
+        const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab,multipleAnswer";
         const configRep =
             "dateFormat,dateTimeFormat,labOrderConfig:(" +
                 "labResultCategoriesConceptSet:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + "))))," +
@@ -38,7 +38,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
             const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-            const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
+            const obsRep = "uuid,obsDatetime,encounter:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
 
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
@@ -60,6 +60,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             }
 
             const getLabTest = (obs) => {
+                if (obs.concept.multipleAnswer) {
+                    return obs.concept.displayStringForLab;
+                }
                 return jq("<a>").attr("href", "#").addClass("lab-trends-link").html(obs.concept.displayStringForLab).prop("outerHTML");
             }
 
@@ -122,6 +125,25 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                         jq(testNameCell).addClass("obs-group-member-row");
                     }
                     tableRow.css("background-color", rowColor);
+                });
+
+                // Collapse multi-value obs with same concept+encounter into one comma-delimited row
+                const multiValueGroups = new Map();
+                tableRowObjects.forEach((obs, index) => {
+                    if (!obs.concept.multipleAnswer) return;
+                    const groupKey = obs.concept.uuid + '_' + (obs.encounter?.uuid ?? '');
+                    if (!multiValueGroups.has(groupKey)) {
+                        multiValueGroups.set(groupKey, index);
+                    } else {
+                        const firstRowIndex = multiValueGroups.get(groupKey);
+                        const firstDomRow = jq(tableRowData[firstRowIndex]);
+                        const thisDomRow = jq(tableRowData[index]);
+                        const additionalValue = patientUtils.formatObsValue(obs, dateUtils);
+                        // Results column is index 2 (0=labTest, 1=date, 2=results, 3=normalRange)
+                        const resultsCell = firstDomRow.find("td").eq(2);
+                        resultsCell.html(resultsCell.html() + ", " + additionalValue);
+                        thisDomRow.hide();
+                    }
                 });
             }
 
