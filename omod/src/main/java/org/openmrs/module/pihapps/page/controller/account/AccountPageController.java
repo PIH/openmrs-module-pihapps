@@ -167,11 +167,13 @@ public class AccountPageController {
         List<Location> visitLocations = locationTagConfig.getVisitLocations();
         if (visitLocations.size() > 1) {  // only enable setting allowed visit locations if there are multiple visit locations in the system
             model.addAttribute("visitLocations", visitLocations);
-            Set<String> allowedUuids = allowedVisitLocationUuids != null
-                    ? new HashSet<>(Arrays.asList(allowedVisitLocationUuids))
-                    : new HashSet<>();
-            model.addAttribute("allowedVisitLocationUuids", allowedUuids);
+        } else {
+            model.addAttribute("visitLocations", new HashSet<>());
         }
+        Set<String> allowedUuids = allowedVisitLocationUuids != null
+                ? new HashSet<>(Arrays.asList(allowedVisitLocationUuids))
+                : new HashSet<>();
+        model.addAttribute("allowedVisitLocationUuids", allowedUuids);
 
         return "account/account";
 
@@ -182,15 +184,17 @@ public class AccountPageController {
         List<Location> visitLocations = locationTagConfig.getVisitLocations();
         if (visitLocations.size() > 1) {  // only enable setting allowed visit locations if there are multiple visit locations in the system
             model.addAttribute("visitLocations", visitLocations);
-            Set<String> allowedUuids = new HashSet<>();
-            if (account.getUser() != null) {
-                String prop = account.getUser().getUserProperty("allowedVisitLocations");
-                if (prop != null && !prop.isEmpty()) {
-                    allowedUuids.addAll(Arrays.asList(prop.split(",")));
-                }
-            }
-            model.addAttribute("allowedVisitLocationUuids", allowedUuids);
+        } else {
+            model.addAttribute("visitLocations", new HashSet<>());
         }
+        Set<String> allowedUuids = new HashSet<>();
+        if (account.getUser() != null) {
+            String prop = account.getUser().getUserProperty("allowedVisitLocations");
+            if (prop != null && !prop.isEmpty()) {
+                allowedUuids.addAll(Arrays.asList(prop.split(",")));
+            }
+        }
+        model.addAttribute("allowedVisitLocationUuids", allowedUuids);
     }
 
     private void sendErrorMessage(BindingResult errors, MessageSource messageSource, HttpServletRequest request) {
