@@ -438,6 +438,33 @@ public class LabOrderConfig {
         return !"false".equalsIgnoreCase(getCollectResultCommentsReference());
     }
 
+    // Multiple answer concepts (tests that can produce more than one obs value)
+
+    public String getMultipleAnswerConceptsReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.multipleAnswerConcepts");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("laboratorymanagement.multipleAnswerConceptIds");
+        }
+        return configVal;
+    }
+
+    public List<Concept> getMultipleAnswerConcepts() {
+        List<Concept> ret = new ArrayList<>();
+        String configVal = getMultipleAnswerConceptsReference();
+        if (StringUtils.isNotBlank(configVal)) {
+            for (String lookup : configVal.split(",")) {
+                lookup = lookup.trim();
+                Concept concept = conceptService.getConceptByReference(lookup);
+                if (concept == null) {
+                    log.warn("Invalid concept configured for multiple answer concepts: " + lookup);
+                } else {
+                    ret.add(concept);
+                }
+            }
+        }
+        return ret;
+    }
+
     private Map<String, String> map(String... keysAndValues) {
         Map<String, String> ret = new LinkedHashMap<>();
         for (int i = 0; i < keysAndValues.length; i += 2) {
