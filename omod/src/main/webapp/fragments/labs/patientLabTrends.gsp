@@ -58,7 +58,7 @@
                 graphSection.empty();
                 parentElement.find(".loading-section").hide();
                 parentElement.find(".loaded-content-section").show();
-                if (obs.concept.datatype?.name === 'Numeric') {
+                if (!obs.concept.multipleAnswer && obs.concept.datatype?.name === 'Numeric') {
                     const data = labTrendsTable.getRowObjects().map(o => {
                         const obsDateTime = moment(o.obsDatetime).startOf('minute');
                         return { x: obsDateTime, y: o.valueNumeric }
