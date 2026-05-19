@@ -195,7 +195,7 @@
 
             // Add result widgets
             const resultSection = resultsEntrySection.find(".result-fields");
-            const baseConceptRep = "uuid,display,displayStringForLab,datatype:(uuid,name),allowDecimal,units";
+            const baseConceptRep = "uuid,display,displayStringForLab,datatype:(uuid,name),allowDecimal,units,multipleAnswer";
             const baseConceptRepWithAnswers = baseConceptRep + ",answers:(" + baseConceptRep + ")";
             const testRep = baseConceptRepWithAnswers + ",setMembers:(" + baseConceptRepWithAnswers + ")";
             jq.get(openmrsContextPath + "/ws/rest/v1/concept/" + order.concept.uuid + "?v=custom:(" + testRep + ")", function (orderable) {
@@ -212,43 +212,87 @@
                     orderableRow.append(widgetSection);
                     orderableRow.append(widgetInfoSection);
 
-                    // TODO: Handle multiple results for same concept
-                    const widget = formHelper.createObsWidget(concept, {
-                        id: id + concept.uuid,
-                        orderUuid: order.uuid,
-                        groupingConceptUuid: isPanel ? orderable.uuid : null,
-                        withComment: pihAppsConfig.labOrderConfig.collectResultComments,
-                        addCommentLabel: messages.addComment,
-                        removeCommentLabel: messages.removeComment
-                    });
+                    if (concept.multipleAnswer) {
+                        const existingObs = formHelper.getInitialObsValues(concept.uuid);
+                        const obsToRender = existingObs.length > 0 ? existingObs : [null];
 
-                    const widgetWrapper = jq("<div>").addClass("lab-results-widget").append(widget);
-                    widgetSection.append(widgetWrapper);
+                        const renderMultiValueRow = (obsForRow, isFirst) => {
+                            const rowDiv = jq("<div>").addClass("d-flex align-items-center gap-2 multi-value-row");
+                            const widget = formHelper.createObsWidget(concept, {
+                                id: id + concept.uuid + (obsForRow ? '_' + obsForRow.uuid : '_new_' + Date.now()),
+                                orderUuid: order.uuid,
+                                groupingConceptUuid: isPanel ? orderable.uuid : null,
+                                initialObsUuid: obsForRow?.uuid ?? null,
+                                withComment: pihAppsConfig.labOrderConfig.collectResultComments,
+                                addCommentLabel: messages.addComment,
+                                removeCommentLabel: messages.removeComment
+                            });
+                            rowDiv.append(widget);
 
-                    const referenceRangeSection = jq("<span>").addClass("reference-range");
-                    if (concept.datatype.name === 'Numeric') {
-                        const refRangeRep = "hiNormal,hiAbsolute,hiCritical,lowNormal,lowAbsolute,lowCritical";
-                        const refRangeQuery = "patient=" + order.patient.uuid + "&encounter=" + order.encounter.uuid + "&concept=" + concept.uuid;
-                        jq.get(openmrsContextPath + "/ws/rest/v1/conceptreferencerange?" + refRangeQuery + "&v=custom:(" + refRangeRep + ")", function (data) {
-                            const refRange = data.results && data.results.length > 0 ? data.results[0] : null;
-                            widgetSection.find(".result-numeric-input").on("blur", (event) => {
-                                const textbox = jq(event.target);
-                                const validationError = validateNumericResult(messages, concept, refRange, textbox.val());
-                                const fieldErrorDiv = textbox.siblings(".field-error");
-                                fieldErrorDiv.html("").removeClass("abnormal-value").removeClass("critical-value").removeClass("error-value");
-                                if (validationError) {
-                                    fieldErrorDiv.html(validationError.message).addClass(validationError.type + "-value");
-                                }
-                            }).blur();
-                            const refRangeDisplay =
-                                !refRange ? "" :
-                                    refRange.lowNormal && refRange.hiNormal ? (refRange.lowNormal + " - " + refRange.hiNormal) :
-                                        refRange.lowNormal ? (">= " + refRange.lowNormal) :
-                                            refRange.hiNormal ? ("=< " + refRange.hiNormal) : "";
-                            referenceRangeSection.html(refRangeDisplay);
+                            if (!isFirst) {
+                                const removeBtn = jq("<button>")
+                                    .addClass("btn btn-sm btn-outline-secondary multi-value-remove")
+                                    .attr("type", "button")
+                                    .html('<i class="icon-remove"></i>');
+                                removeBtn.on("click", () => {
+                                    rowDiv.hide();
+                                    rowDiv.find(".result-value-field").val("").trigger("change");
+                                });
+                                rowDiv.append(removeBtn);
+                            }
+                            return rowDiv;
+                        };
+
+                        obsToRender.forEach((obs, index) => {
+                            widgetSection.append(renderMultiValueRow(obs, index === 0));
                         });
+
+                        const addBtn = jq("<button>")
+                            .addClass("btn btn-sm btn-outline-secondary multi-value-add mt-1")
+                            .attr("type", "button")
+                            .text('${ ui.message("pihapps.addAnotherResult") }');
+                        addBtn.on("click", () => {
+                            addBtn.before(renderMultiValueRow(null, false));
+                        });
+                        widgetSection.append(addBtn);
+
+                    } else {
+                        const widget = formHelper.createObsWidget(concept, {
+                            id: id + concept.uuid,
+                            orderUuid: order.uuid,
+                            groupingConceptUuid: isPanel ? orderable.uuid : null,
+                            withComment: pihAppsConfig.labOrderConfig.collectResultComments,
+                            addCommentLabel: messages.addComment,
+                            removeCommentLabel: messages.removeComment
+                        });
+                        const widgetWrapper = jq("<div>").addClass("lab-results-widget").append(widget);
+                        widgetSection.append(widgetWrapper);
+
+                        const referenceRangeSection = jq("<span>").addClass("reference-range");
+                        if (concept.datatype.name === 'Numeric') {
+                            const refRangeRep = "hiNormal,hiAbsolute,hiCritical,lowNormal,lowAbsolute,lowCritical";
+                            const refRangeQuery = "patient=" + order.patient.uuid + "&encounter=" + order.encounter.uuid + "&concept=" + concept.uuid;
+                            jq.get(openmrsContextPath + "/ws/rest/v1/conceptreferencerange?" + refRangeQuery + "&v=custom:(" + refRangeRep + ")", function (data) {
+                                const refRange = data.results && data.results.length > 0 ? data.results[0] : null;
+                                widgetSection.find(".result-numeric-input").on("blur", (event) => {
+                                    const textbox = jq(event.target);
+                                    const validationError = validateNumericResult(messages, concept, refRange, textbox.val());
+                                    const fieldErrorDiv = textbox.siblings(".field-error");
+                                    fieldErrorDiv.html("").removeClass("abnormal-value").removeClass("critical-value").removeClass("error-value");
+                                    if (validationError) {
+                                        fieldErrorDiv.html(validationError.message).addClass(validationError.type + "-value");
+                                    }
+                                }).blur();
+                                const refRangeDisplay =
+                                    !refRange ? "" :
+                                        refRange.lowNormal && refRange.hiNormal ? (refRange.lowNormal + " - " + refRange.hiNormal) :
+                                            refRange.lowNormal ? (">= " + refRange.lowNormal) :
+                                                refRange.hiNormal ? ("=< " + refRange.hiNormal) : "";
+                                referenceRangeSection.html(refRangeDisplay);
+                            });
+                        }
+                        widgetInfoSection.append(jq("<p>").append(referenceRangeSection));
                     }
-                    widgetInfoSection.append(jq("<p>").append(referenceRangeSection));
                 });
 
                 const cancelButton = parentElement.find(".action-button.cancel");
