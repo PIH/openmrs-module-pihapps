@@ -28,9 +28,9 @@
         parentElement.find(".lab-test-name").html(obs.concept.displayStringForLab);
 
         // Populate data table and construct chart from data after loaded, if appropriate
-        const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab";
+        const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab,multipleAnswer";
         const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-        const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
+        const obsRep = "uuid,obsDatetime,encounter:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
         const labTrendsTable = new PagingDataTable(jq);
         labTrendsTable.initialize({
             tableSelector: "#lab-result-trends-table",
@@ -58,6 +58,27 @@
                 graphSection.empty();
                 parentElement.find(".loading-section").hide();
                 parentElement.find(".loaded-content-section").show();
+
+                // Collapse multi-value obs with same concept+encounter into one comma-delimited row
+                if (obs.concept.multipleAnswer) {
+                    const multiValueGroups = new Map();
+                    const trendRowObjects = labTrendsTable.getRowObjects();
+                    const trendRowData = labTrendsTable.getTableElement().find("tbody tr");
+                    trendRowObjects.forEach((rowObs, index) => {
+                        const groupKey = rowObs.concept.uuid + '_' + (rowObs.encounter?.uuid ?? '');
+                        if (!multiValueGroups.has(groupKey)) {
+                            multiValueGroups.set(groupKey, index);
+                        } else {
+                            const firstDomRow = jq(trendRowData[multiValueGroups.get(groupKey)]);
+                            const additionalValue = patientUtils.formatObsValue(rowObs, dateUtils);
+                            // Results column is index 1 (0=date, 1=results, 2=normalRange)
+                            const resultsCell = firstDomRow.find("td").eq(1);
+                            resultsCell.html(resultsCell.html() + ", " + additionalValue);
+                            jq(trendRowData[index]).hide();
+                        }
+                    });
+                }
+
                 if (!obs.concept.multipleAnswer && obs.concept.datatype?.name === 'Numeric') {
                     const data = labTrendsTable.getRowObjects().map(o => {
                         const obsDateTime = moment(o.obsDatetime).startOf('minute');

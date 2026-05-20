@@ -60,9 +60,6 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             }
 
             const getLabTest = (obs) => {
-                if (obs.concept.multipleAnswer) {
-                    return obs.concept.displayStringForLab;
-                }
                 return jq("<a>").attr("href", "#").addClass("lab-trends-link").html(obs.concept.displayStringForLab).prop("outerHTML");
             }
 
