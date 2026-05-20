@@ -215,6 +215,7 @@
                     if (concept.multipleAnswer) {
                         const existingObs = formHelper.getInitialObsValues(concept.uuid);
                         const obsToRender = existingObs.length > 0 ? existingObs : [null];
+                        let nextPathIndex = formHelper.getNextPathIndex(concept.uuid);
 
                         const renderMultiValueRow = (obsForRow, isFirst) => {
                             const rowDiv = jq("<div>").addClass("d-flex align-items-start gap-2 multi-value-row");
@@ -223,6 +224,7 @@
                                 orderUuid: order.uuid,
                                 groupingConceptUuid: isPanel ? orderable.uuid : null,
                                 initialObsUuid: obsForRow?.uuid ?? null,
+                                pathIndex: obsForRow ? undefined : nextPathIndex++,
                                 withComment: pihAppsConfig.labOrderConfig.collectResultComments,
                                 addCommentLabel: messages.addComment,
                                 removeCommentLabel: messages.removeComment

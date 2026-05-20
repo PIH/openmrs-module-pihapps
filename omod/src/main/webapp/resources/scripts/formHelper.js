@@ -18,12 +18,26 @@ class FormHelper {
     }
 
     getInitialObsValues(conceptUuid) {
-        return this.initialObs.filter((o) => o.concept.uuid === conceptUuid) ?? [];
+        return this.initialObs
+            .filter(o => o.concept.uuid === conceptUuid)
+            .sort((a, b) => this._pathIndex(a.formNamespaceAndPath) - this._pathIndex(b.formNamespaceAndPath));
     }
 
-    // TODO: Support multiple values for the same concept
     getInitialObsValue(conceptUuid) {
         return this.getInitialObsValues(conceptUuid)[0] ?? null;
+    }
+
+    getNextPathIndex(conceptUuid) {
+        const indices = this.initialObs
+            .filter(o => o.concept.uuid === conceptUuid)
+            .map(o => this._pathIndex(o.formNamespaceAndPath))
+            .filter(i => i >= 0);
+        return indices.length > 0 ? Math.max(...indices) + 1 : 0;
+    }
+
+    _pathIndex(formNamespaceAndPath) {
+        const match = (formNamespaceAndPath ?? '').match(/\/(\d+)$/);
+        return match ? parseInt(match[1]) : -1;
     }
 
     /**
@@ -118,7 +132,7 @@ class FormHelper {
             if (options?.groupingConceptUuid) {
                 widgetField.attr("data-grouping-concept-uuid", options.groupingConceptUuid);
             }
-            widgetField.attr("data-form-path", "/" + (options.groupingConceptUuid ? options.groupingConceptUuid + "/" : "") + concept.uuid)
+            widgetField.attr("data-form-path", "/" + (options.groupingConceptUuid ? options.groupingConceptUuid + "/" : "") + concept.uuid + (options?.pathIndex != null ? "/" + options.pathIndex : ""))
             if (this.patientUuid) {
                 widgetField.attr("data-patient-uuid", this.patientUuid);
             }
