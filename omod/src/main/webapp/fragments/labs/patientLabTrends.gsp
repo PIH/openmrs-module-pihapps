@@ -61,7 +61,7 @@
 
                 // Collapse multi-value obs with same concept+encounter into one comma-delimited row, in entry order
                 if (obs.concept.multipleAnswer) {
-                    const pathIndex = (o) => { const parts = (o.formNamespaceAndPath ?? '').split('/'); const n = parseInt(parts[parts.length - 1]); return isNaN(n) ? -1 : n; };
+                    const pathIndex = (o) => { const parts = (o.formNamespaceAndPath ?? '').split('/'); const last = parts[parts.length - 1]; const n = parseInt(last); return (!isNaN(n) && String(n) === last) ? n : -1; };
                     const trendRowObjects = labTrendsTable.getRowObjects();
                     const trendRowData = labTrendsTable.getTableElement().find("tbody tr");
                     const multiValueGroups = new Map();

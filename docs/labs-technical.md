@@ -296,7 +296,7 @@ Two custom resource wrappers add fields not available in core representations:
 
 ### Multiple-answer concepts
 
-When `order.concept.multipleAnswer` is `true`, `recordLabResults.gsp` renders a dynamic row list instead of a single widget:
+When the test concept's `multipleAnswer` flag is `true`, `recordLabResults.gsp` renders a dynamic row list instead of a single widget:
 
 - Existing obs are loaded via `FormHelper.getInitialObsValues()`, sorted by the numeric suffix in their `formNamespaceAndPath` to reconstruct original entry order.
 - Each row passes `initialObsUuid` to `FormHelper.createObsWidget()` so the correct existing obs is pre-filled.

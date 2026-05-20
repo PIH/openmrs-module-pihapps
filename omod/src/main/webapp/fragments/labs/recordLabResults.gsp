@@ -44,6 +44,7 @@
             reasonRequired: '${ ui.message("pihapps.reasonRequired") }',
             addComment: '${ ui.message("pihapps.addComment") }',
             removeComment: '${ ui.message("pihapps.removeComment") }',
+            removeResult: '${ ui.message("pihapps.removeResult") }',
         };
 
         if (!order || !order.fulfillerEncounter) {
@@ -236,7 +237,7 @@
                         const renderMultiValueRow = (obsForRow, isFirst) => {
                             const rowDiv = jq("<div>").addClass("d-flex align-items-start gap-2 multi-value-row");
                             const widget = formHelper.createObsWidget(concept, {
-                                id: id + concept.uuid + (obsForRow ? '_' + obsForRow.uuid : '_new_' + Date.now()),
+                                id: id + concept.uuid + (obsForRow ? '_' + obsForRow.uuid : '_new_' + crypto.randomUUID()),
                                 orderUuid: order.uuid,
                                 groupingConceptUuid: isPanel ? orderable.uuid : null,
                                 initialObsUuid: obsForRow?.uuid ?? null,
@@ -251,6 +252,7 @@
                                 const removeBtn = jq("<button>")
                                     .addClass("btn btn-sm btn-outline-secondary multi-value-remove py-0 px-1")
                                     .attr("type", "button")
+                                    .attr("aria-label", messages.removeResult)
                                     .text('×');
                                 removeBtn.on("click", () => {
                                     rowDiv.find(".result-value-field").val("");
@@ -280,6 +282,30 @@
                             if (syncOptions) syncOptions();
                         });
                         widgetSection.append(addBtn);
+
+                        if (concept.datatype.name === 'Numeric') {
+                            const refRangeRep = "hiNormal,hiAbsolute,hiCritical,lowNormal,lowAbsolute,lowCritical";
+                            const refRangeQuery = "patient=" + order.patient.uuid + "&encounter=" + order.encounter.uuid + "&concept=" + concept.uuid;
+                            jq.get(openmrsContextPath + "/ws/rest/v1/conceptreferencerange?" + refRangeQuery + "&v=custom:(" + refRangeRep + ")", function (data) {
+                                const refRange = data.results && data.results.length > 0 ? data.results[0] : null;
+                                widgetSection.on("focusout", ".result-numeric-input", (event) => {
+                                    const textbox = jq(event.target);
+                                    const validationError = validateNumericResult(messages, concept, refRange, textbox.val());
+                                    const fieldErrorDiv = textbox.siblings(".field-error");
+                                    fieldErrorDiv.html("").removeClass("abnormal-value").removeClass("critical-value").removeClass("error-value");
+                                    if (validationError) {
+                                        fieldErrorDiv.html(validationError.message).addClass(validationError.type + "-value");
+                                    }
+                                });
+                                widgetSection.find(".result-numeric-input").trigger("focusout");
+                                const refRangeDisplay =
+                                    !refRange ? "" :
+                                        refRange.lowNormal && refRange.hiNormal ? (refRange.lowNormal + " - " + refRange.hiNormal) :
+                                            refRange.lowNormal ? (">= " + refRange.lowNormal) :
+                                                refRange.hiNormal ? ("=< " + refRange.hiNormal) : "";
+                                widgetInfoSection.append(jq("<p>").append(jq("<span>").addClass("reference-range").html(refRangeDisplay)));
+                            });
+                        }
 
                     } else {
                         const widget = formHelper.createObsWidget(concept, {

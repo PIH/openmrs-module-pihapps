@@ -125,7 +125,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 });
 
                 // Collapse multi-value obs with same concept+encounter into one comma-delimited row, in entry order
-                const pathIndex = (obs) => { const parts = (obs.formNamespaceAndPath ?? '').split('/'); const n = parseInt(parts[parts.length - 1]); return isNaN(n) ? -1 : n; };
+                const pathIndex = (obs) => { const parts = (obs.formNamespaceAndPath ?? '').split('/'); const last = parts[parts.length - 1]; const n = parseInt(last); return (!isNaN(n) && String(n) === last) ? n : -1; };
                 const multiValueGroups = new Map();
                 tableRowObjects.forEach((obs, index) => {
                     if (!obs.concept.multipleAnswer) return;
