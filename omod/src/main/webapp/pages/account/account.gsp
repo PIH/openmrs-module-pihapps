@@ -190,6 +190,20 @@
                 ])}
             </p>
 
+            <% if (visitLocations) { %>
+            <p>
+                <strong>${ ui.message("pihapps.account.allowedVisitLocations") }</strong>
+            </p>
+            <% visitLocations.each { location -> %>
+                ${ ui.includeFragment("pihapps", "field/checkbox", [
+                    label: ui.format(location),
+                    formFieldName: "allowedVisitLocations",
+                    value: location.uuid,
+                    checked: allowedVisitLocationUuids?.contains(location.uuid)
+                ])}
+            <% } %>
+            <% } %>
+
             <p>
                 <strong>${ ui.message("emr.user.Capabilities") }</strong>
             </p>

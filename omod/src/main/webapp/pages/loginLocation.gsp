@@ -1,6 +1,5 @@
 <%
     ui.decorateWith("appui", "standardEmrPage")
-    def visitAndLoginLocations = locationTagConfig.getValidVisitAndLoginLocations()
     def visitLocations = visitAndLoginLocations.keySet()
 %>
 

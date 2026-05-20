@@ -32,7 +32,13 @@ import javax.servlet.http.HttpServletResponse;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Controls page which is used to set the user's current session location
@@ -50,19 +56,48 @@ public class LoginLocationPageController {
         model.addAttribute("authenticatedUser", sessionContext.getCurrentUser());
         Location currentVisitLocation = null;
         Location currentLoginLocation = null;
+        Map<Location, List<Location>> visitAndLoginLocations;
+
         if (!locationTagConfig.isLocationSetupRequired()) {
-            List<Location> loginLocations = locationTagConfig.getValidLoginLocations();
-            if (loginLocations.size() == 1) {
-                return post(sessionContext, response, loginLocations.get(0), getReferer(currentLoginLocation, request));
+            Map<Location, List<Location>> all = locationTagConfig.getValidVisitAndLoginLocations();
+
+            String allowedProp = sessionContext.getCurrentUser().getUserProperty("allowedVisitLocations");
+            if (StringUtils.isNotBlank(allowedProp)) {
+                Set<String> allowedUuids = new HashSet<>(Arrays.asList(allowedProp.split(",")));
+                Map<Location, List<Location>> filtered = new LinkedHashMap<>();
+                for (Map.Entry<Location, List<Location>> entry : all.entrySet()) {
+                    if (allowedUuids.contains(entry.getKey().getUuid())) {
+                        filtered.put(entry.getKey(), entry.getValue());
+                    }
+                }
+                visitAndLoginLocations = filtered;
+            } else {
+                visitAndLoginLocations = all;
             }
+
+            List<Location> allLoginLocations = new ArrayList<>();
+            for (List<Location> locs : visitAndLoginLocations.values()) {
+                allLoginLocations.addAll(locs);
+            }
+            if (allLoginLocations.size() == 1) {
+                return post(sessionContext, response, allLoginLocations.get(0), getReferer(currentLoginLocation, request));
+            }
+
             currentLoginLocation = sessionContext.getSessionLocation();
             if (currentLoginLocation != null) {
                 List<Location> visitLocations = locationTagConfig.getVisitLocationsForLocation(currentLoginLocation);
                 if (visitLocations.size() == 1) {
-                    currentVisitLocation = visitLocations.get(0);
+                    Location vl = visitLocations.get(0);
+                    if (visitAndLoginLocations.containsKey(vl)) {
+                        currentVisitLocation = vl;
+                    }
                 }
             }
+        } else {
+            visitAndLoginLocations = new LinkedHashMap<>();
         }
+
+        model.addAttribute("visitAndLoginLocations", visitAndLoginLocations);
         model.addAttribute("currentVisitLocation", currentVisitLocation);
         model.addAttribute("currentLoginLocation", currentLoginLocation);
         model.addAttribute("returnUrl", encodeUrl(getReferer(currentLoginLocation, request)));

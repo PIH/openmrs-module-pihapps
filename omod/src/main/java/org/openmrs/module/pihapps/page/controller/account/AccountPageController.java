@@ -15,6 +15,7 @@ package org.openmrs.module.pihapps.page.controller.account;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.openmrs.Location;
 import org.openmrs.Person;
 import org.openmrs.User;
 import org.openmrs.api.APIException;
@@ -28,6 +29,7 @@ import org.openmrs.module.emrapi.EmrApiConstants;
 import org.openmrs.module.emrapi.account.AccountDomainWrapper;
 import org.openmrs.module.emrapi.account.AccountService;
 import org.openmrs.module.emrapi.account.AccountValidator;
+import org.openmrs.module.pihapps.LocationTagConfig;
 import org.openmrs.module.uicommons.UiCommonsConstants;
 import org.openmrs.ui.framework.annotation.BindParams;
 import org.openmrs.ui.framework.annotation.MethodParam;
@@ -39,7 +41,10 @@ import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class AccountPageController {
 
@@ -70,13 +75,16 @@ public class AccountPageController {
     public String get(PageModel model, @MethodParam("getAccount") AccountDomainWrapper account,
                     @SpringBean("accountService") AccountService accountService,
                     @SpringBean("adminService") AdministrationService administrationService,
-                    @SpringBean("providerService") ProviderService providerService) {
+                    @SpringBean("providerService") ProviderService providerService,
+                    @SpringBean("locationTagConfig") LocationTagConfig locationTagConfig) {
 
         model.addAttribute("account", account);
         model.addAttribute("capabilities", accountService.getAllCapabilities());
         model.addAttribute("rolePrefix", EmrApiConstants.ROLE_PREFIX_CAPABILITY);
         model.addAttribute("allowedLocales", administrationService.getAllowedLocales());
         model.addAttribute("providerRoles", providerService.getAllProviderRoles(false));
+
+        addVisitLocationsToModel(model, account, locationTagConfig);
 
         if (!Context.hasPrivilege(CoreAppsConstants.PRIVILEGE_SYSTEM_ADMINISTRATOR)) {
             return "redirect:/index.htm";
@@ -87,6 +95,7 @@ public class AccountPageController {
     public String post(@MethodParam("getAccount") @BindParams AccountDomainWrapper account, BindingResult errors,
                        @RequestParam(value = "userEnabled", defaultValue = "false") boolean userEnabled,
                        @RequestParam(value = "passwordChangeRequired", defaultValue = "false") boolean passwordChangeRequired,
+                       @RequestParam(value = "allowedVisitLocations", required = false) String[] allowedVisitLocationUuids,
                        @SpringBean("messageSource") MessageSource messageSource,
                        @SpringBean("messageSourceService") MessageSourceService messageSourceService,
                        @SpringBean("accountService") AccountService accountService,
@@ -94,6 +103,7 @@ public class AccountPageController {
                        @SpringBean("adminService") AdministrationService administrationService,
                        @SpringBean("providerService") ProviderService providerService,
                        @SpringBean("accountValidator") AccountValidator accountValidator,
+                       @SpringBean("locationTagConfig") LocationTagConfig locationTagConfig,
                        PageModel model,
                        HttpServletRequest request) {
 
@@ -115,6 +125,18 @@ public class AccountPageController {
                 }
 
                 accountService.saveAccount(account);
+
+                // TODO: extract out into EMR API account service once we have an agreed-upon pattern, instead of just doing this as a separate transaction here
+                if (account.getUser() != null) {
+                    User user = userService.getUser(account.getUser().getId());
+                    if (allowedVisitLocationUuids != null && allowedVisitLocationUuids.length > 0) {
+                        user.setUserProperty("allowedVisitLocations", String.join(",", allowedVisitLocationUuids));
+                    } else {
+                        user.removeUserProperty("allowedVisitLocations");
+                    }
+                    userService.saveUser(user);
+                }
+
                 request.getSession().setAttribute(UiCommonsConstants.SESSION_ATTRIBUTE_INFO_MESSAGE,
                         messageSourceService.getMessage("emr.account.saved"));
                 request.getSession().setAttribute(UiCommonsConstants.SESSION_ATTRIBUTE_TOAST_MESSAGE, "true");
@@ -140,10 +162,40 @@ public class AccountPageController {
         model.addAttribute("allowedLocales", administrationService.getAllowedLocales());
         model.addAttribute("providerRoles", providerService.getAllProviderRoles(false));
 
+        // re-populate visit locations for page re-render on error
+        // use submitted UUIDs rather than re-reading from DB since the save failed
+        List<Location> visitLocations = locationTagConfig.getVisitLocations();
+        if (visitLocations.size() > 1) {  // only enable setting allowed visit locations if there are multiple visit locations in the system
+            model.addAttribute("visitLocations", visitLocations);
+        } else {
+            model.addAttribute("visitLocations", new HashSet<>());
+        }
+        Set<String> allowedUuids = allowedVisitLocationUuids != null
+                ? new HashSet<>(Arrays.asList(allowedVisitLocationUuids))
+                : new HashSet<>();
+        model.addAttribute("allowedVisitLocationUuids", allowedUuids);
+
         return "account/account";
 
     }
 
+
+    private void addVisitLocationsToModel(PageModel model, AccountDomainWrapper account, LocationTagConfig locationTagConfig) {
+        List<Location> visitLocations = locationTagConfig.getVisitLocations();
+        if (visitLocations.size() > 1) {  // only enable setting allowed visit locations if there are multiple visit locations in the system
+            model.addAttribute("visitLocations", visitLocations);
+        } else {
+            model.addAttribute("visitLocations", new HashSet<>());
+        }
+        Set<String> allowedUuids = new HashSet<>();
+        if (account.getUser() != null) {
+            String prop = account.getUser().getUserProperty("allowedVisitLocations");
+            if (prop != null && !prop.isEmpty()) {
+                allowedUuids.addAll(Arrays.asList(prop.split(",")));
+            }
+        }
+        model.addAttribute("allowedVisitLocationUuids", allowedUuids);
+    }
 
     private void sendErrorMessage(BindingResult errors, MessageSource messageSource, HttpServletRequest request) {
         List<ObjectError> allErrors = errors.getAllErrors();
