@@ -87,6 +87,8 @@ The frontend fetches config via `GET /rest/v1/pihapps/config?v=custom:(...)`. Th
 | `getLabOrderEncounterType/Role()` | `pihapps.labs.labOrderEncounterType/Role` | Used when placing/discontinuing orders |
 | `getSpecimenCollectionEncounterType/Role()` | `pihapps.labs.specimenCollectionEncounterType/Role` | Used when saving specimen collection encounters |
 | `getCollectResultComments()` | `pihapps.labs.collectResultComments` | Defaults `true`; controls comment field in results entry |
+| `getMultipleAnswerConceptsReference()` | `pihapps.labs.multipleAnswerConcepts` | Falls back to `laboratorymanagement.multipleAnswerConceptIds`; returns raw property string |
+| `getMultipleAnswerConcepts()` | — | Resolves the reference string to `List<Concept>`; result is cached and invalidated when the property value changes |
 
 ---
 
@@ -260,7 +262,10 @@ Two custom resource wrappers add fields not available in core representations:
 
 **`OrderWithFulfillerDetailsResource`** — Adds `fulfillerEncounter` (the specimen collection encounter linked to this order) and `reasonOrderNotFulfilled` (the not-performed reason obs) to the default order representation. This allows the order list pages to show specimen date links and not-performed reason links without additional round trips.
 
-**`ExtendedConceptResource`** — Adds `displayStringForLab` to the concept representation. This field applies the `pihapps.labs.conceptDisplayFormat` global property, which allows sites to control how concept names are displayed in lab UIs (e.g., showing short names, or preferred names in a specific locale) independently of the concept's default display.
+**`ExtendedConceptResource`** — Adds two properties to the concept representation:
+
+- `displayStringForLab` — applies the `pihapps.labs.conceptDisplayFormat` global property, allowing sites to control how concept names are displayed in lab UIs independently of the concept's default display.
+- `multipleAnswer` — boolean; `true` when the concept appears in `LabOrderConfig.getMultipleAnswerConcepts()`. This flag travels with every concept in REST responses and is read by the results entry form, the results display page, and the trends fragment to switch between single- and multi-value behaviour.
 
 ---
 
@@ -288,3 +293,20 @@ Two custom resource wrappers add fields not available in core representations:
    - Sets `fulfillerStatus = COMPLETED` on the order
    - Records `specimenReceivedDateQuestion` and `resultsDateQuestion` obs
    - Optionally records `comment` on the obs if `collectResultComments = true`
+
+### Multiple-answer concepts
+
+When `order.concept.multipleAnswer` is `true`, `recordLabResults.gsp` renders a dynamic row list instead of a single widget:
+
+- Existing obs are loaded via `FormHelper.getInitialObsValues()`, sorted by the numeric suffix in their `formNamespaceAndPath` to reconstruct original entry order.
+- Each row passes `initialObsUuid` to `FormHelper.createObsWidget()` so the correct existing obs is pre-filled.
+- The **Add another result** button appends a new empty row. New rows receive a `pathIndex` (next integer after the highest existing index), which is appended to `data-form-path` (`/conceptUuid/N`) so `constructEncounterPayload` builds a correctly indexed `formNamespaceAndPath`.
+- Removing a row clears its `result-value-field` before removing the element from the DOM. The cleared widget field remains in `FormHelper.obsWidgetFields` (a plain array, not a live DOM query), so `constructEncounterPayload` still sees `obsUuid && !value` and sets `voided: true` on the obs.
+
+### `FormHelper` multi-value methods
+
+| Method | Purpose |
+|---|---|
+| `getInitialObsValues(conceptUuid)` | Returns all initial obs for a concept, sorted by `formNamespaceAndPath` index suffix |
+| `getNextPathIndex(conceptUuid)` | Returns `max(existing path indices) + 1`, or `0` if none have an index suffix |
+| `_pathIndex(formNamespaceAndPath)` | Extracts the numeric suffix from a path; returns `-1` if absent |

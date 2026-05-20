@@ -48,11 +48,13 @@ From this page, a user can:
 
 Accessible by clicking the pencil icon on an order that has a specimen collection encounter. Supports numeric (with configurable range validation), coded, text, and datetime result types. Requires a specimen collection encounter to exist before results can be entered. Records specimen received date, results date, and optionally a free-text comment alongside each result value (configurable via `pihapps.labs.collectResultComments`).
 
+Concepts listed in `pihapps.labs.multipleAnswerConcepts` support recording more than one result observation per order (e.g., a Stool Exam that produces several organism findings). For these concepts the entry form shows a dynamic list of input rows with add and remove controls. Entry order is preserved across saves via a numeric index appended to each obs's `formNamespaceAndPath`.
+
 #### 6. Patient Lab Results
 
 **Page:** `pihapps/labs/patientLabResults`
 
-Displays historical lab results for a single patient. Results can be filtered by test category, specific test, and date range. Clicking a result value opens the `patientLabTrends` fragment, which shows a time-series chart of that test's values using Chart.js alongside a tabular history.
+Displays historical lab results for a single patient. Results can be filtered by test category, specific test, and date range. Clicking a result value opens the `patientLabTrends` fragment, which shows a time-series chart of that test's values using Chart.js alongside a tabular history. For multiple-answer concepts, all results from the same encounter are collapsed into a single comma-delimited row in entry order; the trends chart is suppressed for these concepts but the tabular history is shown.
 
 #### 7. Supporting Actions
 
@@ -88,6 +90,7 @@ All configuration is managed through OpenMRS global properties and is resolved i
 | `pihapps.labs.resultsDateConcept` | Concept for the results date in results entry | default `PIH:10783` |
 | `pihapps.labs.didNotPerformReason` | Concept for the reason a test was not performed | `labworkflowowa.didNotPerformReason` |
 | `pihapps.labs.collectResultComments` | Whether to show a free-text comment field alongside result values | default `true` |
+| `pihapps.labs.multipleAnswerConcepts` | Comma-delimited concept references (UUID, source:code, or name) for tests that can produce multiple result observations per order | `laboratorymanagement.multipleAnswerConceptIds` |
 | `pihapps.labs.conceptDisplayFormat` | Format string controlling how lab concept names are displayed | optional |
 | `laboratorymanagement.currentLabRequestFormConceptIDs` | Legacy: restricts the list of orderable tests to a specific subset | optional |
 | `coreapps.dashboardUrl` | URL template for patient dashboard links | `/coreapps/clinicianfacing/patient.page?patientId={{patientId}}` |
