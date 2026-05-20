@@ -302,6 +302,7 @@ When `order.concept.multipleAnswer` is `true`, `recordLabResults.gsp` renders a 
 - Each row passes `initialObsUuid` to `FormHelper.createObsWidget()` so the correct existing obs is pre-filled.
 - The **Add another result** button appends a new empty row. New rows receive a `pathIndex` (next integer after the highest existing index), which is appended to `data-form-path` (`/conceptUuid/N`) so `constructEncounterPayload` builds a correctly indexed `formNamespaceAndPath`.
 - Removing a row clears its `result-value-field` before removing the element from the DOM. The cleared widget field remains in `FormHelper.obsWidgetFields` (a plain array, not a live DOM query), so `constructEncounterPayload` still sees `obsUuid && !value` and sets `voided: true` on the obs.
+- For **coded** multi-value concepts, a `syncOptions` function fires after every select change, row addition, and row removal. It disables and hides any option in a row's dropdown that is already selected in another row, and restores it if that row is cleared or removed. This prevents two rows from submitting the same coded answer.
 
 ### `FormHelper` multi-value methods
 
