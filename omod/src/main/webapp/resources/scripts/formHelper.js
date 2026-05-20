@@ -34,8 +34,8 @@ class FormHelper {
     createObsWidget = function(concept, options) {
         const widget = jq("<span>").addClass("obs-widget");
         const dataType = concept.datatype?.name;
-        const initialObs = options?.initialObsUuid
-            ? this.initialObs.find(o => o.uuid === options.initialObsUuid)
+        const initialObs = ('initialObsUuid' in (options ?? {}))
+            ? (options.initialObsUuid ? this.initialObs.find(o => o.uuid === options.initialObsUuid) : null)
             : this.getInitialObsValue(concept.uuid);
 
         // Get possible values if this is meant to be coded
