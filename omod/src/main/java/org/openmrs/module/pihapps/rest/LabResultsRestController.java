@@ -121,6 +121,7 @@ public class LabResultsRestController {
         }
         if (sortCriteriaList.isEmpty()) {
             sortCriteriaList.add(new SortCriteria("obsDatetime", SortCriteria.Direction.DESC));
+            sortCriteriaList.add(new SortCriteria("concept", SortCriteria.Direction.ASC));
             sortCriteriaList.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
         }
         searchCriteria.setSortCriteria(sortCriteriaList);
