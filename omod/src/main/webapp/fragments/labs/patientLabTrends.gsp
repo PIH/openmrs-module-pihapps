@@ -30,7 +30,7 @@
         // Populate data table and construct chart from data after loaded, if appropriate
         const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab,multipleAnswer";
         const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-        const obsRep = "uuid,obsDatetime,formNamespaceAndPath,encounter:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
+        const obsRep = "uuid,obsDatetime,formNamespaceAndPath,encounter:(uuid),order:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
         const labTrendsTable = new PagingDataTable(jq);
         labTrendsTable.initialize({
             tableSelector: "#lab-result-trends-table",
@@ -66,7 +66,7 @@
                     const trendRowData = labTrendsTable.getTableElement().find("tbody tr");
                     const multiValueGroups = new Map();
                     trendRowObjects.forEach((rowObs, index) => {
-                        const groupKey = rowObs.concept.uuid + '_' + (rowObs.encounter?.uuid ?? '');
+                        const groupKey = rowObs.concept.uuid + '_' + (rowObs.encounter?.uuid ?? '') + '_' + (rowObs.order?.uuid ?? '');
                         if (!multiValueGroups.has(groupKey)) {
                             multiValueGroups.set(groupKey, { firstIndex: index, members: [] });
                         }

@@ -71,7 +71,7 @@
         moment.locale(locale);
         const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
 
-        const obsRep = "uuid,concept:(uuid,datatype:(name)),value,valueCoded:(uuid,display),valueDatetime,valueText,valueNumeric,comment,formNamespaceAndPath"
+        const obsRep = "uuid,concept:(uuid,datatype:(name)),value,valueCoded:(uuid,display),valueDatetime,valueText,valueNumeric,comment,formNamespaceAndPath,order:(uuid)"
         const specimenEncounterRep = "uuid,encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(" + obsRep + ",groupMembers:(" + obsRep + "))";
         jq.get(openmrsContextPath + "/ws/rest/v1/encounter/" + order.fulfillerEncounter.uuid + "?v=custom:(" + specimenEncounterRep + ")", function (fulfillerEncounter) {
 
@@ -214,9 +214,12 @@
                     orderableRow.append(widgetInfoSection);
 
                     if (concept.multipleAnswer) {
-                        const existingObs = formHelper.getInitialObsValues(concept.uuid);
+                        const existingObs = formHelper.initialObs
+                            .filter(o => o.concept.uuid === concept.uuid && (!o.order || o.order.uuid === order.uuid))
+                            .sort((a, b) => formHelper._pathIndex(a.formNamespaceAndPath) - formHelper._pathIndex(b.formNamespaceAndPath));
+                        const existingIndices = existingObs.map(o => formHelper._pathIndex(o.formNamespaceAndPath)).filter(i => i >= 0);
                         const obsToRender = existingObs.length > 0 ? existingObs : [null];
-                        let nextPathIndex = formHelper.getNextPathIndex(concept.uuid);
+                        let nextPathIndex = existingIndices.length > 0 ? Math.max(...existingIndices) + 1 : 0;
 
                         // For coded concepts: keep each option available in at most one row at a time
                         const syncOptions = concept.datatype.name === 'Coded' ? () => {
@@ -256,6 +259,7 @@
                                     .text('×');
                                 removeBtn.on("click", () => {
                                     rowDiv.find(".result-value-field").val("");
+                                    rowDiv.find(".result-comment").val("");
                                     rowDiv.remove();
                                     if (syncOptions) syncOptions();
                                 });

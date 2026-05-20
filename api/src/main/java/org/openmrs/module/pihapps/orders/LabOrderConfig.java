@@ -461,6 +461,9 @@ public class LabOrderConfig {
         if (StringUtils.isNotBlank(configVal)) {
             for (String lookup : configVal.split(",")) {
                 lookup = lookup.trim();
+                if (lookup.isEmpty()) {
+                    continue;
+                }
                 Concept concept = conceptService.getConceptByReference(lookup);
                 if (concept == null) {
                     log.warn("Invalid concept configured for multiple answer concepts: " + lookup);
