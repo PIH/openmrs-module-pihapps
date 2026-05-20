@@ -17,13 +17,37 @@ class FormHelper {
         this.obsWidgetFields = [];
     }
 
-    getInitialObsValues(conceptUuid) {
-        return this.initialObs.filter((o) => o.concept.uuid === conceptUuid) ?? [];
+    generateUUID() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
     }
 
-    // TODO: Support multiple values for the same concept
+    getInitialObsValues(conceptUuid) {
+        return this.initialObs
+            .filter(o => o.concept.uuid === conceptUuid)
+            .sort((a, b) => this.pathIndex(a.formNamespaceAndPath) - this.pathIndex(b.formNamespaceAndPath));
+    }
+
     getInitialObsValue(conceptUuid) {
         return this.getInitialObsValues(conceptUuid)[0] ?? null;
+    }
+
+    getNextPathIndex(conceptUuid) {
+        const indices = this.initialObs
+            .filter(o => o.concept.uuid === conceptUuid)
+            .map(o => this.pathIndex(o.formNamespaceAndPath))
+            .filter(i => i >= 0);
+        return indices.length > 0 ? Math.max(...indices) + 1 : 0;
+    }
+
+    pathIndex(formNamespaceAndPath) {
+        const match = (formNamespaceAndPath ?? '').match(/\/(\d+)$/);
+        return match ? parseInt(match[1]) : -1;
     }
 
     /**
@@ -34,7 +58,9 @@ class FormHelper {
     createObsWidget = function(concept, options) {
         const widget = jq("<span>").addClass("obs-widget");
         const dataType = concept.datatype?.name;
-        const initialObs = this.getInitialObsValue(concept.uuid);
+        const initialObs = ('initialObsUuid' in (options ?? {}))
+            ? (options.initialObsUuid ? this.initialObs.find(o => o.uuid === options.initialObsUuid) : null)
+            : this.getInitialObsValue(concept.uuid);
 
         // Get possible values if this is meant to be coded
         const valueSet = options.valueSet ?? (dataType === 'Coded' && concept.answers?.length > 0 ? concept.answers.map(a => {
@@ -90,7 +116,7 @@ class FormHelper {
             widget.append(widgetField);
         }
         else if (dataType === "Date" || dataType === "Datetime") {
-            const id = options?.id ?? crypto.randomUUID();
+            const id = options?.id ?? this.generateUUID();
             const initialVal = initialObs? (initialObs.valueDatetime ?? initialObs.value ?? "") : options.defaultValue ?? "";
             const datePicker = this.createDatePickerWidget({
                 id: id,
@@ -116,7 +142,7 @@ class FormHelper {
             if (options?.groupingConceptUuid) {
                 widgetField.attr("data-grouping-concept-uuid", options.groupingConceptUuid);
             }
-            widgetField.attr("data-form-path", "/" + (options.groupingConceptUuid ? options.groupingConceptUuid + "/" : "") + concept.uuid)
+            widgetField.attr("data-form-path", "/" + (options.groupingConceptUuid ? options.groupingConceptUuid + "/" : "") + concept.uuid + (options?.pathIndex != null ? "/" + options.pathIndex : ""))
             if (this.patientUuid) {
                 widgetField.attr("data-patient-uuid", this.patientUuid);
             }
@@ -347,7 +373,6 @@ class FormHelper {
         }
 
         // Construct obs and obs groups in the encounter
-        // TODO: Support multiple results per concept
         this.obsWidgetFields.forEach(obsWidgetFields => {
             const data = obsWidgetFields.data();
             const value = obsWidgetFields.val();
@@ -362,7 +387,9 @@ class FormHelper {
 
             if (obsUuid || value) {
                 const voidOnly = obsUuid && !value;
-                const initialObs = this.initialObs.find(o => o.concept.uuid === conceptUuid);
+                const initialObs = obsUuid
+                    ? this.initialObs.find(o => o.uuid === obsUuid)
+                    : null;
                 const initialObsValue = initialObs ? (initialObs.valueCoded?.uuid ?? initialObs.valueNumeric ?? initialObs.valueDatetime ?? initialObs.valueText ?? initialObs.value?.uuid ?? initialObs.value) : null;
                 const valueToSet = voidOnly ? initialObsValue : value;
                 const obs = {

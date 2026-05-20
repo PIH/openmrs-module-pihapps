@@ -105,6 +105,12 @@ form input, form select, form textarea, .form input, .form select, .form textare
     font-size:unset;
 }
 
+/* Remove button for multi-value result rows */
+.multi-value-remove {
+    margin-left: 1rem;
+    vertical-align: middle;
+}
+
 /* Lab result comment widget (used inside .obs-widget on recordLabResults) */
 .comment-toggle {
     color: #007FFF;
@@ -131,5 +137,4 @@ form input, form select, form textarea, .form input, .form select, .form textare
 .result-comment-inline {
     font-style: italic;
     color: #555;
-    margin-left: 8px;
 }

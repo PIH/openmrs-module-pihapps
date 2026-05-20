@@ -28,7 +28,7 @@
         parentElement.find(".lab-test-name").html(obs.concept.displayStringForLab);
 
         // Populate data table and construct chart from data after loaded, if appropriate
-        const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab";
+        const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab,multipleAnswer";
         const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
         const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
         const labTrendsTable = new PagingDataTable(jq);
@@ -58,7 +58,8 @@
                 graphSection.empty();
                 parentElement.find(".loading-section").hide();
                 parentElement.find(".loaded-content-section").show();
-                if (obs.concept.datatype?.name === 'Numeric') {
+
+                if (!obs.concept.multipleAnswer && obs.concept.datatype?.name === 'Numeric') {
                     const data = labTrendsTable.getRowObjects().map(o => {
                         const obsDateTime = moment(o.obsDatetime).startOf('minute');
                         return { x: obsDateTime, y: o.valueNumeric }

@@ -438,6 +438,45 @@ public class LabOrderConfig {
         return !"false".equalsIgnoreCase(getCollectResultCommentsReference());
     }
 
+    // Multiple answer concepts (tests that can produce more than one obs value)
+
+    public String getMultipleAnswerConceptsReference() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.multipleAnswerConcepts");
+        if (StringUtils.isBlank(configVal)) {
+            configVal = ConfigUtil.getGlobalProperty("laboratorymanagement.multipleAnswerConceptIds");
+        }
+        return configVal;
+    }
+
+    private String cachedMultipleAnswerConceptsRef = null;
+    private List<Concept> cachedMultipleAnswerConcepts = null;
+
+    public List<Concept> getMultipleAnswerConcepts() {
+        String configVal = getMultipleAnswerConceptsReference();
+        if (cachedMultipleAnswerConcepts != null
+                && StringUtils.equals(configVal, cachedMultipleAnswerConceptsRef)) {
+            return cachedMultipleAnswerConcepts;
+        }
+        List<Concept> ret = new ArrayList<>();
+        if (StringUtils.isNotBlank(configVal)) {
+            for (String lookup : configVal.split(",")) {
+                lookup = lookup.trim();
+                if (lookup.isEmpty()) {
+                    continue;
+                }
+                Concept concept = conceptService.getConceptByReference(lookup);
+                if (concept == null) {
+                    log.warn("Invalid concept configured for multiple answer concepts: " + lookup);
+                } else {
+                    ret.add(concept);
+                }
+            }
+        }
+        cachedMultipleAnswerConceptsRef = configVal;
+        cachedMultipleAnswerConcepts = ret;
+        return ret;
+    }
+
     private Map<String, String> map(String... keysAndValues) {
         Map<String, String> ret = new LinkedHashMap<>();
         for (int i = 0; i < keysAndValues.length; i += 2) {

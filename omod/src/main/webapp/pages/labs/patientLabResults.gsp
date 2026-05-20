@@ -123,6 +123,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     }
                     tableRow.css("background-color", rowColor);
                 });
+
+
             }
 
             const beforeRecreateTable = () => {
