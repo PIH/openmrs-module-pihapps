@@ -30,7 +30,7 @@
         // Populate data table and construct chart from data after loaded, if appropriate
         const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab,multipleAnswer";
         const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-        const obsRep = "uuid,obsDatetime,formNamespaceAndPath,encounter:(uuid),order:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
+        const obsRep = "uuid,obsDatetime,formNamespaceAndPath,order:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
         const labTrendsTable = new PagingDataTable(jq);
         labTrendsTable.initialize({
             tableSelector: "#lab-result-trends-table",
@@ -59,14 +59,14 @@
                 parentElement.find(".loading-section").hide();
                 parentElement.find(".loaded-content-section").show();
 
-                // Collapse multi-value obs with same concept+encounter into one comma-delimited row, in entry order
+                // Collapse multi-value obs with same concept+order into one comma-delimited row, in entry order
                 if (obs.concept.multipleAnswer) {
                     const pathIndex = (o) => { const parts = (o.formNamespaceAndPath ?? '').split('/'); const last = parts[parts.length - 1]; const n = parseInt(last); return (!isNaN(n) && String(n) === last) ? n : -1; };
                     const trendRowObjects = labTrendsTable.getRowObjects();
                     const trendRowData = labTrendsTable.getTableElement().find("tbody tr");
                     const multiValueGroups = new Map();
                     trendRowObjects.forEach((rowObs, index) => {
-                        const groupKey = rowObs.concept.uuid + '_' + (rowObs.encounter?.uuid ?? '') + '_' + (rowObs.order?.uuid ?? '');
+                        const groupKey = rowObs.concept.uuid + '_' + (rowObs.order?.uuid ?? '');
                         if (!multiValueGroups.has(groupKey)) {
                             multiValueGroups.set(groupKey, { firstIndex: index, members: [] });
                         }

@@ -38,7 +38,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
             const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-            const obsRep = "uuid,obsDatetime,formNamespaceAndPath,encounter:(uuid),order:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
+            const obsRep = "uuid,obsDatetime,formNamespaceAndPath,order:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
 
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
@@ -124,12 +124,12 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     tableRow.css("background-color", rowColor);
                 });
 
-                // Collapse multi-value obs with same concept+encounter into one comma-delimited row, in entry order
+                // Collapse multi-value obs with same concept+order into one comma-delimited row, in entry order
                 const pathIndex = (obs) => { const parts = (obs.formNamespaceAndPath ?? '').split('/'); const last = parts[parts.length - 1]; const n = parseInt(last); return (!isNaN(n) && String(n) === last) ? n : -1; };
                 const multiValueGroups = new Map();
                 tableRowObjects.forEach((obs, index) => {
                     if (!obs.concept.multipleAnswer) return;
-                    const groupKey = obs.concept.uuid + '_' + (obs.encounter?.uuid ?? '') + '_' + (obs.order?.uuid ?? '');
+                    const groupKey = obs.concept.uuid + '_' + (obs.order?.uuid ?? '');
                     if (!multiValueGroups.has(groupKey)) {
                         multiValueGroups.set(groupKey, { firstIndex: index, members: [] });
                     }
