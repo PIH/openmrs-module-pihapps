@@ -135,7 +135,7 @@
             const getFilterParameterValues = function() {
                 return {
                     "orderType": pihAppsConfig.labOrderConfig.labTestOrderType?.uuid,
-                    "orderLocation": visitLocationUuid,
+                    "orderLocation": jq("#orderLocation-filter").val() || visitLocationUuid,
                     "patient": jq("#patient-filter-field").val(),
                     "labTest": jq("#testConcept-filter").val(),
                     "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
@@ -206,6 +206,18 @@
                 jq("#orderFulfillmentStatus-filter").append(option);
             });
 
+            if (visitLocationUuid) {
+                const locationRep = "custom:(uuid,display,descendantLocations:(uuid,display,tags:(uuid,name)))";
+                jq.get(openmrsContextPath + "/ws/rest/v1/location/" + visitLocationUuid + "?v=" + locationRep, function(visitLocation) {
+                    jq("#orderLocation-filter").append(jq("<option>").attr("value", visitLocation.uuid).html(visitLocation.display));
+                    (visitLocation.descendantLocations || [])
+                        .filter(loc => loc.tags && loc.tags.some(t => t.name === "Login Location"))
+                        .sort((a, b) => a.display.localeCompare(b.display))
+                        .forEach(loc => jq("#orderLocation-filter").append(jq("<option>").attr("value", loc.uuid).html(visitLocation.display + " - " + loc.display)));
+                    jq("#orderLocation-filter").val(visitLocationUuid);
+                });
+            }
+
             jq("#test-filter-form").find(":input").change(function () {
                 pagingDataTable.setParameters(getFilterParameterValues())
                 pagingDataTable.goToFirstPage();
@@ -233,7 +245,7 @@
 </script>
 
 <style>
-    #edit-specimen-encounter-section { display: none; }
+#edit-specimen-encounter-section { display: none; }
     #edit-reason-not-performed-section { display: none; }
     #record-lab-results-section { display: none; }
     .select-buttons {
@@ -314,6 +326,10 @@
                     <input id="lab-id-filter" class="clearable-input" type="text" name="labId" value=""/>
                     <i class="icon-remove small"></i>
                 </div>
+            </div>
+            <div class="col">
+                <label for="orderLocation-filter">${ ui.message("pihapps.orderLocation") }</label>
+                <select id="orderLocation-filter" name="orderLocation" class="form-control"></select>
             </div>
         </div>
     </form>
