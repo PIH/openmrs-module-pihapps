@@ -363,7 +363,6 @@ class FormHelper {
         }
 
         // Construct obs and obs groups in the encounter
-        // TODO: Support multiple results per concept
         this.obsWidgetFields.forEach(obsWidgetFields => {
             const data = obsWidgetFields.data();
             const value = obsWidgetFields.val();
@@ -380,7 +379,7 @@ class FormHelper {
                 const voidOnly = obsUuid && !value;
                 const initialObs = obsUuid
                     ? this.initialObs.find(o => o.uuid === obsUuid)
-                    : this.initialObs.find(o => o.concept.uuid === conceptUuid);
+                    : null;
                 const initialObsValue = initialObs ? (initialObs.valueCoded?.uuid ?? initialObs.valueNumeric ?? initialObs.valueDatetime ?? initialObs.valueText ?? initialObs.value?.uuid ?? initialObs.value) : null;
                 const valueToSet = voidOnly ? initialObsValue : value;
                 const obs = {
