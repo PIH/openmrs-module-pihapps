@@ -231,7 +231,7 @@
 
                             if (!isFirst) {
                                 const removeBtn = jq("<button>")
-                                    .addClass("btn btn-sm btn-outline-secondary multi-value-remove py-0 px-1 ms-2")
+                                    .addClass("btn btn-sm btn-outline-secondary multi-value-remove py-0 px-1")
                                     .attr("type", "button")
                                     .text('×');
                                 removeBtn.on("click", () => {

@@ -105,14 +105,18 @@ form input, form select, form textarea, .form input, .form select, .form textare
     font-size:unset;
 }
 
+/* Remove button for multi-value result rows */
+.multi-value-remove {
+    margin-left: 1rem;
+    vertical-align: middle;
+}
+
 /* Lab result comment widget (used inside .obs-widget on recordLabResults) */
 .comment-toggle {
-    display: block;
     color: #007FFF;
     text-decoration: underline;
     cursor: pointer;
     margin-left: 30px;
-    margin-top: 4px;
     font-size: 0.9em;
 }
 .comment-section {
