@@ -241,7 +241,7 @@
                         const renderMultiValueRow = (obsForRow, isFirst) => {
                             const rowDiv = jq("<div>").addClass("d-flex align-items-start gap-2 multi-value-row");
                             const widget = formHelper.createObsWidget(concept, {
-                                id: id + concept.uuid + (obsForRow ? '_' + obsForRow.uuid : '_new_' + crypto.randomUUID()),
+                                id: id + concept.uuid + (obsForRow ? '_' + obsForRow.uuid : '_new_' + formHelper.generateUUID()),
                                 orderUuid: order.uuid,
                                 groupingConceptUuid: isPanel ? orderable.uuid : null,
                                 initialObsUuid: obsForRow?.uuid ?? null,

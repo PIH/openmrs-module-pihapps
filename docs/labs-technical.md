@@ -310,7 +310,7 @@ When the test concept's `multipleAnswer` flag is `true`, `recordLabResults.gsp` 
 |---|---|
 | `getInitialObsValues(conceptUuid)` | Returns all initial obs for a concept, sorted by `formNamespaceAndPath` index suffix |
 | `getNextPathIndex(conceptUuid)` | Returns `max(existing path indices) + 1`, or `0` if none have an index suffix |
-| `_pathIndex(formNamespaceAndPath)` | Extracts the numeric suffix from a path; returns `-1` if absent |
+| `pathIndex(formNamespaceAndPath)` | Extracts the numeric suffix from a path; returns `-1` if absent |
 
 ## Data Flow: Results Display
 

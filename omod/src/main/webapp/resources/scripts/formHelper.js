@@ -17,6 +17,16 @@ class FormHelper {
         this.obsWidgetFields = [];
     }
 
+    generateUUID() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+    }
+
     getInitialObsValues(conceptUuid) {
         return this.initialObs
             .filter(o => o.concept.uuid === conceptUuid)
@@ -106,7 +116,7 @@ class FormHelper {
             widget.append(widgetField);
         }
         else if (dataType === "Date" || dataType === "Datetime") {
-            const id = options?.id ?? crypto.randomUUID();
+            const id = options?.id ?? this.generateUUID();
             const initialVal = initialObs? (initialObs.valueDatetime ?? initialObs.value ?? "") : options.defaultValue ?? "";
             const datePicker = this.createDatePickerWidget({
                 id: id,
