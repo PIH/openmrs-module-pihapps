@@ -30,7 +30,7 @@
         // Populate data table and construct chart from data after loaded, if appropriate
         const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab,multipleAnswer";
         const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-        const obsRep = "uuid,obsDatetime,formNamespaceAndPath,encounter:(uuid),order:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
+        const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
         const labTrendsTable = new PagingDataTable(jq);
         labTrendsTable.initialize({
             tableSelector: "#lab-result-trends-table",
@@ -58,28 +58,6 @@
                 graphSection.empty();
                 parentElement.find(".loading-section").hide();
                 parentElement.find(".loaded-content-section").show();
-
-                // Collapse multi-value obs with same concept+order into one comma-delimited row, in entry order
-                if (obs.concept.multipleAnswer) {
-                    const pathIndex = (o) => { const parts = (o.formNamespaceAndPath ?? '').split('/'); const last = parts[parts.length - 1]; const n = parseInt(last); return (!isNaN(n) && String(n) === last) ? n : -1; };
-                    const trendRowObjects = labTrendsTable.getRowObjects();
-                    const trendRowData = labTrendsTable.getTableElement().find("tbody tr");
-                    const multiValueGroups = new Map();
-                    trendRowObjects.forEach((rowObs, index) => {
-                        const groupKey = rowObs.concept.uuid + '_' + (rowObs.order?.uuid ?? rowObs.encounter?.uuid ?? '');
-                        if (!multiValueGroups.has(groupKey)) {
-                            multiValueGroups.set(groupKey, { firstIndex: index, members: [] });
-                        }
-                        multiValueGroups.get(groupKey).members.push({ obs: rowObs, index });
-                    });
-                    multiValueGroups.forEach(({ firstIndex, members }) => {
-                        members.sort((a, b) => pathIndex(a.obs) - pathIndex(b.obs));
-                        // Results column is index 1 (0=date, 1=results, 2=normalRange)
-                        jq(trendRowData[firstIndex]).find("td").eq(1)
-                            .html(members.map(({ obs: o }) => patientUtils.formatObsValue(o, dateUtils)).join(", "));
-                        members.forEach(({ index }) => { if (index !== firstIndex) jq(trendRowData[index]).hide(); });
-                    });
-                }
 
                 if (!obs.concept.multipleAnswer && obs.concept.datatype?.name === 'Numeric') {
                     const data = labTrendsTable.getRowObjects().map(o => {

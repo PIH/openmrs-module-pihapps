@@ -54,7 +54,7 @@ Concepts listed in `pihapps.labs.multipleAnswerConcepts` support recording more 
 
 **Page:** `pihapps/labs/patientLabResults`
 
-Displays historical lab results for a single patient. Results can be filtered by test category, specific test, and date range. Clicking a result value opens the `patientLabTrends` fragment, which shows a time-series chart of that test's values using Chart.js alongside a tabular history. For multiple-answer concepts, all results from the same order are collapsed into a single comma-delimited row in entry order (falling back to encounter grouping for obs without an order association); the trends chart is suppressed for these concepts but the tabular history is shown.
+Displays historical lab results for a single patient. Results can be filtered by test category, specific test, and date range. Clicking a result value opens the `patientLabTrends` fragment, which shows a time-series chart of that test's values using Chart.js alongside a tabular history. For multiple-answer concepts, each result observation is shown as its own row; the trends chart is suppressed for these concepts but the tabular history is shown.
 
 #### 7. Supporting Actions
 

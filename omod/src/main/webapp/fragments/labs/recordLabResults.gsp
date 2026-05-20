@@ -214,8 +214,9 @@
                     orderableRow.append(widgetInfoSection);
 
                     if (concept.multipleAnswer) {
-                        const existingObs = formHelper.initialObs
-                            .filter(o => o.concept.uuid === concept.uuid && (!o.order || o.order.uuid === order.uuid))
+                        const orderLinkedObs = formHelper.initialObs.filter(o => o.concept.uuid === concept.uuid && o.order?.uuid === order.uuid);
+                        const existingObs = (orderLinkedObs.length > 0 ? orderLinkedObs :
+                            formHelper.initialObs.filter(o => o.concept.uuid === concept.uuid && !o.order))
                             .sort((a, b) => formHelper.pathIndex(a.formNamespaceAndPath) - formHelper.pathIndex(b.formNamespaceAndPath));
                         const existingIndices = existingObs.map(o => formHelper.pathIndex(o.formNamespaceAndPath)).filter(i => i >= 0);
                         const obsToRender = existingObs.length > 0 ? existingObs : [null];
@@ -312,10 +313,13 @@
                         }
 
                     } else {
+                        const singleObs = formHelper.initialObs.find(o => o.concept.uuid === concept.uuid && o.order?.uuid === order.uuid)
+                            ?? formHelper.initialObs.find(o => o.concept.uuid === concept.uuid && !o.order);
                         const widget = formHelper.createObsWidget(concept, {
                             id: id + concept.uuid,
                             orderUuid: order.uuid,
                             groupingConceptUuid: isPanel ? orderable.uuid : null,
+                            initialObsUuid: singleObs?.uuid ?? null,
                             withComment: pihAppsConfig.labOrderConfig.collectResultComments,
                             addCommentLabel: messages.addComment,
                             removeCommentLabel: messages.removeComment

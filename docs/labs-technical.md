@@ -320,17 +320,8 @@ Both pages include `multipleAnswer` in their concept representation and `formNam
 
 ### `patientLabResults.gsp`
 
-Results are rendered by `PagingDataTable`. After each table update, the `onTableUpdate` callback post-processes the DOM to collapse multi-value obs into a single row:
-
-1. Iterate `tableRowObjects` (the obs array parallel to `tableRowData` DOM rows).
-2. Skip obs whose `concept.multipleAnswer` is falsy — those render normally.
-3. Group the remaining obs by `concept.uuid + '_' + (order.uuid ?? encounter.uuid)` and record each member's position in `tableRowObjects`. Order UUID is preferred; encounter UUID is used as a fallback for obs that have no order association.
-4. Within each group, sort members by the numeric suffix of `formNamespaceAndPath` (extracted with `split('/')` rather than a regex literal, which the Groovy template parser would mis-interpret). Obs recorded before this feature was introduced carry no suffix and sort to index `-1`, appearing first.
-5. Rewrite the results cell (column index 2: `labTest | date | **results** | normalRange`) of the first row in the group to a comma-separated string of all formatted values.
-6. Hide all subsequent rows in the group.
+Each observation is rendered as its own row by `PagingDataTable`. For multiple-answer concepts this means several rows will appear for the same test and date — one per recorded value — exactly as returned by the REST endpoint. No collapsing or post-processing is applied.
 
 ### `patientLabTrends.gsp`
 
-The same grouping logic runs in `tableUpdateCallback` with one difference: the results column is index 1 (`date | **results** | normalRange`). The table is post-processed exactly as above.
-
-Additionally, the chart-building loop skips any obs whose `concept.multipleAnswer` is `true`. Plotting multiple numeric values per date point on a single line chart is not meaningful, so those concepts are display-only in table form.
+Same as above: each observation gets its own row in the tabular history. Additionally, the chart-building block skips any obs whose `concept.multipleAnswer` is `true` — plotting multiple numeric values per date point on a single line chart is not meaningful, so those concepts are display-only in table form.
