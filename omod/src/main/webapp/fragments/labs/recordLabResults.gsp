@@ -216,8 +216,8 @@
                     if (concept.multipleAnswer) {
                         const existingObs = formHelper.initialObs
                             .filter(o => o.concept.uuid === concept.uuid && (!o.order || o.order.uuid === order.uuid))
-                            .sort((a, b) => formHelper._pathIndex(a.formNamespaceAndPath) - formHelper._pathIndex(b.formNamespaceAndPath));
-                        const existingIndices = existingObs.map(o => formHelper._pathIndex(o.formNamespaceAndPath)).filter(i => i >= 0);
+                            .sort((a, b) => formHelper.pathIndex(a.formNamespaceAndPath) - formHelper.pathIndex(b.formNamespaceAndPath));
+                        const existingIndices = existingObs.map(o => formHelper.pathIndex(o.formNamespaceAndPath)).filter(i => i >= 0);
                         const obsToRender = existingObs.length > 0 ? existingObs : [null];
                         let nextPathIndex = existingIndices.length > 0 ? Math.max(...existingIndices) + 1 : 0;
 

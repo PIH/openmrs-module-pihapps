@@ -264,7 +264,7 @@ Two custom resource wrappers add fields not available in core representations:
 
 **`ExtendedConceptResource`** — Adds two properties to the concept representation:
 
-- `displayStringForLab` — applies the `pihapps.labs.conceptDisplayFormat` global property, allowing sites to control how concept names are displayed in lab UIs independently of the concept's default display.
+- `displayStringForLab` — returns the concept's best short name via `PihAppsUtils.getBestShortName()`, providing a compact label for use in lab UIs.
 - `multipleAnswer` — boolean; `true` when the concept appears in `LabOrderConfig.getMultipleAnswerConcepts()`. This flag travels with every concept in REST responses and is read by the results entry form, the results display page, and the trends fragment to switch between single- and multi-value behaviour.
 
 ---
@@ -324,7 +324,7 @@ Results are rendered by `PagingDataTable`. After each table update, the `onTable
 
 1. Iterate `tableRowObjects` (the obs array parallel to `tableRowData` DOM rows).
 2. Skip obs whose `concept.multipleAnswer` is falsy — those render normally.
-3. Group the remaining obs by `concept.uuid + '_' + encounter.uuid` and record each member's position in `tableRowObjects`.
+3. Group the remaining obs by `concept.uuid + '_' + (order.uuid ?? encounter.uuid)` and record each member's position in `tableRowObjects`. Order UUID is preferred; encounter UUID is used as a fallback for obs that have no order association.
 4. Within each group, sort members by the numeric suffix of `formNamespaceAndPath` (extracted with `split('/')` rather than a regex literal, which the Groovy template parser would mis-interpret). Obs recorded before this feature was introduced carry no suffix and sort to index `-1`, appearing first.
 5. Rewrite the results cell (column index 2: `labTest | date | **results** | normalRange`) of the first row in the group to a comma-separated string of all formatted values.
 6. Hide all subsequent rows in the group.

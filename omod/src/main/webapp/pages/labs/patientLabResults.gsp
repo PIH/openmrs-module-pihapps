@@ -38,7 +38,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
             const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-            const obsRep = "uuid,obsDatetime,formNamespaceAndPath,order:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
+            const obsRep = "uuid,obsDatetime,formNamespaceAndPath,encounter:(uuid),order:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
 
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
@@ -129,7 +129,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 const multiValueGroups = new Map();
                 tableRowObjects.forEach((obs, index) => {
                     if (!obs.concept.multipleAnswer) return;
-                    const groupKey = obs.concept.uuid + '_' + (obs.order?.uuid ?? '');
+                    const groupKey = obs.concept.uuid + '_' + (obs.order?.uuid ?? obs.encounter?.uuid ?? '');
                     if (!multiValueGroups.has(groupKey)) {
                         multiValueGroups.set(groupKey, { firstIndex: index, members: [] });
                     }

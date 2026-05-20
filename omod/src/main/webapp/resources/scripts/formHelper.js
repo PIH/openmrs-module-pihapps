@@ -20,7 +20,7 @@ class FormHelper {
     getInitialObsValues(conceptUuid) {
         return this.initialObs
             .filter(o => o.concept.uuid === conceptUuid)
-            .sort((a, b) => this._pathIndex(a.formNamespaceAndPath) - this._pathIndex(b.formNamespaceAndPath));
+            .sort((a, b) => this.pathIndex(a.formNamespaceAndPath) - this.pathIndex(b.formNamespaceAndPath));
     }
 
     getInitialObsValue(conceptUuid) {
@@ -30,12 +30,12 @@ class FormHelper {
     getNextPathIndex(conceptUuid) {
         const indices = this.initialObs
             .filter(o => o.concept.uuid === conceptUuid)
-            .map(o => this._pathIndex(o.formNamespaceAndPath))
+            .map(o => this.pathIndex(o.formNamespaceAndPath))
             .filter(i => i >= 0);
         return indices.length > 0 ? Math.max(...indices) + 1 : 0;
     }
 
-    _pathIndex(formNamespaceAndPath) {
+    pathIndex(formNamespaceAndPath) {
         const match = (formNamespaceAndPath ?? '').match(/\/(\d+)$/);
         return match ? parseInt(match[1]) : -1;
     }
