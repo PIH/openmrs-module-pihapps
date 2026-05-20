@@ -311,3 +311,26 @@ When `order.concept.multipleAnswer` is `true`, `recordLabResults.gsp` renders a 
 | `getInitialObsValues(conceptUuid)` | Returns all initial obs for a concept, sorted by `formNamespaceAndPath` index suffix |
 | `getNextPathIndex(conceptUuid)` | Returns `max(existing path indices) + 1`, or `0` if none have an index suffix |
 | `_pathIndex(formNamespaceAndPath)` | Extracts the numeric suffix from a path; returns `-1` if absent |
+
+## Data Flow: Results Display
+
+Two pages display recorded lab results for a patient: `patientLabResults.gsp` (tabular history) and `patientLabTrends.gsp` (chart + table for a single test).
+
+Both pages include `multipleAnswer` in their concept representation and `formNamespaceAndPath` plus `encounter:(uuid)` in their obs representation so that multi-value grouping and ordering can be applied after the data is fetched.
+
+### `patientLabResults.gsp`
+
+Results are rendered by `PagingDataTable`. After each table update, the `onTableUpdate` callback post-processes the DOM to collapse multi-value obs into a single row:
+
+1. Iterate `tableRowObjects` (the obs array parallel to `tableRowData` DOM rows).
+2. Skip obs whose `concept.multipleAnswer` is falsy — those render normally.
+3. Group the remaining obs by `concept.uuid + '_' + encounter.uuid` and record each member's position in `tableRowObjects`.
+4. Within each group, sort members by the numeric suffix of `formNamespaceAndPath` (extracted with `split('/')` rather than a regex literal, which the Groovy template parser would mis-interpret). Obs recorded before this feature was introduced carry no suffix and sort to index `-1`, appearing first.
+5. Rewrite the results cell (column index 2: `labTest | date | **results** | normalRange`) of the first row in the group to a comma-separated string of all formatted values.
+6. Hide all subsequent rows in the group.
+
+### `patientLabTrends.gsp`
+
+The same grouping logic runs in `tableUpdateCallback` with one difference: the results column is index 1 (`date | **results** | normalRange`). The table is post-processed exactly as above.
+
+Additionally, the chart-building loop skips any obs whose `concept.multipleAnswer` is `true`. Plotting multiple numeric values per date point on a single line chart is not meaningful, so those concepts are display-only in table form.
