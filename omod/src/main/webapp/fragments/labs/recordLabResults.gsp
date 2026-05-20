@@ -217,7 +217,7 @@
                         const obsToRender = existingObs.length > 0 ? existingObs : [null];
 
                         const renderMultiValueRow = (obsForRow, isFirst) => {
-                            const rowDiv = jq("<div>").addClass("d-flex align-items-center gap-2 multi-value-row");
+                            const rowDiv = jq("<div>").addClass("d-flex align-items-start gap-2 multi-value-row");
                             const widget = formHelper.createObsWidget(concept, {
                                 id: id + concept.uuid + (obsForRow ? '_' + obsForRow.uuid : '_new_' + Date.now()),
                                 orderUuid: order.uuid,
@@ -231,12 +231,12 @@
 
                             if (!isFirst) {
                                 const removeBtn = jq("<button>")
-                                    .addClass("btn btn-sm btn-outline-secondary multi-value-remove")
+                                    .addClass("btn btn-sm btn-outline-secondary multi-value-remove py-0 px-1 ms-2")
                                     .attr("type", "button")
-                                    .html('<i class="icon-remove"></i>');
+                                    .text('×');
                                 removeBtn.on("click", () => {
-                                    rowDiv.hide();
-                                    rowDiv.find(".result-value-field").val("").trigger("change");
+                                    rowDiv.find(".result-value-field").val("");
+                                    rowDiv.remove();
                                 });
                                 rowDiv.append(removeBtn);
                             }
