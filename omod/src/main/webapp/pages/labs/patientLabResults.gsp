@@ -38,7 +38,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
             const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-            const obsRep = "uuid,obsDatetime,encounter:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
+            const obsRep = "uuid,obsDatetime,formNamespaceAndPath,encounter:(uuid),concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
 
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
@@ -124,23 +124,23 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     tableRow.css("background-color", rowColor);
                 });
 
-                // Collapse multi-value obs with same concept+encounter into one comma-delimited row
+                // Collapse multi-value obs with same concept+encounter into one comma-delimited row, in entry order
+                const pathIndex = (obs) => { const m = (obs.formNamespaceAndPath ?? '').match(/\/(\d+)$/); return m ? parseInt(m[1]) : -1; };
                 const multiValueGroups = new Map();
                 tableRowObjects.forEach((obs, index) => {
                     if (!obs.concept.multipleAnswer) return;
                     const groupKey = obs.concept.uuid + '_' + (obs.encounter?.uuid ?? '');
                     if (!multiValueGroups.has(groupKey)) {
-                        multiValueGroups.set(groupKey, index);
-                    } else {
-                        const firstRowIndex = multiValueGroups.get(groupKey);
-                        const firstDomRow = jq(tableRowData[firstRowIndex]);
-                        const thisDomRow = jq(tableRowData[index]);
-                        const additionalValue = patientUtils.formatObsValue(obs, dateUtils);
-                        // Results column is index 2 (0=labTest, 1=date, 2=results, 3=normalRange)
-                        const resultsCell = firstDomRow.find("td").eq(2);
-                        resultsCell.html(resultsCell.html() + ", " + additionalValue);
-                        thisDomRow.hide();
+                        multiValueGroups.set(groupKey, { firstIndex: index, members: [] });
                     }
+                    multiValueGroups.get(groupKey).members.push({ obs, index });
+                });
+                multiValueGroups.forEach(({ firstIndex, members }) => {
+                    members.sort((a, b) => pathIndex(a.obs) - pathIndex(b.obs));
+                    // Results column is index 2 (0=labTest, 1=date, 2=results, 3=normalRange)
+                    jq(tableRowData[firstIndex]).find("td").eq(2)
+                        .html(members.map(({ obs }) => patientUtils.formatObsValue(obs, dateUtils)).join(", "));
+                    members.forEach(({ index }) => { if (index !== firstIndex) jq(tableRowData[index]).hide(); });
                 });
             }
 
