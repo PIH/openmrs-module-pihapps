@@ -217,6 +217,22 @@
                         const obsToRender = existingObs.length > 0 ? existingObs : [null];
                         let nextPathIndex = formHelper.getNextPathIndex(concept.uuid);
 
+                        // For coded concepts: keep each option available in at most one row at a time
+                        const syncOptions = concept.datatype.name === 'Coded' ? () => {
+                            const selects = widgetSection.find('select.result-value-field');
+                            const selectedValues = new Set(
+                                selects.map(function() { return jq(this).val(); }).get().filter(v => v)
+                            );
+                            selects.each(function() {
+                                const ownValue = jq(this).val();
+                                jq(this).find('option').each(function() {
+                                    const val = jq(this).val();
+                                    const takenByOther = val && val !== ownValue && selectedValues.has(val);
+                                    jq(this).prop('disabled', takenByOther).toggle(!takenByOther);
+                                });
+                            });
+                        } : null;
+
                         const renderMultiValueRow = (obsForRow, isFirst) => {
                             const rowDiv = jq("<div>").addClass("d-flex align-items-start gap-2 multi-value-row");
                             const widget = formHelper.createObsWidget(concept, {
@@ -239,6 +255,7 @@
                                 removeBtn.on("click", () => {
                                     rowDiv.find(".result-value-field").val("");
                                     rowDiv.remove();
+                                    if (syncOptions) syncOptions();
                                 });
                                 rowDiv.append(removeBtn);
                             }
@@ -249,12 +266,18 @@
                             widgetSection.append(renderMultiValueRow(obs, index === 0));
                         });
 
+                        if (syncOptions) {
+                            syncOptions();
+                            widgetSection.on('change', 'select.result-value-field', syncOptions);
+                        }
+
                         const addBtn = jq("<button>")
                             .addClass("btn btn-sm btn-outline-secondary multi-value-add mt-1")
                             .attr("type", "button")
                             .text('${ ui.message("pihapps.addAnotherResult") }');
                         addBtn.on("click", () => {
                             addBtn.before(renderMultiValueRow(null, false));
+                            if (syncOptions) syncOptions();
                         });
                         widgetSection.append(addBtn);
 
