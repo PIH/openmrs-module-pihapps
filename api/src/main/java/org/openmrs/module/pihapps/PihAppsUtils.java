@@ -8,7 +8,11 @@ import org.openmrs.messagesource.MessageSourceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 @Component
 public class PihAppsUtils {
@@ -91,5 +95,27 @@ public class PihAppsUtils {
             return shortEnglish.getName();
         }
         return c.getDisplayString();
+    }
+
+    /**
+     * @param root
+     * @return a set of Concepts that are recursive set members of root
+     */
+    public static Set<Concept> getConceptHierarchy(Concept root) {
+        Set<Concept> result = new HashSet<>();
+        Set<Integer> visited = new HashSet<>();
+        Deque<Concept> queue = new ArrayDeque<>();
+        visited.add(root.getConceptId());
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            Concept concept = queue.poll();
+            result.add(concept);
+            for (Concept member : concept.getSetMembers()) {
+                if (visited.add(member.getConceptId())) {
+                    queue.add(member);
+                }
+            }
+        }
+        return result;
     }
 }
