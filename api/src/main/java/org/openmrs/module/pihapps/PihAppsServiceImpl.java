@@ -307,15 +307,17 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			throw new  IllegalArgumentException("Encounter is required");
 		}
 		String accessionNumber = null;
-		for (Obs obs : encounterFulfillingOrders.getEncounter().getObs()) {
-			if (BooleanUtils.isNotTrue(obs.getVoided()) && obs.getConcept().equals(accessionNumberConcept)) {
-				accessionNumber = obs.getValueText();
+		for (Obs obs : encounterFulfillingOrders.getEncounter().getObsAtTopLevel(true)) {
+			if (obs.getConcept().equals(accessionNumberConcept)) {
+				accessionNumber = BooleanUtils.isTrue(obs.getVoided()) ? "" : obs.getValueText();
 			}
 		}
 		encounterService.saveEncounter(encounterFulfillingOrders.getEncounter());
 		if (encounterFulfillingOrders.getOrders() != null) {
 			for (Order order : encounterFulfillingOrders.getOrders()) {
-				order.setAccessionNumber(accessionNumber);
+				if (accessionNumber != null) {
+					order.setAccessionNumber(accessionNumber);
+				}
 				Order.FulfillerStatus fulfillerStatus = order.getFulfillerStatus();
 				if (fulfillerStatus == null) {
 					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
