@@ -315,7 +315,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		encounterService.saveEncounter(encounterFulfillingOrders.getEncounter());
 		if (encounterFulfillingOrders.getOrders() != null) {
 			for (Order order : encounterFulfillingOrders.getOrders()) {
-				order.setAccessionNumber(accessionNumber);
+				if (StringUtils.isNotBlank(accessionNumber)) {
+					order.setAccessionNumber(accessionNumber);
+				}
 				Order.FulfillerStatus fulfillerStatus = order.getFulfillerStatus();
 				if (fulfillerStatus == null) {
 					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
