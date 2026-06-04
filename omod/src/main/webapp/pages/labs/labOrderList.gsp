@@ -155,14 +155,15 @@
             const getActions = (order) => {
                 const actions = jq("<span>").addClass("actions");
                 if (order.fulfillerEncounter) {
-                    const editAction = jq("<i>").addClass("icon-pencil enter-results-action").attr("data-order-uuid", order.uuid);
-                    actions.append(editAction);
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
+                            .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.recordResults') }" })
+                    );
                 } else {
-                    const collectAction = jq("<button>")
-                        .addClass("btn btn-sm btn-warning collect-specimen-action")
-                        .attr("data-order-uuid", order.uuid)
-                        .html("${ ui.message('pihapps.collectSpecimen') }");
-                    actions.append(collectAction);
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
+                            .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
+                    );
                 }
                 return actions.html();
             }
@@ -223,6 +224,7 @@
             const getPatientColumn = (patientWithOrders) => {
                 const emrId = patientUtils.getPreferredIdentifier(patientWithOrders.patient, primaryIdentifierType);
                 return '<span data-patient-uuid="' + patientWithOrders.patient.uuid + '">' +
+                    '<i class="fas fa-fw fa-caret-right expand-indicator mr-1"></i>' +
                     emrId + " — " + patientWithOrders.patient.person.display +
                     '</span>';
             };
@@ -250,21 +252,19 @@
                 const status = getAggregateStatus(patientWithOrders.orders);
                 const patientUuid = patientWithOrders.patient.uuid;
                 if (status === 'AWAITING') {
-                    const btn = jq("<button>")
-                        .addClass("btn btn-sm btn-warning collect-specimen-group-action")
-                        .attr("data-patient-uuid", patientUuid)
-                        .html("${ ui.message('pihapps.collectSpecimen') }");
-                    actions.append(btn);
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-group-action")
+                            .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
+                    );
                 } else if (status === 'COMPLETED') {
-                    const printBtn = jq("<button>")
-                        .addClass("btn btn-sm btn-primary print-results-action mr-1")
-                        .attr("data-patient-uuid", patientUuid)
-                        .html("${ ui.message('pihapps.printResults') }");
-                    const notifyBtn = jq("<button>")
-                        .addClass("btn btn-sm btn-success notify-patient-action")
-                        .attr("data-patient-uuid", patientUuid)
-                        .html("${ ui.message('pihapps.notifyPatient') }");
-                    actions.append(printBtn).append(notifyBtn);
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-print lab-action-icon print-results-action mr-1")
+                            .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.printResults') }" })
+                    );
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-bell lab-action-icon notify-patient-action")
+                            .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.notifyPatient') }" })
+                    );
                 }
                 return actions.html();
             };
@@ -275,6 +275,7 @@
                 const alreadyExpanded = jq("." + subRowClass).length > 0;
                 jq("." + subRowClass).remove();
                 if (!alreadyExpanded) {
+                    jq(trElement).find(".expand-indicator").removeClass("fa-caret-right").addClass("fa-caret-down");
                     const subRows = [];
                     patientWithOrders.orders.forEach(order => {
                         const subRow = jq("<tr>").addClass("patient-sub-row " + subRowClass);
@@ -286,14 +287,15 @@
                         const subActions = jq("<span>");
                         if (order.fulfillerEncounter) {
                             subActions.append(
-                                jq("<i>").addClass("icon-pencil enter-results-action").attr("data-order-uuid", order.uuid)
+                                jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
+                                    .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.recordResults') }" })
                                     .css("cursor", "pointer")
                             );
                         } else {
                             subActions.append(
-                                jq("<button>").addClass("btn btn-sm btn-warning collect-specimen-action")
-                                    .attr("data-order-uuid", order.uuid)
-                                    .html("${ ui.message('pihapps.collectSpecimen') }")
+                                jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
+                                    .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
+                                    .css("cursor", "pointer")
                             );
                         }
                         subRow.append(jq("<td>").append(subActions));
@@ -328,6 +330,8 @@
                             collectSpecimen(patientWithOrders.patient, [order], [order.uuid]);
                         });
                     });
+                } else {
+                    jq(trElement).find(".expand-indicator").removeClass("fa-caret-down").addClass("fa-caret-right");
                 }
             };
 
@@ -368,7 +372,7 @@
 
                 // Expand/collapse on row click
                 jq("#patients-table tbody tr.patient-group-row").off("click").on("click", function(event) {
-                    if (jq(event.target).closest("button, a, i.icon-pencil").length) return;
+                    if (jq(event.target).closest("button, a, i.lab-action-icon").length) return;
                     const patientUuid = jq(this).attr("data-patient-uuid");
                     const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
                     if (patientWithOrders) {
@@ -443,8 +447,8 @@
             jq("#group-by-order-btn").on("click", function() {
                 jq("#group-by-order-btn").addClass("active");
                 jq("#group-by-patient-btn").removeClass("active");
-                jq("#orders-table, #orders-table-info-and-paging").show();
-                jq("#patients-table, #patients-table-info-and-paging").hide();
+                jq("#order-view-container").show();
+                jq("#patient-view-container").hide();
                 pagingDataTable.setParameters(getFilterParameterValues());
                 pagingDataTable.goToFirstPage();
             });
@@ -452,8 +456,8 @@
             jq("#group-by-patient-btn").on("click", function() {
                 jq("#group-by-patient-btn").addClass("active");
                 jq("#group-by-order-btn").removeClass("active");
-                jq("#orders-table, #orders-table-info-and-paging").hide();
-                jq("#patients-table").show();
+                jq("#order-view-container").hide();
+                jq("#patient-view-container").show();
                 if (!patientTableInitialized) {
                     patientPagingDataTable.initialize({
                         tableSelector: "#patients-table",
@@ -533,23 +537,38 @@
         font-size: 0.9em;
         background-color: #f9f9f9;
     }
+    .lab-action-icon {
+        font-size: 1.1em;
+        cursor: pointer;
+        padding: 0 4px;
+        color: #495057;
+    }
+    .lab-action-icon:hover {
+        color: #0056b3;
+    }
+    .expand-indicator {
+        color: #6c757d;
+        font-size: 0.9em;
+    }
+    #grouping-toggle .btn.active {
+        background-color: #6c757d;
+        color: #fff;
+        border-color: #6c757d;
+    }
 </style>
 
 <div id="view-orders-section">
-    <div class="row justify-content-between">
-        <div class="col-6">
+    <div class="row justify-content-between align-items-center mb-2">
+        <div class="col-auto">
             <h3>${ ui.message("pihapps.labOrderList") }</h3>
         </div>
-        <div class="col-6 text-right">
-            <div class="action-menu dropdown show">
-                <a class="btn btn-sm btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    ${ ui.message("pihapps.actions") }
-                </a>
-                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
-                    <a class="dropdown-item" href="${ ui.pageLink("pihapps", "labs/labOrderList", [grouping: "patient", status: "AWAITING_FULFILLMENT"]) }">${ ui.message("pihapps.specimenCollectionQueue") }</a>
-                    <a class="dropdown-item" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
-                </div>
+        <div class="col-auto d-flex align-items-center">
+            <span class="mr-2 text-muted" style="font-size:.85em;">${ ui.message("pihapps.groupBy") }:</span>
+            <div class="btn-group mr-3" id="grouping-toggle" role="group">
+                <button type="button" class="btn btn-sm btn-outline-secondary active" id="group-by-order-btn">${ ui.message("pihapps.groupByOrder") }</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="group-by-patient-btn">${ ui.message("pihapps.groupByPatient") }</button>
             </div>
+            <a class="btn btn-sm btn-primary" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
         </div>
     </div>
 
@@ -612,14 +631,7 @@
             </div>
         </div>
     </form>
-    <div class="row mb-2 mt-2">
-        <div class="col">
-            <div class="btn-group" id="grouping-toggle" role="group">
-                <button type="button" class="btn btn-sm btn-secondary active" id="group-by-order-btn">${ ui.message("pihapps.groupByOrder") }</button>
-                <button type="button" class="btn btn-sm btn-secondary" id="group-by-patient-btn">${ ui.message("pihapps.groupByPatient") }</button>
-            </div>
-        </div>
-    </div>
+    <div id="order-view-container">
     <table id="orders-table">
         <thead>
             <tr>
@@ -651,7 +663,9 @@
             <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
         </div>
     </div>
-    <table id="patients-table" style="display:none;">
+    </div>
+    <div id="patient-view-container" style="display:none;">
+    <table id="patients-table">
         <thead>
             <tr>
                 <th>${ ui.message("pihapps.patient") }</th>
@@ -662,7 +676,7 @@
         </thead>
         <tbody></tbody>
     </table>
-    <div id="patients-table-info-and-paging" style="display:none; font-size: .9em">
+    <div id="patients-table-info-and-paging" style="font-size: .9em">
         <div class="row justify-content-between info-and-paging-row">
             <div class="col paging-info"></div>
             <div class="col text-right">
@@ -675,6 +689,7 @@
         <div class="row justify-content-between info-and-paging-row">
             <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
         </div>
+    </div>
     </div>
 </div>
 
