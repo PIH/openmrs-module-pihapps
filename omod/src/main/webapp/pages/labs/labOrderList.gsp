@@ -70,6 +70,26 @@
         });
     }
 
+    const markNotPerformed = function(patient, orders) {
+        jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
+            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+            jq(".lab-patient-name").html(patient.person.display);
+            initializeOrderNotFulfilledForm({
+                orders: orders,
+                pihAppsConfig: pihAppsConfig,
+                onSuccessFunction: () => {
+                    closeReasonNotPerformed();
+                    if (jq("#group-by-patient-btn").hasClass("active")) {
+                        patientPagingDataTable.updateTable();
+                    } else {
+                        pagingDataTable.updateTable();
+                    }
+                }
+            });
+            openReasonNotPerformed();
+        });
+    };
+
     const collectSpecimen = function(patient, orders, selectedOrderUuids) {
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
@@ -155,14 +175,21 @@
             const getActions = (order) => {
                 const actions = jq("<span>").addClass("actions");
                 if (order.fulfillerEncounter) {
+                    const resultsTitle = order.fulfillerStatus === 'COMPLETED'
+                        ? "${ ui.message('pihapps.editResults') }"
+                        : "${ ui.message('pihapps.recordResults') }";
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
-                            .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.recordResults') }" })
+                            .attr({ "data-order-uuid": order.uuid, "title": resultsTitle })
                     );
                 } else {
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
                             .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
+                    );
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-action")
+                            .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
                     );
                 }
                 return actions.html();
@@ -208,6 +235,12 @@
                     const order = getOrderFromTable(orderUuid);
                     collectSpecimen(order.patient, [order], [order.uuid]);
                 });
+                jq(".mark-not-performed-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const orderUuid = jq(event.currentTarget).data().orderUuid;
+                    const order = getOrderFromTable(orderUuid);
+                    markNotPerformed(order.patient, [order]);
+                });
             }
 
             // ---- Patient grouping view ----
@@ -218,6 +251,8 @@
                 if (allAwaiting) return 'AWAITING';
                 const allCompleted = orders.every(o => o.fulfillerStatus === 'COMPLETED');
                 if (allCompleted) return 'COMPLETED';
+                const allCollected = orders.every(o => !!o.fulfillerEncounter && o.fulfillerStatus !== 'COMPLETED');
+                if (allCollected) return 'COLLECTED';
                 return 'MIXED';
             };
 
@@ -239,9 +274,10 @@
             const getAggregateStatusBadge = (patientWithOrders) => {
                 const status = getAggregateStatus(patientWithOrders.orders);
                 const labels = {
-                    'AWAITING': { cls: 'badge-warning', key: '${ui.message("pihapps.allAwaiting")}' },
-                    'COMPLETED': { cls: 'badge-success', key: '${ui.message("pihapps.allCompleted")}' },
-                    'MIXED': { cls: 'badge-secondary', key: '${ui.message("pihapps.mixedStatus")}' }
+                    'AWAITING':  { cls: 'badge-warning',   key: '${ui.message("pihapps.allAwaiting")}' },
+                    'COLLECTED': { cls: 'badge-info',      key: '${ui.message("pihapps.allCollected")}' },
+                    'COMPLETED': { cls: 'badge-success',   key: '${ui.message("pihapps.allCompleted")}' },
+                    'MIXED':     { cls: 'badge-secondary', key: '${ui.message("pihapps.mixedStatus")}' }
                 };
                 const label = labels[status] || labels['MIXED'];
                 return '<span class="badge ' + label.cls + '">' + label.key + '</span>';
@@ -256,16 +292,22 @@
                         jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-group-action")
                             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
                     );
-                } else if (status === 'COMPLETED') {
                     actions.append(
-                        jq("<i>").addClass("fas fa-fw fa-print lab-action-icon print-results-action mr-1")
-                            .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.printResults') }" })
+                        jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-group-action")
+                            .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
                     );
-                    actions.append(
-                        jq("<i>").addClass("fas fa-fw fa-bell lab-action-icon notify-patient-action")
-                            .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.notifyPatient') }" })
-                    );
-                }
+                // TODO: Print Results and Notify Patient require configuration before enabling.
+                // Uncomment the block below once the downstream handlers are implemented.
+                // } else if (status === 'COMPLETED') {
+                //     actions.append(
+                //         jq("<i>").addClass("fas fa-fw fa-print lab-action-icon print-results-action mr-1")
+                //             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.printResults') }" })
+                //     );
+                //     actions.append(
+                //         jq("<i>").addClass("fas fa-fw fa-bell lab-action-icon notify-patient-action")
+                //             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.notifyPatient') }" })
+                //     );
+                // }
                 return actions.html();
             };
 
@@ -286,15 +328,23 @@
                         ));
                         const subActions = jq("<span>");
                         if (order.fulfillerEncounter) {
+                            const subResultsTitle = order.fulfillerStatus === 'COMPLETED'
+                                ? "${ ui.message('pihapps.editResults') }"
+                                : "${ ui.message('pihapps.recordResults') }";
                             subActions.append(
                                 jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
-                                    .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.recordResults') }" })
+                                    .attr({ "data-order-uuid": order.uuid, "title": subResultsTitle })
                                     .css("cursor", "pointer")
                             );
                         } else {
                             subActions.append(
                                 jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
                                     .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
+                                    .css("cursor", "pointer")
+                            );
+                            subActions.append(
+                                jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-action")
+                                    .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
                                     .css("cursor", "pointer")
                             );
                         }
@@ -329,6 +379,11 @@
                             event.stopPropagation();
                             collectSpecimen(patientWithOrders.patient, [order], [order.uuid]);
                         });
+                        // Mark not performed (pre-collection)
+                        jq("." + subRowClass2 + " .mark-not-performed-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
+                            event.stopPropagation();
+                            markNotPerformed(patientWithOrders.patient, [order]);
+                        });
                     });
                 } else {
                     jq(trElement).find(".expand-indicator").removeClass("fa-caret-down").addClass("fa-caret-right");
@@ -356,19 +411,26 @@
                     }
                 });
 
-                // Print Results (placeholder)
-                jq(".print-results-action").off("click").on("click", (event) => {
+                // Mark Not Performed at group level (pre-collection)
+                jq(".mark-not-performed-group-action").off("click").on("click", (event) => {
                     event.stopPropagation();
                     const patientUuid = jq(event.currentTarget).data("patientUuid");
-                    console.log("TODO: Print results for patient " + patientUuid);
+                    const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
+                    if (patientWithOrders) {
+                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter);
+                        markNotPerformed(patientWithOrders.patient, awaitingOrders);
+                    }
                 });
 
-                // Notify Patient (placeholder)
-                jq(".notify-patient-action").off("click").on("click", (event) => {
-                    event.stopPropagation();
-                    const patientUuid = jq(event.currentTarget).data("patientUuid");
-                    console.log("TODO: Notify patient " + patientUuid);
-                });
+                // TODO: Uncomment when Print Results and Notify Patient are implemented.
+                // jq(".print-results-action").off("click").on("click", (event) => {
+                //     event.stopPropagation();
+                //     const patientUuid = jq(event.currentTarget).data("patientUuid");
+                // });
+                // jq(".notify-patient-action").off("click").on("click", (event) => {
+                //     event.stopPropagation();
+                //     const patientUuid = jq(event.currentTarget).data("patientUuid");
+                // });
 
                 // Expand/collapse on row click
                 jq("#patients-table tbody tr.patient-group-row").off("click").on("click", function(event) {
@@ -445,6 +507,7 @@
             });
 
             jq("#group-by-order-btn").on("click", function() {
+                jq(this).blur();
                 jq("#group-by-order-btn").addClass("active");
                 jq("#group-by-patient-btn").removeClass("active");
                 jq("#order-view-container").show();
@@ -454,6 +517,7 @@
             });
 
             jq("#group-by-patient-btn").on("click", function() {
+                jq(this).blur();
                 jq("#group-by-patient-btn").addClass("active");
                 jq("#group-by-order-btn").removeClass("active");
                 jq("#order-view-container").hide();
@@ -497,6 +561,10 @@
             jq("#specimen-encounter-section button.cancel").click((event) => {
                 event.preventDefault();
                 closeEncounterEdit();
+            });
+            jq("#reason-not-performed-section button.cancel").click((event) => {
+                event.preventDefault();
+                closeReasonNotPerformed();
             });
 
             const getOrderFromTable = function(orderUuid) {
@@ -546,6 +614,15 @@
     .lab-action-icon:hover {
         color: #0056b3;
     }
+    .lab-action-icon + .lab-action-icon {
+        margin-left: 1.25rem;
+    }
+    .lab-action-icon.fa-ban {
+        color: #adb5bd;
+    }
+    .lab-action-icon.fa-ban:hover {
+        color: #dc3545;
+    }
     .expand-indicator {
         color: #6c757d;
         font-size: 0.9em;
@@ -568,7 +645,7 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary active" id="group-by-order-btn">${ ui.message("pihapps.groupByOrder") }</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="group-by-patient-btn">${ ui.message("pihapps.groupByPatient") }</button>
             </div>
-            <a class="btn btn-sm btn-primary" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
+            <a class="btn btn-sm btn-secondary" style="color:#fff;" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
         </div>
     </div>
 
