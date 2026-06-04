@@ -296,9 +296,10 @@
                         jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-group-action")
                             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
                     );
+                }
                 // TODO: Print Results and Notify Patient require configuration before enabling.
                 // Uncomment the block below once the downstream handlers are implemented.
-                // } else if (status === 'COMPLETED') {
+                // else if (status === 'COMPLETED') {
                 //     actions.append(
                 //         jq("<i>").addClass("fas fa-fw fa-print lab-action-icon print-results-action mr-1")
                 //             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.printResults') }" })
