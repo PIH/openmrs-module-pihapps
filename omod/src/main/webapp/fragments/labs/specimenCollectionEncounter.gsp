@@ -22,6 +22,7 @@
         const patientUuid = formConfig.patientUuid;
         const encounter = formConfig.encounter;
         const orders = formConfig.orders;
+        const selectedOrderUuids = formConfig.selectedOrderUuids;
         const pihAppsConfig = formConfig.pihAppsConfig;
         const onSuccessFunction = formConfig.onSuccessFunction;
 
@@ -39,7 +40,7 @@
         const parentElement = jq(selectorPrefix);
 
         const ordersWidgetsSection = parentElement.find(".orders-widgets");
-        initializeSelectedOrders({ orders: orders, pihAppsConfig: pihAppsConfig, jqElement: ordersWidgetsSection});
+        initializeSelectedOrders({ orders: orders, selectedOrderUuids: selectedOrderUuids, pihAppsConfig: pihAppsConfig, jqElement: ordersWidgetsSection});
 
         const formName = "pihapps^specimenForm";
         const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
@@ -150,9 +151,21 @@
                 return;
             }
 
+            // Derive the set of checked orders from the checklist
+            const checkedOrderUuids = new Set(
+                parentElement.find(".order-select-checkbox:checked").map((i, el) => jq(el).attr("data-order-uuid")).get()
+            );
+            const checkedOrders = orders.filter(o => checkedOrderUuids.has(o.uuid));
+
+            if (checkedOrders.length === 0) {
+                parentElement.find(".errors-section").append(jq("<div>").html("${ ui.message("pihapps.noOrdersSelected") }"));
+                jq(".action-button").removeAttr("disabled");
+                return;
+            }
+
             // If this is a new submission, then add in order numbers as obs
             if (!encounterToSubmit.uuid) {
-                orders.forEach((o, index) => {
+                checkedOrders.forEach((o, index) => {
                     encounterToSubmit.obs.push({
                         concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
                         valueText: o.orderNumber,
@@ -161,7 +174,7 @@
                 });
             }
 
-            const payload = { encounter: encounterToSubmit, orders: orders.map(o => o.uuid) };
+            const payload = { encounter: encounterToSubmit, orders: checkedOrders.map(o => o.uuid) };
             jq.ajax({
                 url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders",
                 type: "POST",

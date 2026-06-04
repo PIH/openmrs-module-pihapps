@@ -166,8 +166,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		c.setProjection(Projections.countDistinct("patient"));
 		Long totalCount = (Long) c.list().get(0);
 		result.setTotalCount(totalCount);
-		// Then query to get page of patients
-		c = createHibernateOrderSearchCriteria(searchCriteria, true);
+		// Then query to get page of patients (sort criteria not applied here; distinct patient projection
+		// is incompatible with ORDER BY on non-projected columns in strict SQL mode)
+		c = createHibernateOrderSearchCriteria(searchCriteria, false);
 		c.setProjection(Projections.distinct(Projections.property("patient")));
 		Integer startIndex = searchCriteria.getStartIndex();
 		Integer limit = searchCriteria.getLimit();

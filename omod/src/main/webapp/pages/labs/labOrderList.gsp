@@ -8,7 +8,6 @@
     ui.includeCss("pihapps", "labs/labs.css")
 
     def now = new Date()
-    def patientListPage = ui.pageLink("pihapps", "labs/labPatientList")
     def orderLabsPage = ui.pageLink("coreapps", "findpatient/findPatient", ["app": "pih.app.labs.ordering"])
     def visitLocationUuid = visitLocationForSessionLocation ? visitLocationForSessionLocation.uuid : ""
 %>
@@ -31,6 +30,8 @@
     moment.locale(window.sessionContext?.locale ?? 'en');
 
     const pagingDataTable = new PagingDataTable(jq);
+    const patientPagingDataTable = new PagingDataTable(jq);
+    const patientOrderRep = "id,uuid,orderNumber,dateActivated,orderer:(display),fulfillerStatus,encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),accessionNumber,urgency,action,patient:" + patientRep + ",concept:(id,uuid,allowDecimal,display,displayStringForLab)";
     const patientUtils = new PihAppsPatientUtils(jq);
 
     const viewSpecimenEncounter = function(encounterUuid) {
@@ -69,6 +70,29 @@
         });
     }
 
+    const collectSpecimen = function(patient, orders, selectedOrderUuids) {
+        jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
+            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+            jq(".lab-patient-name").html(patient.person.display);
+            initializeSpecimenCollectionForm({
+                patientUuid: patient.uuid,
+                orders: orders,
+                selectedOrderUuids: selectedOrderUuids,
+                encounter: null,
+                pihAppsConfig: pihAppsConfig,
+                onSuccessFunction: () => {
+                    closeEncounterEdit();
+                    if (jq("#group-by-patient-btn").hasClass("active")) {
+                        patientPagingDataTable.updateTable();
+                    } else {
+                        pagingDataTable.updateTable();
+                    }
+                }
+            });
+            openEncounterEdit();
+        });
+    };
+
     const openSection = function(selector) {
         jq("#view-orders-section").hide();
         jq(selector).show();
@@ -87,6 +111,11 @@
     const closeLabResults = () => closeSection("#record-lab-results-section");
 
     jq(document).ready(function() {
+
+        // Read URL params for deep linking (e.g., Specimen Collection Queue)
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialGrouping = urlParams.get('grouping');   // 'patient' or null
+        const initialStatus = urlParams.get('status');        // e.g. 'AWAITING_FULFILLMENT' or null
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
 
@@ -128,6 +157,12 @@
                 if (order.fulfillerEncounter) {
                     const editAction = jq("<i>").addClass("icon-pencil enter-results-action").attr("data-order-uuid", order.uuid);
                     actions.append(editAction);
+                } else {
+                    const collectAction = jq("<button>")
+                        .addClass("btn btn-sm btn-warning collect-specimen-action")
+                        .attr("data-order-uuid", order.uuid)
+                        .html("${ ui.message('pihapps.collectSpecimen') }");
+                    actions.append(collectAction);
                 }
                 return actions.html();
             }
@@ -147,7 +182,7 @@
             }
 
             const orderTableUpdated = function() {
-                jq(".enter-results-action").on("click", (event) => {
+                jq(".enter-results-action").off("click").on("click", (event) => {
                     const orderUuid = jq(event.target).data().orderUuid;
                     const order = getOrderFromTable(orderUuid);
                     jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
@@ -166,7 +201,181 @@
                     });
                     openLabResults();
                 });
+                jq(".collect-specimen-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const orderUuid = jq(event.currentTarget).data().orderUuid;
+                    const order = getOrderFromTable(orderUuid);
+                    collectSpecimen(order.patient, [order], [order.uuid]);
+                });
             }
+
+            // ---- Patient grouping view ----
+
+            const getAggregateStatus = (orders) => {
+                if (!orders || orders.length === 0) return 'MIXED';
+                const allAwaiting = orders.every(o => !o.fulfillerEncounter);
+                if (allAwaiting) return 'AWAITING';
+                const allCompleted = orders.every(o => o.fulfillerStatus === 'COMPLETED');
+                if (allCompleted) return 'COMPLETED';
+                return 'MIXED';
+            };
+
+            const getPatientColumn = (patientWithOrders) => {
+                const emrId = patientUtils.getPreferredIdentifier(patientWithOrders.patient, primaryIdentifierType);
+                return '<span data-patient-uuid="' + patientWithOrders.patient.uuid + '">' +
+                    emrId + " — " + patientWithOrders.patient.person.display +
+                    '</span>';
+            };
+
+            const getPatientOrdersSummary = (patientWithOrders) => {
+                const count = patientWithOrders.orders.length;
+                const labIds = [...new Set(patientWithOrders.orders.map(o => o.accessionNumber).filter(Boolean))];
+                const labIdStr = labIds.length > 0 ? labIds.join(", ") : "";
+                return count + " order" + (count !== 1 ? "s" : "") + (labIdStr ? " · " + labIdStr : "");
+            };
+
+            const getAggregateStatusBadge = (patientWithOrders) => {
+                const status = getAggregateStatus(patientWithOrders.orders);
+                const labels = {
+                    'AWAITING': { cls: 'badge-warning', key: '${ui.message("pihapps.allAwaiting")}' },
+                    'COMPLETED': { cls: 'badge-success', key: '${ui.message("pihapps.allCompleted")}' },
+                    'MIXED': { cls: 'badge-secondary', key: '${ui.message("pihapps.mixedStatus")}' }
+                };
+                const label = labels[status] || labels['MIXED'];
+                return '<span class="badge ' + label.cls + '">' + label.key + '</span>';
+            };
+
+            const getPatientGroupActions = (patientWithOrders) => {
+                const actions = jq("<span>").addClass("patient-group-actions");
+                const status = getAggregateStatus(patientWithOrders.orders);
+                const patientUuid = patientWithOrders.patient.uuid;
+                if (status === 'AWAITING') {
+                    const btn = jq("<button>")
+                        .addClass("btn btn-sm btn-warning collect-specimen-group-action")
+                        .attr("data-patient-uuid", patientUuid)
+                        .html("${ ui.message('pihapps.collectSpecimen') }");
+                    actions.append(btn);
+                } else if (status === 'COMPLETED') {
+                    const printBtn = jq("<button>")
+                        .addClass("btn btn-sm btn-primary print-results-action mr-1")
+                        .attr("data-patient-uuid", patientUuid)
+                        .html("${ ui.message('pihapps.printResults') }");
+                    const notifyBtn = jq("<button>")
+                        .addClass("btn btn-sm btn-success notify-patient-action")
+                        .attr("data-patient-uuid", patientUuid)
+                        .html("${ ui.message('pihapps.notifyPatient') }");
+                    actions.append(printBtn).append(notifyBtn);
+                }
+                return actions.html();
+            };
+
+            const expandPatientRow = function(trElement, patientWithOrders) {
+                const patientUuid = patientWithOrders.patient.uuid;
+                const subRowClass = "patient-sub-row-" + patientUuid;
+                const alreadyExpanded = jq("." + subRowClass).length > 0;
+                jq("." + subRowClass).remove();
+                if (!alreadyExpanded) {
+                    const subRows = [];
+                    patientWithOrders.orders.forEach(order => {
+                        const subRow = jq("<tr>").addClass("patient-sub-row " + subRowClass);
+                        const labTest = (order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color:red;"></i>' : '') + order.concept.displayStringForLab;
+                        subRow.append(jq("<td>").attr("colspan", "2").css("padding-left", "2em").html(labTest + " &nbsp; <small>" + order.orderNumber + "</small>"));
+                        subRow.append(jq("<td>").html(
+                            patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display
+                        ));
+                        const subActions = jq("<span>");
+                        if (order.fulfillerEncounter) {
+                            subActions.append(
+                                jq("<i>").addClass("icon-pencil enter-results-action").attr("data-order-uuid", order.uuid)
+                                    .css("cursor", "pointer")
+                            );
+                        } else {
+                            subActions.append(
+                                jq("<button>").addClass("btn btn-sm btn-warning collect-specimen-action")
+                                    .attr("data-order-uuid", order.uuid)
+                                    .html("${ ui.message('pihapps.collectSpecimen') }")
+                            );
+                        }
+                        subRow.append(jq("<td>").append(subActions));
+                        subRows.push(subRow);
+                    });
+                    // Insert all sub-rows after the patient row, maintaining order
+                    let insertAfter = jq(trElement);
+                    subRows.forEach(subRow => {
+                        subRow.insertAfter(insertAfter);
+                        insertAfter = subRow;
+                    });
+
+                    // Attach click handlers to newly inserted sub-rows
+                    patientWithOrders.orders.forEach(order => {
+                        const subRowClass2 = "patient-sub-row-" + patientUuid;
+                        // Results entry
+                        jq("." + subRowClass2 + " .enter-results-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
+                            event.stopPropagation();
+                            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patientWithOrders.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                            jq(".lab-patient-name").html(patientWithOrders.patient.person.display);
+                            initializeLabResultsForm({
+                                order: order,
+                                pihAppsConfig: pihAppsConfig,
+                                onSuccessFunction: () => { closeLabResults(); patientPagingDataTable.updateTable(); },
+                                onCancelFunction: () => { closeLabResults(); closeReasonNotPerformed(); }
+                            });
+                            openLabResults();
+                        });
+                        // Collect specimen
+                        jq("." + subRowClass2 + " .collect-specimen-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
+                            event.stopPropagation();
+                            collectSpecimen(patientWithOrders.patient, [order], [order.uuid]);
+                        });
+                    });
+                }
+            };
+
+            const patientTableUpdated = function() {
+                jq("#patients-table tbody tr").each(function() {
+                    const patientUuid = jq(this).find("[data-patient-uuid]").first().attr("data-patient-uuid");
+                    if (patientUuid) {
+                        jq(this).addClass("patient-group-row")
+                            .attr("data-patient-uuid", patientUuid)
+                            .css("cursor", "pointer");
+                    }
+                });
+
+                // Collect Specimen at group level
+                jq(".collect-specimen-group-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const patientUuid = jq(event.currentTarget).data("patientUuid");
+                    const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
+                    if (patientWithOrders) {
+                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter);
+                        collectSpecimen(patientWithOrders.patient, awaitingOrders, awaitingOrders.map(o => o.uuid));
+                    }
+                });
+
+                // Print Results (placeholder)
+                jq(".print-results-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const patientUuid = jq(event.currentTarget).data("patientUuid");
+                    console.log("TODO: Print results for patient " + patientUuid);
+                });
+
+                // Notify Patient (placeholder)
+                jq(".notify-patient-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const patientUuid = jq(event.currentTarget).data("patientUuid");
+                    console.log("TODO: Notify patient " + patientUuid);
+                });
+
+                // Expand/collapse on row click
+                jq("#patients-table tbody tr.patient-group-row").off("click").on("click", function(event) {
+                    if (jq(event.target).closest("button, a, i.icon-pencil").length) return;
+                    const patientUuid = jq(this).attr("data-patient-uuid");
+                    const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
+                    if (patientWithOrders) {
+                        expandPatientRow(this, patientWithOrders);
+                    }
+                });
+            };
 
             pagingDataTable.initialize({
                 tableSelector: "#orders-table",
@@ -191,6 +400,8 @@
                     orderTableUpdated();
                 }
             });
+
+            let patientTableInitialized = false;
 
             pihAppsConfig.labOrderConfig.availableLabTestsByCategory.forEach((labCategory) => {
                 const optGroup = jq("<optGroup>").attr("label", labCategory.category.displayStringForLab);
@@ -219,9 +430,65 @@
             }
 
             jq("#test-filter-form").find(":input").change(function () {
-                pagingDataTable.setParameters(getFilterParameterValues())
+                const params = getFilterParameterValues();
+                if (jq("#group-by-patient-btn").hasClass("active")) {
+                    patientPagingDataTable.setParameters(params);
+                    patientPagingDataTable.goToFirstPage();
+                } else {
+                    pagingDataTable.setParameters(params);
+                    pagingDataTable.goToFirstPage();
+                }
+            });
+
+            jq("#group-by-order-btn").on("click", function() {
+                jq("#group-by-order-btn").addClass("active");
+                jq("#group-by-patient-btn").removeClass("active");
+                jq("#orders-table, #orders-table-info-and-paging").show();
+                jq("#patients-table, #patients-table-info-and-paging").hide();
+                pagingDataTable.setParameters(getFilterParameterValues());
                 pagingDataTable.goToFirstPage();
             });
+
+            jq("#group-by-patient-btn").on("click", function() {
+                jq("#group-by-patient-btn").addClass("active");
+                jq("#group-by-order-btn").removeClass("active");
+                jq("#orders-table, #orders-table-info-and-paging").hide();
+                jq("#patients-table").show();
+                if (!patientTableInitialized) {
+                    patientPagingDataTable.initialize({
+                        tableSelector: "#patients-table",
+                        tableInfoSelector: "#patients-table-info-and-paging",
+                        endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/patientsWithOrders",
+                        representation: "custom:patient:" + patientRep + ",orders:(" + patientOrderRep + ")",
+                        parameters: { ...getFilterParameterValues() },
+                        columnTransformFunctions: [
+                            getPatientColumn, getPatientOrdersSummary, getAggregateStatusBadge, getPatientGroupActions
+                        ],
+                        datatableOptions: {
+                            oLanguage: {
+                                sInfo: "${ ui.message("uicommons.dataTable.info") }",
+                                sZeroRecords: "${ ui.message("uicommons.dataTable.zeroRecords") }",
+                                sEmptyTable: "${ ui.message("uicommons.dataTable.emptyTable") }",
+                                sInfoEmpty:  "${ ui.message("uicommons.dataTable.infoEmpty") }",
+                                sLoadingRecords:  "${ ui.message("uicommons.dataTable.loadingRecords") }",
+                                sProcessing:  "${ ui.message("uicommons.dataTable.processing") }",
+                            }
+                        },
+                        tableUpdateCallback: () => {
+                            patientTableUpdated();
+                        }
+                    });
+                    patientTableInitialized = true;
+                } else {
+                    patientPagingDataTable.setParameters(getFilterParameterValues());
+                    patientPagingDataTable.goToFirstPage();
+                }
+            });
+
+            // Apply deep-link grouping param
+            if (initialGrouping === 'patient') {
+                jq("#group-by-patient-btn").trigger("click");
+            }
 
             jq("#specimen-encounter-section button.cancel").click((event) => {
                 event.preventDefault();
@@ -232,8 +499,12 @@
                 return pagingDataTable.getRowObjects().find((o) => o.uuid === orderUuid);
             }
 
-            // Set default status to "COLLECTED"
-            jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT").trigger("change");
+            // Apply initial status from URL param, or fall back to default
+            if (initialStatus) {
+                jq("#orderFulfillmentStatus-filter").val(initialStatus).trigger("change");
+            } else {
+                jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT").trigger("change");
+            }
 
             // Add clear buttons to filters
             jq(".clearable-input-wrapper").find(".icon-remove").on("click", (event) => {
@@ -254,6 +525,14 @@
     .select-buttons button {
         margin-right: 5px; margin-left: 5px;
     }
+    #patients-table tbody tr.patient-group-row:hover {
+        background-color: #f0f4ff;
+        cursor: pointer;
+    }
+    #patients-table tbody tr.patient-sub-row {
+        font-size: 0.9em;
+        background-color: #f9f9f9;
+    }
 </style>
 
 <div id="view-orders-section">
@@ -267,7 +546,7 @@
                     ${ ui.message("pihapps.actions") }
                 </a>
                 <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
-                    <a class="dropdown-item" href="${ patientListPage }">${ ui.message("pihapps.labPatientReception") }</a>
+                    <a class="dropdown-item" href="${ ui.pageLink("pihapps", "labs/labOrderList", [grouping: "patient", status: "AWAITING_FULFILLMENT"]) }">${ ui.message("pihapps.specimenCollectionQueue") }</a>
                     <a class="dropdown-item" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
                 </div>
             </div>
@@ -333,6 +612,14 @@
             </div>
         </div>
     </form>
+    <div class="row mb-2 mt-2">
+        <div class="col">
+            <div class="btn-group" id="grouping-toggle" role="group">
+                <button type="button" class="btn btn-sm btn-secondary active" id="group-by-order-btn">${ ui.message("pihapps.groupByOrder") }</button>
+                <button type="button" class="btn btn-sm btn-secondary" id="group-by-patient-btn">${ ui.message("pihapps.groupByPatient") }</button>
+            </div>
+        </div>
+    </div>
     <table id="orders-table">
         <thead>
             <tr>
@@ -351,6 +638,31 @@
         <tbody></tbody>
     </table>
     <div id="orders-table-info-and-paging" style="font-size: .9em">
+        <div class="row justify-content-between info-and-paging-row">
+            <div class="col paging-info"></div>
+            <div class="col text-right">
+                <a class="first paging-navigation">${ ui.message("uicommons.dataTable.first") }</a>
+                <a class="previous paging-navigation">${ ui.message("uicommons.dataTable.previous") }</a>
+                <a class="next paging-navigation">${ ui.message("uicommons.dataTable.next") }</a>
+                <a class="last paging-navigation">${ ui.message("uicommons.dataTable.last") }</a>
+            </div>
+        </div>
+        <div class="row justify-content-between info-and-paging-row">
+            <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
+        </div>
+    </div>
+    <table id="patients-table" style="display:none;">
+        <thead>
+            <tr>
+                <th>${ ui.message("pihapps.patient") }</th>
+                <th>${ ui.message("pihapps.orders") }</th>
+                <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>
+                <th>${ ui.message("pihapps.actions") }</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div id="patients-table-info-and-paging" style="display:none; font-size: .9em">
         <div class="row justify-content-between info-and-paging-row">
             <div class="col paging-info"></div>
             <div class="col text-right">
