@@ -322,8 +322,13 @@
                     const subRows = [];
                     patientWithOrders.orders.forEach(order => {
                         const subRow = jq("<tr>").addClass("patient-sub-row " + subRowClass);
-                        const labTest = (order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color:red;"></i>' : '') + order.concept.displayStringForLab;
-                        subRow.append(jq("<td>").attr("colspan", "2").css("padding-left", "2em").html(labTest + " &nbsp; <small>" + order.orderNumber + "</small>"));
+                        const urgencyBadge = order.urgency === 'STAT'
+                            ? '<span class="badge badge-danger mr-1">${ ui.message("pihapps.stat") }</span>'
+                            : '<span class="badge badge-secondary mr-1" style="font-weight:300;">${ ui.message("pihapps.routine") }</span>';
+                        const orderDate = dateUtils.formatAsDateWithoutTime(order.dateActivated);
+                        const labTest = urgencyBadge + order.concept.displayStringForLab +
+                            '<br><small class="text-muted">' + orderDate + ' &nbsp;·&nbsp; ' + order.orderNumber + '</small>';
+                        subRow.append(jq("<td>").attr("colspan", "2").css("padding-left", "2em").html(labTest));
                         subRow.append(jq("<td>").html(
                             patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display
                         ));
