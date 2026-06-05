@@ -331,15 +331,11 @@
                     patientWithOrders.orders.forEach(order => {
                         const subRow = jq("<tr>").addClass("patient-sub-row " + subRowClass);
                         const urgencyIcon = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color:red;"></i>' : '';
-                        const specimenDateStr = order.fulfillerEncounter
-                            ? "<a href=\"javascript:viewSpecimenEncounter('" + order.fulfillerEncounter.uuid + "')\">" + dateUtils.formatAsDateWithoutTime(order.fulfillerEncounter.encounterDatetime) + "</a>"
-                            : '';
                         const metaParts = [
-                            dateUtils.formatAsDateWithoutTime(order.dateActivated),
-                            order.encounter?.location?.display,
-                            specimenDateStr,
-                            order.accessionNumber,
-                            order.orderNumber
+                            '${ ui.message("pihapps.orderDate") }: ' + dateUtils.formatAsDateWithoutTime(order.dateActivated),
+                            order.encounter?.location?.display ? '${ ui.message("pihapps.orderLocation") }: ' + order.encounter.location.display : null,
+                            order.accessionNumber ? '${ ui.message("pihapps.labId") }: ' + order.accessionNumber : null,
+                            '${ ui.message("pihapps.orderNumber") }: ' + order.orderNumber
                         ].filter(p => !!p);
                         const labTest = urgencyIcon + order.concept.displayStringForLab +
                             ' <span class="text-muted">&nbsp;·&nbsp; ' + metaParts.join(' &nbsp;·&nbsp; ') + '</span>';
