@@ -273,9 +273,7 @@
 
             const getPatientOrdersSummary = (patientWithOrders) => {
                 const count = patientWithOrders.orders.length;
-                const labIds = [...new Set(patientWithOrders.orders.map(o => o.accessionNumber).filter(Boolean))];
-                const labIdStr = labIds.length > 0 ? labIds.join(", ") : "";
-                return count + " order" + (count !== 1 ? "s" : "") + (labIdStr ? " · " + labIdStr : "");
+                return count + " order" + (count !== 1 ? "s" : "");
             };
 
             const getAggregateStatusBadge = (patientWithOrders) => {
