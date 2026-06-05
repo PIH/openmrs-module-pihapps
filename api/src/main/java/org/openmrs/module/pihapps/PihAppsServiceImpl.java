@@ -58,6 +58,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.hibernate.criterion.ProjectionList;
+import static org.hibernate.criterion.Order.asc;
+import static org.hibernate.criterion.Order.desc;
 import static org.hibernate.criterion.Restrictions.and;
 import static org.hibernate.criterion.Restrictions.eq;
 import static org.hibernate.criterion.Restrictions.ge;
@@ -175,7 +178,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			sortCriteriaList.add(new SortCriteria("dateActivated", SortCriteria.Direction.ASC));
 		}
 		c = createHibernateOrderSearchCriteria(searchCriteria, false);
-		org.hibernate.criterion.ProjectionList projList = Projections.projectionList();
+		ProjectionList projList = Projections.projectionList();
 		projList.add(Projections.groupProperty("patient"), "patient");
 		for (int i = 0; i < sortCriteriaList.size(); i++) {
 			SortCriteria sc = sortCriteriaList.get(i);
@@ -190,9 +193,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		for (int i = 0; i < sortCriteriaList.size(); i++) {
 			String alias = "sortCol" + i;
 			if (sortCriteriaList.get(i).getDirection() == SortCriteria.Direction.DESC) {
-				c.addOrder(org.hibernate.criterion.Order.desc(alias));
+				c.addOrder(desc(alias));
 			} else {
-				c.addOrder(org.hibernate.criterion.Order.asc(alias));
+				c.addOrder(asc(alias));
 			}
 		}
 		Integer startIndex = searchCriteria.getStartIndex();
@@ -313,9 +316,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			}
 			for (SortCriteria sortCriteria : sortCriteriaList) {
 				if (sortCriteria.getDirection() == SortCriteria.Direction.DESC) {
-					c.addOrder(org.hibernate.criterion.Order.desc(sortCriteria.getField()));
+					c.addOrder(desc(sortCriteria.getField()));
 				} else {
-					c.addOrder(org.hibernate.criterion.Order.asc(sortCriteria.getField()));
+					c.addOrder(asc(sortCriteria.getField()));
 				}
 			}
 		}
@@ -403,7 +406,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		c.add(eq("person", order.getPatient()));
 		c.add(eq("concept", labOrderConfig.getTestOrderNumberQuestion()));
 		c.add(eq("valueText", order.getOrderNumber()));
-		c.addOrder(org.hibernate.criterion.Order.desc("obsDatetime"));
+		c.addOrder(desc("obsDatetime"));
 		c.setMaxResults(1);
 		List<Obs> l = c.list();
 		if (l == null || l.isEmpty()) {
@@ -422,7 +425,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		c.add(eq("person", order.getPatient()));
 		c.add(eq("concept", labOrderConfig.getReasonTestNotPerformedQuestion()));
 		c.add(eq("order", order));
-		c.addOrder(org.hibernate.criterion.Order.desc("obsDatetime"));
+		c.addOrder(desc("obsDatetime"));
 		c.setMaxResults(1);
 		List<Obs> l = c.list();
 		if (l == null || l.isEmpty()) {
@@ -519,9 +522,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			if (searchCriteria.getSortCriteria() != null) {
 				for (SortCriteria sortCriteria : searchCriteria.getSortCriteria()) {
 					if (sortCriteria.getDirection() == SortCriteria.Direction.DESC) {
-						c.addOrder(org.hibernate.criterion.Order.desc(sortCriteria.getField()));
+						c.addOrder(desc(sortCriteria.getField()));
 					} else {
-						c.addOrder(org.hibernate.criterion.Order.asc(sortCriteria.getField()));
+						c.addOrder(asc(sortCriteria.getField()));
 					}
 				}
 
