@@ -166,9 +166,14 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		c.setProjection(Projections.countDistinct("patient"));
 		Long totalCount = (Long) c.list().get(0);
 		result.setTotalCount(totalCount);
-		// Then query to get page of patients
-		c = createHibernateOrderSearchCriteria(searchCriteria, true);
-		c.setProjection(Projections.distinct(Projections.property("patient")));
+		// Query to get page of patients, grouped and ordered by most urgent/earliest order
+		c = createHibernateOrderSearchCriteria(searchCriteria, false);
+		c.setProjection(Projections.projectionList()
+				.add(Projections.groupProperty("patient"), "patient")
+				.add(Projections.max("urgency"), "maxUrgency")
+				.add(Projections.min("dateActivated"), "minDateActivated"));
+		c.addOrder(org.hibernate.criterion.Order.desc("maxUrgency"));
+		c.addOrder(org.hibernate.criterion.Order.asc("minDateActivated"));
 		Integer startIndex = searchCriteria.getStartIndex();
 		Integer limit = searchCriteria.getLimit();
 		if (limit != null) {
@@ -176,16 +181,27 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			c.setFirstResult(startIndex);
 			c.setMaxResults(limit);
 		}
-		List<Patient> patients = c.list();
-		// Then retrieve the orders for these patients and organize them into results
+		List<Patient> patients = new ArrayList<>();
+		for (Object[] row : (List<Object[]>) c.list()) {
+			patients.add((Patient) row[0]);
+		}
+		if (patients.isEmpty()) {
+			return result;
+		}
+		// Retrieve orders for the page's patients and organize in the same patient order
 		c = createHibernateOrderSearchCriteria(searchCriteria, true);
 		c.add(in("patient", patients));
-		c.setProjection(null);
 		c.setResultTransformer(Criteria.DISTINCT_ROOT_ENTITY);
 		List<Order> orders = c.list();
 		Map<Patient, List<Order>> ordersForPatient = new LinkedHashMap<>();
-		for (Order  o : orders) {
-			ordersForPatient.computeIfAbsent(o.getPatient(), p -> new ArrayList<>()).add(o);
+		for (Patient p : patients) {
+			ordersForPatient.put(p, new ArrayList<>());
+		}
+		for (Order o : orders) {
+			List<Order> patientOrders = ordersForPatient.get(o.getPatient());
+			if (patientOrders != null) {
+				patientOrders.add(o);
+			}
 		}
 		for (Patient p : ordersForPatient.keySet()) {
 			result.getPatients().add(new PatientWithOrders(p, ordersForPatient.get(p)));
