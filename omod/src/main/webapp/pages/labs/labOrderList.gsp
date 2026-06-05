@@ -331,13 +331,20 @@
                     patientWithOrders.orders.forEach(order => {
                         const subRow = jq("<tr>").addClass("patient-sub-row " + subRowClass);
                         const urgencyIcon = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color:red;"></i>' : '';
-                        const orderDate = dateUtils.formatAsDateWithoutTime(order.dateActivated);
+                        const specimenDateStr = order.fulfillerEncounter
+                            ? "<a href=\"javascript:viewSpecimenEncounter('" + order.fulfillerEncounter.uuid + "')\">" + dateUtils.formatAsDateWithoutTime(order.fulfillerEncounter.encounterDatetime) + "</a>"
+                            : '';
+                        const metaParts = [
+                            dateUtils.formatAsDateWithoutTime(order.dateActivated),
+                            order.encounter?.location?.display,
+                            specimenDateStr,
+                            order.accessionNumber,
+                            order.orderNumber
+                        ].filter(p => !!p);
                         const labTest = urgencyIcon + order.concept.displayStringForLab +
-                            ' <span class="text-muted">&nbsp;·&nbsp; ' + orderDate + ' &nbsp;·&nbsp; ' + order.orderNumber + '</span>';
+                            ' <span class="text-muted">&nbsp;·&nbsp; ' + metaParts.join(' &nbsp;·&nbsp; ') + '</span>';
                         subRow.append(jq("<td>").attr("colspan", "2").css("padding-left", "2em").html(labTest));
-                        subRow.append(jq("<td>").html(
-                            patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display
-                        ));
+                        subRow.append(jq("<td>").html(getOrderFulfillmentStatus(order)));
                         const subActions = jq("<span>");
                         if (order.fulfillerEncounter) {
                             const subResultsTitle = order.fulfillerStatus === 'COMPLETED'
