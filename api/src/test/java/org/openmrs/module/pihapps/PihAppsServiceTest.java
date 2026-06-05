@@ -121,6 +121,26 @@ public class PihAppsServiceTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
+    public void getPatientsWithOrders_shouldRespectCustomSortCriteria() throws Exception {
+        executeDataSet("pihapps_lab_order_test_data.xml");
+
+        OrderSearchCriteria criteria = new OrderSearchCriteria();
+        criteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
+        criteria.setStartIndex(0);
+        criteria.setLimit(10);
+
+        // Default sort (urgency DESC, dateActivated ASC): patient 7 first — has STAT order
+        PatientWithOrdersSearchResult defaultResult = pihAppsService.getPatientsWithOrders(criteria);
+        assertThat(defaultResult.getPatients().get(0).getPatient().getId(), equalTo(7));
+
+        // Custom sort (dateActivated ASC only): patient 2 first — earliest order 2007-12-09 vs patient 7's 2009-01-15
+        criteria.setSortCriteria(Collections.singletonList(
+                new SortCriteria("dateActivated", SortCriteria.Direction.ASC)));
+        PatientWithOrdersSearchResult customResult = pihAppsService.getPatientsWithOrders(criteria);
+        assertThat(customResult.getPatients().get(0).getPatient().getId(), equalTo(2));
+    }
+
+    @Test
     public void getPatientsWithOrders_shouldReturnDifferentPatientsOnDifferentPages() throws Exception {
         executeDataSet("pihapps_lab_order_test_data.xml");
 
