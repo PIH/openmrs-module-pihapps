@@ -164,17 +164,22 @@
                 return "<a href=\"javascript:viewSpecimenEncounter('" + fulfillerEncounter.uuid +  "')\">" + specimenDate + "</a>";
             }
 
-            const getOrderFulfillmentStatus = (order) => {
-                const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
-                if (order.fulfillerStatus === 'EXCEPTION') {
-                    return "<a href=\"javascript:viewOrderNotPerformed('" + order.uuid +  "')\">" + statusDisplay + "</a>";
-                }
-                return statusDisplay;
-            }
-
             const isExpiredOrder = (order) => {
                 return !order.fulfillerStatus && !order.dateStopped &&
                     order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date());
+            };
+
+            const getOrderFulfillmentStatus = (order) => {
+                // If no specimen collection encounter exists, the order hasn't been collected yet —
+                // show Ordered regardless of any fulfiller status set on the order (bad data).
+                if (!order.fulfillerEncounter && !isExpiredOrder(order)) {
+                    return orderFulfillmentStatusOptions.find(o => o.status === 'AWAITING_FULFILLMENT')?.display ?? '';
+                }
+                const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
+                if (order.fulfillerStatus === 'EXCEPTION') {
+                    return "<a href=\"javascript:viewOrderNotPerformed('" + order.uuid + "')\">" + statusDisplay + "</a>";
+                }
+                return statusDisplay;
             };
 
             const getActions = (order) => {
