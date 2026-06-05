@@ -327,7 +327,7 @@
                             : '<span class="badge badge-secondary mr-1" style="font-weight:300;">${ ui.message("pihapps.routine") }</span>';
                         const orderDate = dateUtils.formatAsDateWithoutTime(order.dateActivated);
                         const labTest = urgencyBadge + order.concept.displayStringForLab +
-                            '<br><small class="text-muted">' + orderDate + ' &nbsp;·&nbsp; ' + order.orderNumber + '</small>';
+                            ' <span class="text-muted">&nbsp;·&nbsp; ' + orderDate + ' &nbsp;·&nbsp; ' + order.orderNumber + '</span>';
                         subRow.append(jq("<td>").attr("colspan", "2").css("padding-left", "2em").html(labTest));
                         subRow.append(jq("<td>").html(
                             patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display
