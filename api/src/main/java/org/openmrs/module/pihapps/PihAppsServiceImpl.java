@@ -166,14 +166,35 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		c.setProjection(Projections.countDistinct("patient"));
 		Long totalCount = (Long) c.list().get(0);
 		result.setTotalCount(totalCount);
-		// Query to get page of patients, grouped and ordered by most urgent/earliest order
+		// Query to get page of patients, grouped and ordered using the same sort criteria as the order-level query.
+		// For each sort field: DESC → MAX(field) DESC, ASC → MIN(field) ASC — surfaces the "most extreme" order per patient.
+		List<SortCriteria> sortCriteriaList = searchCriteria.getSortCriteria();
+		if (sortCriteriaList == null || sortCriteriaList.isEmpty()) {
+			sortCriteriaList = new ArrayList<>();
+			sortCriteriaList.add(new SortCriteria("urgency", SortCriteria.Direction.DESC));
+			sortCriteriaList.add(new SortCriteria("dateActivated", SortCriteria.Direction.ASC));
+		}
 		c = createHibernateOrderSearchCriteria(searchCriteria, false);
-		c.setProjection(Projections.projectionList()
-				.add(Projections.groupProperty("patient"), "patient")
-				.add(Projections.max("urgency"), "maxUrgency")
-				.add(Projections.min("dateActivated"), "minDateActivated"));
-		c.addOrder(org.hibernate.criterion.Order.desc("maxUrgency"));
-		c.addOrder(org.hibernate.criterion.Order.asc("minDateActivated"));
+		org.hibernate.criterion.ProjectionList projList = Projections.projectionList();
+		projList.add(Projections.groupProperty("patient"), "patient");
+		for (int i = 0; i < sortCriteriaList.size(); i++) {
+			SortCriteria sc = sortCriteriaList.get(i);
+			String alias = "sortCol" + i;
+			if (sc.getDirection() == SortCriteria.Direction.DESC) {
+				projList.add(Projections.max(sc.getField()), alias);
+			} else {
+				projList.add(Projections.min(sc.getField()), alias);
+			}
+		}
+		c.setProjection(projList);
+		for (int i = 0; i < sortCriteriaList.size(); i++) {
+			String alias = "sortCol" + i;
+			if (sortCriteriaList.get(i).getDirection() == SortCriteria.Direction.DESC) {
+				c.addOrder(org.hibernate.criterion.Order.desc(alias));
+			} else {
+				c.addOrder(org.hibernate.criterion.Order.asc(alias));
+			}
+		}
 		Integer startIndex = searchCriteria.getStartIndex();
 		Integer limit = searchCriteria.getLimit();
 		if (limit != null) {
