@@ -331,15 +331,16 @@
                     patientWithOrders.orders.forEach(order => {
                         const subRow = jq("<tr>").addClass("patient-sub-row " + subRowClass);
                         const urgencyIcon = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color:red;"></i>' : '';
-                        const metaParts = [
-                            '${ ui.message("pihapps.orderDate") }: ' + dateUtils.formatAsDateWithoutTime(order.dateActivated),
-                            order.encounter?.location?.display ? '${ ui.message("pihapps.orderLocation") }: ' + order.encounter.location.display : null,
-                            order.accessionNumber ? '${ ui.message("pihapps.labId") }: ' + order.accessionNumber : null,
-                            '${ ui.message("pihapps.orderNumber") }: ' + order.orderNumber
-                        ].filter(p => !!p);
-                        const labTest = urgencyIcon + order.concept.displayStringForLab +
-                            ' <span class="text-muted">&nbsp;·&nbsp; ' + metaParts.join(' &nbsp;·&nbsp; ') + '</span>';
-                        subRow.append(jq("<td>").attr("colspan", "2").css("padding-left", "2em").html(labTest));
+                        const metaLabel = (key) => '<span class="text-muted">' + key + ': </span>';
+                        const cellHtml =
+                            '<div class="patient-sub-row-details">' +
+                            '<span class="psrd-test">' + urgencyIcon + order.concept.displayStringForLab + '</span>' +
+                            '<span class="psrd-meta">' + metaLabel('${ ui.message("pihapps.orderDate") }') + dateUtils.formatAsDateWithoutTime(order.dateActivated) + '</span>' +
+                            '<span class="psrd-meta">' + (order.encounter?.location?.display ? metaLabel('${ ui.message("pihapps.orderLocation") }') + order.encounter.location.display : '') + '</span>' +
+                            '<span class="psrd-meta">' + (order.accessionNumber ? metaLabel('${ ui.message("pihapps.labId") }') + order.accessionNumber : '') + '</span>' +
+                            '<span class="psrd-meta">' + metaLabel('${ ui.message("pihapps.orderNumber") }') + order.orderNumber + '</span>' +
+                            '</div>';
+                        subRow.append(jq("<td>").attr("colspan", "2").css("padding-left", "2em").html(cellHtml));
                         subRow.append(jq("<td>").html(getOrderFulfillmentStatus(order)));
                         const subActions = jq("<span>");
                         if (order.fulfillerEncounter) {
@@ -619,6 +620,24 @@
     #patients-table tbody tr.patient-sub-row {
         font-size: 0.9em;
         background-color: #f9f9f9;
+    }
+    .patient-sub-row-details {
+        display: flex;
+        align-items: center;
+    }
+    .patient-sub-row-details .psrd-test {
+        flex: 0 0 28%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-right: 0.5rem;
+    }
+    .patient-sub-row-details .psrd-meta {
+        flex: 0 0 18%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-right: 0.5rem;
     }
     .lab-action-icon {
         font-size: 1.1em;
