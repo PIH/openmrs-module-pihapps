@@ -629,7 +629,7 @@
         align-items: baseline;
     }
     .patient-sub-row-details .psrd-test {
-        flex: 0 0 25%;
+        flex: 0 0 18%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
