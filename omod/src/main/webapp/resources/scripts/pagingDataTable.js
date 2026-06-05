@@ -60,7 +60,7 @@ class PagingDataTable {
         let pageSizeSelector = this.getTableInfoElement().find(".page-size-selector");
         if (pageSizeSelector.length === 0) {
             pagingSizeElement.html(pagingSizeElement.html().replace('_MENU_', '<select class="page-size-selector"></select>'));
-            pageSizeSelector = jq(".page-size-selector");
+            pageSizeSelector = this.getTableInfoElement().find(".page-size-selector");
             pageSizeSelector.attr("name", "page-size-selector");
             this.pagingSizes.forEach(size => {
                 pageSizeSelector.append('<option value="' + size + '">' + size + '</option>');

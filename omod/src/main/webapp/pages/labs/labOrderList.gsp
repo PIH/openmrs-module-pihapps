@@ -8,7 +8,6 @@
     ui.includeCss("pihapps", "labs/labs.css")
 
     def now = new Date()
-    def patientListPage = ui.pageLink("pihapps", "labs/labPatientList")
     def orderLabsPage = ui.pageLink("coreapps", "findpatient/findPatient", ["app": "pih.app.labs.ordering"])
     def visitLocationUuid = visitLocationForSessionLocation ? visitLocationForSessionLocation.uuid : ""
 %>
@@ -31,6 +30,8 @@
     moment.locale(window.sessionContext?.locale ?? 'en');
 
     const pagingDataTable = new PagingDataTable(jq);
+    const patientPagingDataTable = new PagingDataTable(jq);
+    const patientOrderRep = "id,uuid,orderNumber,dateActivated,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),accessionNumber,urgency,action,patient:" + patientRep + ",concept:(id,uuid,allowDecimal,display,displayStringForLab)";
     const patientUtils = new PihAppsPatientUtils(jq);
 
     const viewSpecimenEncounter = function(encounterUuid) {
@@ -69,6 +70,49 @@
         });
     }
 
+    const markNotPerformed = function(patient, orders) {
+        jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
+            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+            jq(".lab-patient-name").html(patient.person.display);
+            initializeOrderNotFulfilledForm({
+                orders: orders,
+                pihAppsConfig: pihAppsConfig,
+                onSuccessFunction: () => {
+                    closeReasonNotPerformed();
+                    if (jq("#group-by-patient-btn").hasClass("active")) {
+                        patientPagingDataTable.updateTable();
+                    } else {
+                        pagingDataTable.updateTable();
+                    }
+                }
+            });
+            openReasonNotPerformed();
+        });
+    };
+
+    const collectSpecimen = function(patient, orders, selectedOrderUuids) {
+        jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
+            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+            jq(".lab-patient-name").html(patient.person.display);
+            initializeSpecimenCollectionForm({
+                patientUuid: patient.uuid,
+                orders: orders,
+                selectedOrderUuids: selectedOrderUuids,
+                encounter: null,
+                pihAppsConfig: pihAppsConfig,
+                onSuccessFunction: () => {
+                    closeEncounterEdit();
+                    if (jq("#group-by-patient-btn").hasClass("active")) {
+                        patientPagingDataTable.updateTable();
+                    } else {
+                        pagingDataTable.updateTable();
+                    }
+                }
+            });
+            openEncounterEdit();
+        });
+    };
+
     const openSection = function(selector) {
         jq("#view-orders-section").hide();
         jq(selector).show();
@@ -87,6 +131,11 @@
     const closeLabResults = () => closeSection("#record-lab-results-section");
 
     jq(document).ready(function() {
+
+        // Read URL params for deep linking (e.g., Specimen Collection Queue)
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialGrouping = urlParams.get('grouping');   // 'patient' or null
+        const initialStatus = urlParams.get('status');        // e.g. 'AWAITING_FULFILLMENT' or null
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
 
@@ -115,19 +164,46 @@
                 return "<a href=\"javascript:viewSpecimenEncounter('" + fulfillerEncounter.uuid +  "')\">" + specimenDate + "</a>";
             }
 
+            const isExpiredOrder = (order) => {
+                return !order.fulfillerStatus && !order.dateStopped &&
+                    order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date());
+            };
+
+            const isOrphanedOrder = (order) => {
+                return !!order.fulfillerStatus && !order.fulfillerEncounter && !isExpiredOrder(order);
+            };
+
             const getOrderFulfillmentStatus = (order) => {
                 const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
                 if (order.fulfillerStatus === 'EXCEPTION') {
-                    return "<a href=\"javascript:viewOrderNotPerformed('" + order.uuid +  "')\">" + statusDisplay + "</a>";
+                    return "<a href=\"javascript:viewOrderNotPerformed('" + order.uuid + "')\">" + statusDisplay + "</a>";
+                }
+                if (isOrphanedOrder(order)) {
+                    return '<span class="orphaned-order-status" title="${ ui.message("pihapps.orphanedOrderWarning") }">'
+                        + '<i class="fas fa-fw fa-exclamation-triangle"></i> ' + statusDisplay + '</span>';
                 }
                 return statusDisplay;
-            }
+            };
 
             const getActions = (order) => {
                 const actions = jq("<span>").addClass("actions");
                 if (order.fulfillerEncounter) {
-                    const editAction = jq("<i>").addClass("icon-pencil enter-results-action").attr("data-order-uuid", order.uuid);
-                    actions.append(editAction);
+                    const resultsTitle = order.fulfillerStatus === 'COMPLETED'
+                        ? "${ ui.message('pihapps.editResults') }"
+                        : "${ ui.message('pihapps.recordResults') }";
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
+                            .attr({ "data-order-uuid": order.uuid, "title": resultsTitle })
+                    );
+                } else if (!isExpiredOrder(order)) {
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
+                            .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
+                    );
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-action")
+                            .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
+                    );
                 }
                 return actions.html();
             }
@@ -147,7 +223,7 @@
             }
 
             const orderTableUpdated = function() {
-                jq(".enter-results-action").on("click", (event) => {
+                jq(".enter-results-action").off("click").on("click", (event) => {
                     const orderUuid = jq(event.target).data().orderUuid;
                     const order = getOrderFromTable(orderUuid);
                     jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
@@ -166,7 +242,231 @@
                     });
                     openLabResults();
                 });
+                jq(".collect-specimen-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const orderUuid = jq(event.currentTarget).data().orderUuid;
+                    const order = getOrderFromTable(orderUuid);
+                    collectSpecimen(order.patient, [order], [order.uuid]);
+                });
+                jq(".mark-not-performed-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const orderUuid = jq(event.currentTarget).data().orderUuid;
+                    const order = getOrderFromTable(orderUuid);
+                    markNotPerformed(order.patient, [order]);
+                });
             }
+
+            // ---- Patient grouping view ----
+
+            const getAggregateStatus = (orders) => {
+                if (!orders || orders.length === 0) return 'MIXED';
+                const allExpired = orders.every(o => isExpiredOrder(o));
+                if (allExpired) return 'EXPIRED';
+                const allAwaiting = orders.every(o => !o.fulfillerEncounter && !isExpiredOrder(o));
+                if (allAwaiting) return 'AWAITING';
+                const allCompleted = orders.every(o => o.fulfillerStatus === 'COMPLETED');
+                if (allCompleted) return 'COMPLETED';
+                const allCollected = orders.every(o => !!o.fulfillerEncounter && o.fulfillerStatus !== 'COMPLETED');
+                if (allCollected) return 'COLLECTED';
+                return 'MIXED';
+            };
+
+            const getPatientColumn = (patientWithOrders) => {
+                const emrId = patientUtils.getPreferredIdentifier(patientWithOrders.patient, primaryIdentifierType);
+                return '<span data-patient-uuid="' + patientWithOrders.patient.uuid + '">' +
+                    '<i class="fas fa-fw fa-caret-right expand-indicator mr-1"></i>' +
+                    emrId + " — " + patientWithOrders.patient.person.display +
+                    '</span>';
+            };
+
+            const getPatientOrdersSummary = (patientWithOrders) => {
+                const count = patientWithOrders.orders.length;
+                return count + " order" + (count !== 1 ? "s" : "");
+            };
+
+            const getAggregateStatusBadge = (patientWithOrders) => {
+                const status = getAggregateStatus(patientWithOrders.orders);
+                const labels = {
+                    'AWAITING':  { cls: 'badge-warning',   key: '${ui.message("pihapps.allAwaiting")}' },
+                    'COLLECTED': { cls: 'badge-info',      key: '${ui.message("pihapps.allCollected")}' },
+                    'COMPLETED': { cls: 'badge-success',   key: '${ui.message("pihapps.allCompleted")}' },
+                    'EXPIRED':   { cls: 'badge-dark',      key: '${ui.message("pihapps.allExpired")}' },
+                    'MIXED':     { cls: 'badge-secondary', key: '${ui.message("pihapps.mixedStatus")}' }
+                };
+                const label = labels[status] || labels['MIXED'];
+                return '<span class="badge ' + label.cls + '">' + label.key + '</span>';
+            };
+
+            const getPatientGroupActions = (patientWithOrders) => {
+                const actions = jq("<span>").addClass("patient-group-actions");
+                const status = getAggregateStatus(patientWithOrders.orders);
+                const patientUuid = patientWithOrders.patient.uuid;
+                if (status === 'AWAITING') {
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-group-action")
+                            .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
+                    );
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-group-action")
+                            .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
+                    );
+                }
+                // TODO: Print Results and Notify Patient require configuration before enabling.
+                // Uncomment the block below once the downstream handlers are implemented.
+                // else if (status === 'COMPLETED') {
+                //     actions.append(
+                //         jq("<i>").addClass("fas fa-fw fa-print lab-action-icon print-results-action mr-1")
+                //             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.printResults') }" })
+                //     );
+                //     actions.append(
+                //         jq("<i>").addClass("fas fa-fw fa-bell lab-action-icon notify-patient-action")
+                //             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.notifyPatient') }" })
+                //     );
+                // }
+                return actions.html();
+            };
+
+            const expandPatientRow = function(trElement, patientWithOrders) {
+                const patientUuid = patientWithOrders.patient.uuid;
+                const subRowClass = "patient-sub-row-" + patientUuid;
+                const alreadyExpanded = jq("." + subRowClass).length > 0;
+                jq("." + subRowClass).remove();
+                if (!alreadyExpanded) {
+                    jq(trElement).find(".expand-indicator").removeClass("fa-caret-right").addClass("fa-caret-down");
+                    const subRows = [];
+                    patientWithOrders.orders.forEach(order => {
+                        const subRow = jq("<tr>").addClass("patient-sub-row " + subRowClass);
+                        const urgencyIcon = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color:red;"></i>' : '';
+                        const metaLabel = (key) => '<span class="text-muted">' + key + ': </span>';
+                        const metaParts = [
+                            metaLabel('${ ui.message("pihapps.orderDate") }') + dateUtils.formatAsDateWithoutTime(order.dateActivated),
+                            order.encounter?.location?.display ? metaLabel('${ ui.message("pihapps.orderLocation") }') + order.encounter.location.display : null,
+                            order.accessionNumber ? metaLabel('${ ui.message("pihapps.labId") }') + order.accessionNumber : null,
+                            metaLabel('${ ui.message("pihapps.orderNumber") }') + order.orderNumber
+                        ].filter(p => !!p);
+                        const cellHtml =
+                            '<div class="patient-sub-row-details">' +
+                            '<span class="psrd-test">' + urgencyIcon + order.concept.displayStringForLab + '</span>' +
+                            '<span class="psrd-meta-block">' + metaParts.join(' &nbsp;·&nbsp; ') + '</span>' +
+                            '</div>';
+                        subRow.append(jq("<td>").attr("colspan", "2").css("padding-left", "2em").html(cellHtml));
+                        subRow.append(jq("<td>").html(getOrderFulfillmentStatus(order)));
+                        const subActions = jq("<span>");
+                        if (order.fulfillerEncounter) {
+                            const subResultsTitle = order.fulfillerStatus === 'COMPLETED'
+                                ? "${ ui.message('pihapps.editResults') }"
+                                : "${ ui.message('pihapps.recordResults') }";
+                            subActions.append(
+                                jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
+                                    .attr({ "data-order-uuid": order.uuid, "title": subResultsTitle })
+                                    .css("cursor", "pointer")
+                            );
+                        } else if (!isExpiredOrder(order)) {
+                            subActions.append(
+                                jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
+                                    .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
+                                    .css("cursor", "pointer")
+                            );
+                            subActions.append(
+                                jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-action")
+                                    .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
+                                    .css("cursor", "pointer")
+                            );
+                        }
+                        subRow.append(jq("<td>").append(subActions));
+                        subRows.push(subRow);
+                    });
+                    // Insert all sub-rows after the patient row, maintaining order
+                    let insertAfter = jq(trElement);
+                    subRows.forEach(subRow => {
+                        subRow.insertAfter(insertAfter);
+                        insertAfter = subRow;
+                    });
+
+                    // Attach click handlers to newly inserted sub-rows
+                    patientWithOrders.orders.forEach(order => {
+                        const subRowClass2 = "patient-sub-row-" + patientUuid;
+                        // Results entry
+                        jq("." + subRowClass2 + " .enter-results-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
+                            event.stopPropagation();
+                            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patientWithOrders.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                            jq(".lab-patient-name").html(patientWithOrders.patient.person.display);
+                            initializeLabResultsForm({
+                                order: order,
+                                pihAppsConfig: pihAppsConfig,
+                                onSuccessFunction: () => { closeLabResults(); patientPagingDataTable.updateTable(); },
+                                onCancelFunction: () => { closeLabResults(); closeReasonNotPerformed(); }
+                            });
+                            openLabResults();
+                        });
+                        // Collect specimen
+                        jq("." + subRowClass2 + " .collect-specimen-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
+                            event.stopPropagation();
+                            collectSpecimen(patientWithOrders.patient, [order], [order.uuid]);
+                        });
+                        // Mark not performed (pre-collection)
+                        jq("." + subRowClass2 + " .mark-not-performed-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
+                            event.stopPropagation();
+                            markNotPerformed(patientWithOrders.patient, [order]);
+                        });
+                    });
+                } else {
+                    jq(trElement).find(".expand-indicator").removeClass("fa-caret-down").addClass("fa-caret-right");
+                }
+            };
+
+            const patientTableUpdated = function() {
+                jq("#patients-table tbody tr").each(function() {
+                    const patientUuid = jq(this).find("[data-patient-uuid]").first().attr("data-patient-uuid");
+                    if (patientUuid) {
+                        jq(this).addClass("patient-group-row")
+                            .attr("data-patient-uuid", patientUuid)
+                            .css("cursor", "pointer");
+                    }
+                });
+
+                // Collect Specimen at group level
+                jq(".collect-specimen-group-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const patientUuid = jq(event.currentTarget).data("patientUuid");
+                    const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
+                    if (patientWithOrders) {
+                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter && !isExpiredOrder(o));
+                        collectSpecimen(patientWithOrders.patient, awaitingOrders, awaitingOrders.map(o => o.uuid));
+                    }
+                });
+
+                // Mark Not Performed at group level (pre-collection)
+                jq(".mark-not-performed-group-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const patientUuid = jq(event.currentTarget).data("patientUuid");
+                    const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
+                    if (patientWithOrders) {
+                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter && !isExpiredOrder(o));
+                        markNotPerformed(patientWithOrders.patient, awaitingOrders);
+                    }
+                });
+
+                // TODO: Uncomment when Print Results and Notify Patient are implemented.
+                // jq(".print-results-action").off("click").on("click", (event) => {
+                //     event.stopPropagation();
+                //     const patientUuid = jq(event.currentTarget).data("patientUuid");
+                // });
+                // jq(".notify-patient-action").off("click").on("click", (event) => {
+                //     event.stopPropagation();
+                //     const patientUuid = jq(event.currentTarget).data("patientUuid");
+                // });
+
+                // Expand/collapse on row click
+                jq("#patients-table tbody tr.patient-group-row").off("click").on("click", function(event) {
+                    if (jq(event.target).closest("button, a, i.lab-action-icon").length) return;
+                    const patientUuid = jq(this).attr("data-patient-uuid");
+                    const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
+                    if (patientWithOrders) {
+                        expandPatientRow(this, patientWithOrders);
+                    }
+                });
+            };
 
             pagingDataTable.initialize({
                 tableSelector: "#orders-table",
@@ -191,6 +491,8 @@
                     orderTableUpdated();
                 }
             });
+
+            let patientTableInitialized = false;
 
             pihAppsConfig.labOrderConfig.availableLabTestsByCategory.forEach((labCategory) => {
                 const optGroup = jq("<optGroup>").attr("label", labCategory.category.displayStringForLab);
@@ -219,21 +521,87 @@
             }
 
             jq("#test-filter-form").find(":input").change(function () {
-                pagingDataTable.setParameters(getFilterParameterValues())
+                const params = getFilterParameterValues();
+                if (jq("#group-by-patient-btn").hasClass("active")) {
+                    patientPagingDataTable.setParameters(params);
+                    patientPagingDataTable.goToFirstPage();
+                } else {
+                    pagingDataTable.setParameters(params);
+                    pagingDataTable.goToFirstPage();
+                }
+            });
+
+            jq("#group-by-order-btn").on("click", function() {
+                jq(this).blur();
+                jq("#group-by-order-btn").addClass("active");
+                jq("#group-by-patient-btn").removeClass("active");
+                jq("#order-view-container").show();
+                jq("#patient-view-container").hide();
+                pagingDataTable.setParameters(getFilterParameterValues());
                 pagingDataTable.goToFirstPage();
             });
+
+            jq("#group-by-patient-btn").on("click", function() {
+                jq(this).blur();
+                jq("#group-by-patient-btn").addClass("active");
+                jq("#group-by-order-btn").removeClass("active");
+                jq("#order-view-container").hide();
+                jq("#patient-view-container").show();
+                if (!patientTableInitialized) {
+                    patientPagingDataTable.initialize({
+                        tableSelector: "#patients-table",
+                        tableInfoSelector: "#patients-table-info-and-paging",
+                        endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/patientsWithOrders",
+                        representation: "custom:patient:" + patientRep + ",orders:(" + patientOrderRep + ")",
+                        parameters: { ...getFilterParameterValues() },
+                        columnTransformFunctions: [
+                            getPatientColumn, getPatientOrdersSummary, getAggregateStatusBadge, getPatientGroupActions
+                        ],
+                        datatableOptions: {
+                            oLanguage: {
+                                sInfo: "${ ui.message("uicommons.dataTable.info") }",
+                                sZeroRecords: "${ ui.message("uicommons.dataTable.zeroRecords") }",
+                                sEmptyTable: "${ ui.message("uicommons.dataTable.emptyTable") }",
+                                sInfoEmpty:  "${ ui.message("uicommons.dataTable.infoEmpty") }",
+                                sLoadingRecords:  "${ ui.message("uicommons.dataTable.loadingRecords") }",
+                                sProcessing:  "${ ui.message("uicommons.dataTable.processing") }",
+                            }
+                        },
+                        tableUpdateCallback: () => {
+                            patientTableUpdated();
+                        }
+                    });
+                    patientTableInitialized = true;
+                } else {
+                    patientPagingDataTable.setParameters(getFilterParameterValues());
+                    patientPagingDataTable.goToFirstPage();
+                }
+            });
+
+            // Apply deep-link grouping param
+            if (initialGrouping === 'patient') {
+                jq("#group-by-patient-btn").trigger("click");
+            }
 
             jq("#specimen-encounter-section button.cancel").click((event) => {
                 event.preventDefault();
                 closeEncounterEdit();
+            });
+            jq("#reason-not-performed-section button.cancel").click((event) => {
+                event.preventDefault();
+                closeReasonNotPerformed();
             });
 
             const getOrderFromTable = function(orderUuid) {
                 return pagingDataTable.getRowObjects().find((o) => o.uuid === orderUuid);
             }
 
-            // Set default status to "COLLECTED"
-            jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT").trigger("change");
+            // Apply initial status from URL param, or fall back to default
+            if (initialStatus) {
+                jq("#orderFulfillmentStatus-filter").val(initialStatus).trigger("change");
+            } else {
+                jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT").trigger("change");
+            }
 
             // Add clear buttons to filters
             jq(".clearable-input-wrapper").find(".icon-remove").on("click", (event) => {
@@ -254,23 +622,77 @@
     .select-buttons button {
         margin-right: 5px; margin-left: 5px;
     }
+    #patients-table tbody tr.patient-group-row:hover {
+        background-color: #f0f4ff;
+        cursor: pointer;
+    }
+    #patients-table tbody tr.patient-sub-row {
+        font-size: 0.9em;
+        background-color: #f9f9f9;
+    }
+    .patient-sub-row-details {
+        display: flex;
+        align-items: baseline;
+    }
+    .patient-sub-row-details .psrd-test {
+        flex: 0 0 18%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-right: 1rem;
+    }
+    .patient-sub-row-details .psrd-meta-block {
+        flex: 1;
+    }
+    .lab-action-icon {
+        font-size: 1.1em;
+        cursor: pointer;
+        padding: 0 4px;
+        color: #495057;
+    }
+    .lab-action-icon:hover {
+        color: #0056b3;
+    }
+    .lab-action-icon + .lab-action-icon {
+        margin-left: 1.25rem;
+    }
+    .lab-action-icon.fa-ban {
+        color: #adb5bd;
+    }
+    .lab-action-icon.fa-ban:hover {
+        color: #dc3545;
+    }
+    .orphaned-order-status {
+        color: #856404;
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 3px;
+        padding: 1px 4px;
+        white-space: nowrap;
+    }
+    .expand-indicator {
+        color: #6c757d;
+        font-size: 0.9em;
+    }
+    #grouping-toggle .btn.active {
+        background-color: #6c757d;
+        color: #fff;
+        border-color: #6c757d;
+    }
 </style>
 
 <div id="view-orders-section">
-    <div class="row justify-content-between">
-        <div class="col-6">
+    <div class="row justify-content-between align-items-center mb-2">
+        <div class="col-auto">
             <h3>${ ui.message("pihapps.labOrderList") }</h3>
         </div>
-        <div class="col-6 text-right">
-            <div class="action-menu dropdown show">
-                <a class="btn btn-sm btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    ${ ui.message("pihapps.actions") }
-                </a>
-                <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink">
-                    <a class="dropdown-item" href="${ patientListPage }">${ ui.message("pihapps.labPatientReception") }</a>
-                    <a class="dropdown-item" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
-                </div>
+        <div class="col-auto d-flex align-items-center">
+            <span class="mr-2 text-muted" style="font-size:.85em;">${ ui.message("pihapps.groupBy") }:</span>
+            <div class="btn-group mr-3" id="grouping-toggle" role="group">
+                <button type="button" class="btn btn-sm btn-outline-secondary active" id="group-by-order-btn">${ ui.message("pihapps.groupByOrder") }</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="group-by-patient-btn">${ ui.message("pihapps.groupByPatient") }</button>
             </div>
+            <a class="btn btn-sm btn-secondary" style="color:#fff;" href="${ orderLabsPage }">${ ui.message("pihapps.addLabOrders") }</a>
         </div>
     </div>
 
@@ -333,6 +755,7 @@
             </div>
         </div>
     </form>
+    <div id="order-view-container">
     <table id="orders-table">
         <thead>
             <tr>
@@ -363,6 +786,34 @@
         <div class="row justify-content-between info-and-paging-row">
             <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
         </div>
+    </div>
+    </div>
+    <div id="patient-view-container" style="display:none;">
+    <table id="patients-table">
+        <thead>
+            <tr>
+                <th>${ ui.message("pihapps.patient") }</th>
+                <th>${ ui.message("pihapps.orders") }</th>
+                <th>${ ui.message("pihapps.orderFulfillmentStatus") }</th>
+                <th>${ ui.message("pihapps.actions") }</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div id="patients-table-info-and-paging" style="font-size: .9em">
+        <div class="row justify-content-between info-and-paging-row">
+            <div class="col paging-info"></div>
+            <div class="col text-right">
+                <a class="first paging-navigation">${ ui.message("uicommons.dataTable.first") }</a>
+                <a class="previous paging-navigation">${ ui.message("uicommons.dataTable.previous") }</a>
+                <a class="next paging-navigation">${ ui.message("uicommons.dataTable.next") }</a>
+                <a class="last paging-navigation">${ ui.message("uicommons.dataTable.last") }</a>
+            </div>
+        </div>
+        <div class="row justify-content-between info-and-paging-row">
+            <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
+        </div>
+    </div>
     </div>
 </div>
 
