@@ -31,7 +31,7 @@
 
     const pagingDataTable = new PagingDataTable(jq);
     const patientPagingDataTable = new PagingDataTable(jq);
-    const patientOrderRep = "id,uuid,orderNumber,dateActivated,orderer:(display),fulfillerStatus,encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),accessionNumber,urgency,action,patient:" + patientRep + ",concept:(id,uuid,allowDecimal,display,displayStringForLab)";
+    const patientOrderRep = "id,uuid,orderNumber,dateActivated,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),accessionNumber,urgency,action,patient:" + patientRep + ",concept:(id,uuid,allowDecimal,display,displayStringForLab)";
     const patientUtils = new PihAppsPatientUtils(jq);
 
     const viewSpecimenEncounter = function(encounterUuid) {
@@ -172,6 +172,11 @@
                 return statusDisplay;
             }
 
+            const isExpiredOrder = (order) => {
+                return !order.fulfillerStatus && !order.dateStopped &&
+                    order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date());
+            };
+
             const getActions = (order) => {
                 const actions = jq("<span>").addClass("actions");
                 if (order.fulfillerEncounter) {
@@ -182,7 +187,7 @@
                         jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
                             .attr({ "data-order-uuid": order.uuid, "title": resultsTitle })
                     );
-                } else {
+                } else if (!isExpiredOrder(order)) {
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
                             .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
@@ -247,7 +252,9 @@
 
             const getAggregateStatus = (orders) => {
                 if (!orders || orders.length === 0) return 'MIXED';
-                const allAwaiting = orders.every(o => !o.fulfillerEncounter);
+                const allExpired = orders.every(o => isExpiredOrder(o));
+                if (allExpired) return 'EXPIRED';
+                const allAwaiting = orders.every(o => !o.fulfillerEncounter && !isExpiredOrder(o));
                 if (allAwaiting) return 'AWAITING';
                 const allCompleted = orders.every(o => o.fulfillerStatus === 'COMPLETED');
                 if (allCompleted) return 'COMPLETED';
@@ -277,6 +284,7 @@
                     'AWAITING':  { cls: 'badge-warning',   key: '${ui.message("pihapps.allAwaiting")}' },
                     'COLLECTED': { cls: 'badge-info',      key: '${ui.message("pihapps.allCollected")}' },
                     'COMPLETED': { cls: 'badge-success',   key: '${ui.message("pihapps.allCompleted")}' },
+                    'EXPIRED':   { cls: 'badge-dark',      key: '${ui.message("pihapps.allExpired")}' },
                     'MIXED':     { cls: 'badge-secondary', key: '${ui.message("pihapps.mixedStatus")}' }
                 };
                 const label = labels[status] || labels['MIXED'];
@@ -340,7 +348,7 @@
                                     .attr({ "data-order-uuid": order.uuid, "title": subResultsTitle })
                                     .css("cursor", "pointer")
                             );
-                        } else {
+                        } else if (!isExpiredOrder(order)) {
                             subActions.append(
                                 jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
                                     .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
@@ -410,7 +418,7 @@
                     const patientUuid = jq(event.currentTarget).data("patientUuid");
                     const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
                     if (patientWithOrders) {
-                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter);
+                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter && !isExpiredOrder(o));
                         collectSpecimen(patientWithOrders.patient, awaitingOrders, awaitingOrders.map(o => o.uuid));
                     }
                 });
@@ -421,7 +429,7 @@
                     const patientUuid = jq(event.currentTarget).data("patientUuid");
                     const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
                     if (patientWithOrders) {
-                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter);
+                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter && !isExpiredOrder(o));
                         markNotPerformed(patientWithOrders.patient, awaitingOrders);
                     }
                 });
