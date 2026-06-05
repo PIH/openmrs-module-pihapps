@@ -169,15 +169,18 @@
                     order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date());
             };
 
+            const isOrphanedOrder = (order) => {
+                return !!order.fulfillerStatus && !order.fulfillerEncounter && !isExpiredOrder(order);
+            };
+
             const getOrderFulfillmentStatus = (order) => {
-                // If no specimen collection encounter exists, the order hasn't been collected yet —
-                // show Ordered regardless of any fulfiller status set on the order (bad data).
-                if (!order.fulfillerEncounter && !isExpiredOrder(order)) {
-                    return orderFulfillmentStatusOptions.find(o => o.status === 'AWAITING_FULFILLMENT')?.display ?? '';
-                }
                 const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
                 if (order.fulfillerStatus === 'EXCEPTION') {
                     return "<a href=\"javascript:viewOrderNotPerformed('" + order.uuid + "')\">" + statusDisplay + "</a>";
+                }
+                if (isOrphanedOrder(order)) {
+                    return '<span class="orphaned-order-status" title="${ ui.message("pihapps.orphanedOrderWarning") }">'
+                        + '<i class="fas fa-fw fa-exclamation-triangle"></i> ' + statusDisplay + '</span>';
                 }
                 return statusDisplay;
             };
@@ -658,6 +661,14 @@
     }
     .lab-action-icon.fa-ban:hover {
         color: #dc3545;
+    }
+    .orphaned-order-status {
+        color: #856404;
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 3px;
+        padding: 1px 4px;
+        white-space: nowrap;
     }
     .expand-indicator {
         color: #6c757d;
