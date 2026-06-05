@@ -203,7 +203,7 @@
         jq("#draft-save-button").click(function () {
             const saveButton = jq("#draft-save-button");
             saveButton.attr("disabled", "disabled");
-            jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config", function(pihAppsConfig) {
+            jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(labOrderConfig:(defaultCareSetting:(uuid),labOrderEncounterType:(uuid),labOrderEncounterRole:(uuid),labOrderAutoExpireDays))", function(pihAppsConfig) {
                 const labOrderConfig = pihAppsConfig.labOrderConfig;
                 const orders = [];
                 const orderDate = jq("#order-date-picker-field").val() || defaultOrderDate;
