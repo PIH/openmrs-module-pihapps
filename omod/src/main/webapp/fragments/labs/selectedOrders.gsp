@@ -5,10 +5,10 @@
     ui.includeCss("pihapps", "labs/labs.css")
 %>
 <script type="text/javascript">
-    function initializeSelectedOrders({ orders, selectedOrderUuids, pihAppsConfig, jqElement }) {
+    function initializeSelectedOrders({ orders, selectedOrderUuids, readOnly, pihAppsConfig, jqElement }) {
         moment.locale(window.sessionContext?.locale ?? 'en');
         const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
-        jqElement.html("");
+        jqElement.html("").toggleClass("orders-readonly", !!readOnly);
         if (orders && orders.length > 0) {
             const showCheckboxes = selectedOrderUuids !== undefined;
             let headerRow = jq("<div>").addClass("row table-header");
@@ -30,7 +30,8 @@
                         .addClass("order-select-checkbox")
                         .attr("data-order-uuid", o.uuid)
                         .attr("aria-label", o.concept.displayStringForLab)
-                        .prop("checked", isChecked);
+                        .prop("checked", isChecked)
+                        .prop("disabled", !!readOnly);
                     row.append(jq("<div>").addClass("col-1").append(checkbox));
                     row.append(jq("<div>").addClass("col-4").html(labTest));
                     row.append(jq("<div>").addClass("col-4").html(dateUtils.formatDateWithTimeIfPresent(o.dateActivated)));

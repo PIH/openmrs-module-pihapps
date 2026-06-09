@@ -40,7 +40,7 @@
         const parentElement = jq(selectorPrefix);
 
         const ordersWidgetsSection = parentElement.find(".orders-widgets");
-        initializeSelectedOrders({ orders: orders, selectedOrderUuids: selectedOrderUuids, pihAppsConfig: pihAppsConfig, jqElement: ordersWidgetsSection});
+        initializeSelectedOrders({ orders: orders, selectedOrderUuids: selectedOrderUuids, readOnly: !!encounter, pihAppsConfig: pihAppsConfig, jqElement: ordersWidgetsSection});
 
         const formName = "pihapps^specimenForm";
         const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);

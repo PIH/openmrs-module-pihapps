@@ -44,6 +44,7 @@
                 initializeSpecimenCollectionForm({
                     patientUuid: encAndOrders.encounter.patient.uuid,
                     orders: encAndOrders.orders,
+                    selectedOrderUuids: encAndOrders.orders.map(o => o.uuid),
                     encounter: encAndOrders.encounter,
                     pihAppsConfig: pihAppsConfig,
                     onSuccessFunction: () => { closeEncounterEdit(); pagingDataTable.updateTable(); }
