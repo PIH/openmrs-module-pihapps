@@ -71,12 +71,16 @@ Result obs have **no** `obs.order_id` set.
 
 ### pihapps
 
-Two encounters. A separate specimen collection encounter is created before results can be
-entered. Specimen metadata and results both live in this one encounter. Result obs have
-`obs.order_id` set (via the standard OpenMRS encounter/obs REST endpoint).
+One Laboratory Encounter holds both specimen metadata and results — the same structure as
+labworkflow. The difference is that this encounter is created in two phases: first at specimen
+reception (specimen metadata obs are recorded and fulfillerStatus set to IN_PROGRESS), then
+results are added to that same encounter later (fulfillerStatus set to COMPLETED). All three
+systems have a separate ordering encounter where orders are originally placed; that is not
+specific to pihapps. Result obs have `obs.order_id` set (via the standard OpenMRS
+encounter/obs REST endpoint).
 
 ```
-[LAB TEST encounter]          [Laboratory Encounter] (specimen collection)
+[LAB TEST encounter]          [Laboratory Encounter] (specimen collection + results)
   └─ TestOrder           →      └─ Obs: testOrderNumberConcept  = "ORD-41554"
        fulfillerStatus:           └─ Obs: labIdentifierConcept   = "RW-12345"
          IN_PROGRESS →            └─ Obs: specimenReceivedDate   = 2024-01-15
@@ -165,19 +169,24 @@ order on page load, only when toggle is on and primary strategy finds nothing.
 
 `getEncounterFulfillingOrders()` has the same symmetric fallback for the reverse direction.
 
-### Gap D — Two-encounter model vs. single-encounter model
+### Gap D — Required two-phase encounter workflow vs. optional single-phase
 
 **Status:** Open design question.
 
-Neither legacy system modeled specimen collection as a separate encounter. labworkflow put
-everything (specimen metadata + results) in one encounter; laboratorymanagement-v2 put results
-in one encounter with no specimen metadata obs at all. pihapps' two-encounter model is a
-deliberate workflow improvement but creates friction for:
-- Migration from either legacy system
-- Sites that don't want/need a separate specimen collection step
+All three systems use one Laboratory Encounter for lab work (specimen + results). The
+difference is that pihapps requires this encounter to be created in two separate steps:
+first specimen collection (which creates the encounter), then results entry (which adds obs
+to the existing encounter). Neither legacy system required this separation — labworkflow
+created the encounter in a single results-entry step; laboratorymanagement-v2 did not
+require any prior encounter creation at all.
 
-A configurable single-encounter mode — where specimen collection and results entry happen in
-the same encounter, matching the labworkflow model structurally — would eliminate the
+pihapps' two-phase workflow is a deliberate improvement (it enables specimen reception
+tracking independent of results), but it creates friction for:
+- Migration from either legacy system (no pre-existing specimen encounters)
+- Sites that don't want/need a distinct specimen reception step
+
+A configurable single-phase mode — where specimen metadata and results can be entered
+together in one step, matching the labworkflow model operationally — would eliminate the
 specimen-collection prerequisite and make historical data from either legacy system look
 identical to new pihapps data.
 
