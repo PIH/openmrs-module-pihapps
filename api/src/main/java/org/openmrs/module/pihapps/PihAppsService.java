@@ -46,5 +46,7 @@ public interface PihAppsService extends OpenmrsService {
 
 	void markOrdersAsNotFulfilled(List<Order> orders, Concept reason);
 
+	void revertOrdersToOrdered(List<Order> orders);
+
 	ObsSearchResult getObs(ObsSearchCriteria searchCriteria);
 }

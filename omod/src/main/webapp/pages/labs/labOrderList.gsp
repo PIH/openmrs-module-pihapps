@@ -161,42 +161,47 @@
                 if (!fulfillerEncounter) {
                     return "";
                 }
-                const specimenDate = dateUtils.formatAsDateWithoutTime(fulfillerEncounter.encounterDatetime);
-                return "<a href=\"javascript:viewSpecimenEncounter('" + fulfillerEncounter.uuid +  "')\">" + specimenDate + "</a>";
+                return dateUtils.formatAsDateWithoutTime(fulfillerEncounter.encounterDatetime);
             }
 
-            const isExpiredOrder = (order) => {
-                return !order.fulfillerStatus && !order.dateStopped &&
-                    order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date());
-            };
-
-            const isOrphanedOrder = (order) => {
-                return !!order.fulfillerStatus && !order.fulfillerEncounter && !isExpiredOrder(order);
+            // Single source of truth for per-order status — used by actions, aggregate, and group filtering.
+            // RECEIVED is treated as equivalent to no fulfiller status (null is a no-op in core, so revert uses RECEIVED).
+            const getOrderStatus = (order) => {
+                if (order.dateStopped) return 'CANCELED';
+                const awaiting = !order.fulfillerStatus || order.fulfillerStatus === 'RECEIVED';
+                if (awaiting && order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date())) return 'EXPIRED';
+                if (order.fulfillerStatus === 'EXCEPTION') return 'NOT_PERFORMED';
+                if (order.fulfillerStatus === 'COMPLETED') return 'COMPLETED';
+                if (order.fulfillerEncounter) return 'COLLECTED';
+                if (!awaiting) return 'ORPHANED';
+                return 'AWAITING';
             };
 
             const getOrderFulfillmentStatus = (order) => {
                 const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
-                if (order.fulfillerStatus === 'EXCEPTION') {
-                    return "<a href=\"javascript:viewOrderNotPerformed('" + order.uuid + "')\">" + statusDisplay + "</a>";
-                }
-                if (isOrphanedOrder(order)) {
+                if (getOrderStatus(order) === 'ORPHANED') {
                     return '<span class="orphaned-order-status" title="${ ui.message("pihapps.orphanedOrderWarning") }">'
                         + '<i class="fas fa-fw fa-exclamation-triangle"></i> ' + statusDisplay + '</span>';
                 }
                 return statusDisplay;
             };
 
-            const getActions = (order) => {
+            const buildOrderActions = (order) => {
                 const actions = jq("<span>").addClass("actions");
+                const status = getOrderStatus(order);
                 if (order.fulfillerEncounter) {
-                    const resultsTitle = order.fulfillerStatus === 'COMPLETED'
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
+                            .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.editSpecimenCollection') }" })
+                    );
+                    const resultsTitle = status === 'COMPLETED'
                         ? "${ ui.message('pihapps.editResults') }"
                         : "${ ui.message('pihapps.recordResults') }";
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
                             .attr({ "data-order-uuid": order.uuid, "title": resultsTitle })
                     );
-                } else if (!isExpiredOrder(order)) {
+                } else if (status === 'AWAITING' || status === 'ORPHANED') {
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
                             .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
@@ -205,9 +210,17 @@
                         jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-action")
                             .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
                     );
+                } else if (status === 'NOT_PERFORMED') {
+                    actions.append(
+                        jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-action")
+                            .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.editNotPerformed') }" })
+                    );
                 }
-                return actions.html();
-            }
+                // CANCELED, EXPIRED, COMPLETED (no encounter) → no actions
+                return actions;
+            };
+
+            const getActions = (order) => buildOrderActions(order).html();
 
             const getFilterParameterValues = function() {
                 return {
@@ -247,13 +260,21 @@
                     event.stopPropagation();
                     const orderUuid = jq(event.currentTarget).data().orderUuid;
                     const order = getOrderFromTable(orderUuid);
-                    collectSpecimen(order.patient, [order], [order.uuid]);
+                    if (order.fulfillerEncounter) {
+                        viewSpecimenEncounter(order.fulfillerEncounter.uuid);
+                    } else {
+                        collectSpecimen(order.patient, [order], [order.uuid]);
+                    }
                 });
                 jq(".mark-not-performed-action").off("click").on("click", (event) => {
                     event.stopPropagation();
                     const orderUuid = jq(event.currentTarget).data().orderUuid;
                     const order = getOrderFromTable(orderUuid);
-                    markNotPerformed(order.patient, [order]);
+                    if (getOrderStatus(order) === 'NOT_PERFORMED') {
+                        viewOrderNotPerformed(order.uuid);
+                    } else {
+                        markNotPerformed(order.patient, [order]);
+                    }
                 });
             }
 
@@ -261,15 +282,8 @@
 
             const getAggregateStatus = (orders) => {
                 if (!orders || orders.length === 0) return 'MIXED';
-                const allExpired = orders.every(o => isExpiredOrder(o));
-                if (allExpired) return 'EXPIRED';
-                const allAwaiting = orders.every(o => !o.fulfillerEncounter && !isExpiredOrder(o));
-                if (allAwaiting) return 'AWAITING';
-                const allCompleted = orders.every(o => o.fulfillerStatus === 'COMPLETED');
-                if (allCompleted) return 'COMPLETED';
-                const allCollected = orders.every(o => !!o.fulfillerEncounter && o.fulfillerStatus !== 'COMPLETED');
-                if (allCollected) return 'COLLECTED';
-                return 'MIXED';
+                const statuses = new Set(orders.map(o => getOrderStatus(o)));
+                return statuses.size === 1 ? statuses.values().next().value : 'MIXED';
             };
 
             const getPatientColumn = (patientWithOrders) => {
@@ -288,11 +302,13 @@
             const getAggregateStatusBadge = (patientWithOrders) => {
                 const status = getAggregateStatus(patientWithOrders.orders);
                 const labels = {
-                    'AWAITING':  { cls: 'badge-warning',   key: '${ui.message("pihapps.allAwaiting")}' },
-                    'COLLECTED': { cls: 'badge-info',      key: '${ui.message("pihapps.allCollected")}' },
-                    'COMPLETED': { cls: 'badge-success',   key: '${ui.message("pihapps.allCompleted")}' },
-                    'EXPIRED':   { cls: 'badge-dark',      key: '${ui.message("pihapps.allExpired")}' },
-                    'MIXED':     { cls: 'badge-secondary', key: '${ui.message("pihapps.mixedStatus")}' }
+                    'AWAITING':      { cls: 'badge-warning',   key: '${ui.message("pihapps.allAwaiting")}' },
+                    'COLLECTED':     { cls: 'badge-info',      key: '${ui.message("pihapps.allCollected")}' },
+                    'COMPLETED':     { cls: 'badge-success',   key: '${ui.message("pihapps.allCompleted")}' },
+                    'EXPIRED':       { cls: 'badge-dark',      key: '${ui.message("pihapps.allExpired")}' },
+                    'CANCELED':      { cls: 'badge-dark',      key: '${ui.message("pihapps.allCanceled")}' },
+                    'NOT_PERFORMED': { cls: 'badge-secondary', key: '${ui.message("pihapps.allNotPerformed")}' },
+                    'MIXED':         { cls: 'badge-secondary', key: '${ui.message("pihapps.mixedStatus")}' }
                 };
                 const label = labels[status] || labels['MIXED'];
                 return '<span class="badge ' + label.cls + '">' + label.key + '</span>';
@@ -300,9 +316,9 @@
 
             const getPatientGroupActions = (patientWithOrders) => {
                 const actions = jq("<span>").addClass("patient-group-actions");
-                const status = getAggregateStatus(patientWithOrders.orders);
                 const patientUuid = patientWithOrders.patient.uuid;
-                if (status === 'AWAITING') {
+                const awaitingOrders = patientWithOrders.orders.filter(o => { const s = getOrderStatus(o); return s === 'AWAITING' || s === 'ORPHANED'; });
+                if (awaitingOrders.length > 0) {
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-group-action")
                             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
@@ -352,29 +368,7 @@
                             '</div>';
                         subRow.append(jq("<td>").attr("colspan", "2").css("padding-left", "2em").html(cellHtml));
                         subRow.append(jq("<td>").html(getOrderFulfillmentStatus(order)));
-                        const subActions = jq("<span>");
-                        if (order.fulfillerEncounter) {
-                            const subResultsTitle = order.fulfillerStatus === 'COMPLETED'
-                                ? "${ ui.message('pihapps.editResults') }"
-                                : "${ ui.message('pihapps.recordResults') }";
-                            subActions.append(
-                                jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
-                                    .attr({ "data-order-uuid": order.uuid, "title": subResultsTitle })
-                                    .css("cursor", "pointer")
-                            );
-                        } else if (!isExpiredOrder(order)) {
-                            subActions.append(
-                                jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
-                                    .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
-                                    .css("cursor", "pointer")
-                            );
-                            subActions.append(
-                                jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-action")
-                                    .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
-                                    .css("cursor", "pointer")
-                            );
-                        }
-                        subRow.append(jq("<td>").append(subActions));
+                        subRow.append(jq("<td>").append(buildOrderActions(order)));
                         subRows.push(subRow);
                     });
                     // Insert all sub-rows after the patient row, maintaining order
@@ -403,12 +397,20 @@
                         // Collect specimen
                         jq("." + subRowClass2 + " .collect-specimen-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
                             event.stopPropagation();
-                            collectSpecimen(patientWithOrders.patient, [order], [order.uuid]);
+                            if (order.fulfillerEncounter) {
+                                viewSpecimenEncounter(order.fulfillerEncounter.uuid);
+                            } else {
+                                collectSpecimen(patientWithOrders.patient, [order], [order.uuid]);
+                            }
                         });
                         // Mark not performed (pre-collection)
                         jq("." + subRowClass2 + " .mark-not-performed-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
                             event.stopPropagation();
-                            markNotPerformed(patientWithOrders.patient, [order]);
+                            if (getOrderStatus(order) === 'NOT_PERFORMED') {
+                                viewOrderNotPerformed(order.uuid);
+                            } else {
+                                markNotPerformed(patientWithOrders.patient, [order]);
+                            }
                         });
                     });
                 } else {
@@ -432,7 +434,7 @@
                     const patientUuid = jq(event.currentTarget).data("patientUuid");
                     const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
                     if (patientWithOrders) {
-                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter && !isExpiredOrder(o));
+                        const awaitingOrders = patientWithOrders.orders.filter(o => { const s = getOrderStatus(o); return s === 'AWAITING' || s === 'ORPHANED'; });
                         collectSpecimen(patientWithOrders.patient, awaitingOrders, awaitingOrders.map(o => o.uuid));
                     }
                 });
@@ -443,7 +445,7 @@
                     const patientUuid = jq(event.currentTarget).data("patientUuid");
                     const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
                     if (patientWithOrders) {
-                        const awaitingOrders = patientWithOrders.orders.filter(o => !o.fulfillerEncounter && !isExpiredOrder(o));
+                        const awaitingOrders = patientWithOrders.orders.filter(o => { const s = getOrderStatus(o); return s === 'AWAITING' || s === 'ORPHANED'; });
                         markNotPerformed(patientWithOrders.patient, awaitingOrders);
                     }
                 });
