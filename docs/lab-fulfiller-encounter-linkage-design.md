@@ -108,14 +108,65 @@ Replace the testOrderNumber obs as the primary linkage mechanism with a dedicate
 Structure of each fulfiller status obs:
 - `obs.encounter_id` = the specimen collection encounter
 - `obs.order_id` = the order being fulfilled
-- `obs.concept` = a configured "Fulfiller Status" concept
-- `obs.valueCoded` = a coded answer (RECEIVED, IN_PROGRESS, COMPLETED, EXCEPTION)
+- `obs.concept` = a status concept (see concept options below)
+- `obs.value` = the current status (coded or text depending on chosen concept)
 - `obs.obsDatetime` = timestamp of the status transition
 
 This obs is written by pihapps at specimen collection time (one per order), replacing the
 testOrderNumber obs for linkage purposes. When status changes (e.g. IN_PROGRESS → COMPLETED),
 a new obs is created rather than voiding the previous one, providing a full history of status
 transitions per order.
+
+### Concept Options for the Status Obs
+
+Three existing PIH concepts are candidates; no new concept creation is strictly required.
+
+**Option A: "Test Status" (coded, existing PIH concept)**
+
+A Finding/Coded concept already in the PIH dictionary. Existing coded answers include
+"Not Done", "In Progress", and "Completed", which map to:
+
+| FulfillerStatus | Coded answer |
+|---|---|
+| IN_PROGRESS | "In Progress" |
+| COMPLETED | "Completed" |
+| EXCEPTION | "Not Done" |
+| RECEIVED | "In Progress" (treat same as IN_PROGRESS — see note) |
+
+RECEIVED has no distinct coded answer, but pihapps already treats RECEIVED and null as
+equivalent (both map to AWAITING_FULFILLMENT in `OrderFulfillmentStatus`). RECEIVED would
+simply be stored as "In Progress". If a distinct RECEIVED status obs is ever needed, a new
+coded answer can be added later.
+
+**Option B: "Fulfillment Status" (coded, existing PIH concept used for referral orders)**
+
+Already used in the PIH system for referral order workflow. The coded answers need to be
+verified to confirm they align with lab FulfillerStatus values before adopting this option.
+If the answer set is compatible, this has the advantage of reusing semantically accurate
+concept already established for order fulfillment tracking.
+
+**Option C: Text-based "Lab Order Status" (new concept, text type)**
+
+A new text-type concept whose `obs.valueText` stores the FulfillerStatus enum string
+directly: `"IN_PROGRESS"`, `"COMPLETED"`, `"EXCEPTION"`, `"RECEIVED"`. 
+
+- No coded answer concepts needed; enum string is self-documenting
+- Trivially extensible if new statuses are added — no concept curation required
+- The value is a system field, not a clinical observation, so the lack of coding is acceptable
+- Downside: requires creating one new concept (the question concept itself)
+- Querying by status value uses `obs.value_text`, which is not indexed; however the
+  linkage query never filters by value — it filters only by `obs.order_id` and `obs.concept_id`,
+  both indexed. The value is metadata only.
+
+**Recommendation:** Option A ("Test Status") is the path of least resistance if the answer
+mapping is acceptable for the deployment. Option C is the cleanest design if a new concept
+is acceptable, since it avoids any impedance mismatch between enum values and coded answers.
+Option B should be evaluated once the referral "Fulfillment Status" concept's answer set is
+confirmed.
+
+The chosen concept UUID is configured via a new GP
+`pihapps.labs.fulfillerStatusConcept`. This is also the value added to
+`pihapps.labs.fulfillerEncounterLinkingConcepts` for pihemr deployments.
 
 ### Configurable Linking Concepts
 
