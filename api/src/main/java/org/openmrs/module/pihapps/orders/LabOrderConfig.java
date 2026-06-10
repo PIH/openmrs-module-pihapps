@@ -284,9 +284,9 @@ public class LabOrderConfig {
                     log.warn("Invalid concept configured for enabled lab tests: " + lookup);
                 }
                 else {
-                    ret.add(concept);
-                }
+                ret.add(concept);
             }
+        }
         }
         return ret;
     }
@@ -376,6 +376,38 @@ public class LabOrderConfig {
 
     public Concept getTestOrderNumberQuestion() {
         return conceptService.getConceptByReference(getTestOrderNumberQuestionReference());
+    }
+
+    // Fulfiller encounter linking concepts — comma-separated concept references used to find
+    // the fulfiller encounter for an order via obs.order_id. If empty, any obs with
+    // obs.order_id set is considered (maximum compatibility mode for legacy data).
+
+    private String cachedFulfillerEncounterLinkingConceptsRef = null;
+    private List<Concept> cachedFulfillerEncounterLinkingConcepts = null;
+
+    public List<Concept> getFulfillerEncounterLinkingConcepts() {
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.fulfillerEncounterLinkingConcepts");
+        if (cachedFulfillerEncounterLinkingConcepts != null
+                && StringUtils.equals(configVal, cachedFulfillerEncounterLinkingConceptsRef)) {
+            return cachedFulfillerEncounterLinkingConcepts;
+        }
+        List<Concept> concepts = new ArrayList<>();
+        if (StringUtils.isNotBlank(configVal)) {
+            for (String lookup : configVal.split(",")) {
+                lookup = lookup.trim();
+                if (lookup.isEmpty()) {
+                    continue;
+                }
+                Concept concept = conceptService.getConceptByReference(lookup);
+                if (concept == null) {
+                    throw new IllegalStateException("Invalid concept configured for fulfillerEncounterLinkingConcepts: " + lookup);
+                }
+                concepts.add(concept);
+            }
+        }
+        cachedFulfillerEncounterLinkingConceptsRef = configVal;
+        cachedFulfillerEncounterLinkingConcepts = concepts;
+        return concepts;
     }
 
     public String getLabIdentifierConceptReference() {
@@ -468,9 +500,9 @@ public class LabOrderConfig {
                 if (concept == null) {
                     log.warn("Invalid concept configured for multiple answer concepts: " + lookup);
                 } else {
-                    ret.add(concept);
-                }
+                ret.add(concept);
             }
+        }
         }
         cachedMultipleAnswerConceptsRef = configVal;
         cachedMultipleAnswerConcepts = ret;

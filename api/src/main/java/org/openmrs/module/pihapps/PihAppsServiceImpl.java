@@ -346,15 +346,19 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (encounterFulfillingOrders.getEncounter() == null) {
 			throw new  IllegalArgumentException("Encounter is required");
 		}
+		Encounter encounter = encounterFulfillingOrders.getEncounter();
 		String accessionNumber = null;
-		for (Obs obs : encounterFulfillingOrders.getEncounter().getObsAtTopLevel(true)) {
+		for (Obs obs : encounter.getObsAtTopLevel(true)) {
 			if (obs.getConcept().equals(accessionNumberConcept)) {
 				accessionNumber = BooleanUtils.isTrue(obs.getVoided()) ? "" : obs.getValueText();
 			}
 		}
-		encounterService.saveEncounter(encounterFulfillingOrders.getEncounter());
+		encounterService.saveEncounter(encounter);
 		if (encounterFulfillingOrders.getOrders() != null) {
 			for (Order order : encounterFulfillingOrders.getOrders()) {
+				if (!encounter.getPatient().equals(order.getPatient())) {
+					throw new IllegalArgumentException("Order " + order.getUuid() + " does not belong to the same patient as the encounter");
+				}
 				if (accessionNumber != null) {
 					order.setAccessionNumber(accessionNumber);
 				}
@@ -371,28 +375,24 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Override
 	@Transactional(readOnly = true)
 	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
+	@SuppressWarnings({ "unchecked" })
 	public EncounterFulfillingOrders getEncounterFulfillingOrders(String encounterUuid) {
 		Encounter encounter = encounterService.getEncounterByUuid(encounterUuid);
 		if (encounter == null) {
 			return null;
 		}
-		EncounterFulfillingOrders  encounterFulfillingOrders = new EncounterFulfillingOrders();
+		EncounterFulfillingOrders encounterFulfillingOrders = new EncounterFulfillingOrders();
 		encounterFulfillingOrders.setEncounter(encounter);
-		Concept orderNumberConcept = labOrderConfig.getTestOrderNumberQuestion();
-		if (orderNumberConcept == null) {
-			throw new IllegalArgumentException("Test Order Number Concept configuration is required");
+		List<Concept> linkingConcepts = labOrderConfig.getFulfillerEncounterLinkingConcepts();
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
+		c.add(eq("voided", false));
+		c.add(eq("encounter", encounter));
+		c.add(isNotNull("order"));
+		if (!linkingConcepts.isEmpty()) {
+			c.add(in("concept", linkingConcepts));
 		}
-		List<String> orderNumbers = new ArrayList<>();
-		for (Obs obs : encounter.getObs()) {
-			if (BooleanUtils.isNotTrue(obs.getVoided()) && obs.getConcept().equals(orderNumberConcept)) {
-				orderNumbers.add(obs.getValueText());
-			}
-		}
-		OrderSearchCriteria orderSearchCriteria = new OrderSearchCriteria();
-		orderSearchCriteria.setPatient(encounter.getPatient());
-		orderSearchCriteria.setOrderNumbers(orderNumbers);
-		List<Order> orders = getOrders(orderSearchCriteria).getOrders();
-		encounterFulfillingOrders.setOrders(orders);
+		c.setProjection(Projections.distinct(Projections.property("order")));
+		encounterFulfillingOrders.setOrders(c.list());
 		return encounterFulfillingOrders;
 	}
 
@@ -401,11 +401,14 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
 	@SuppressWarnings({ "unchecked" })
 	public Encounter getFulfillerEncounterForOrder(Order order) {
+		List<Concept> linkingConcepts = labOrderConfig.getFulfillerEncounterLinkingConcepts();
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
 		c.add(eq("voided", false));
-		c.add(eq("person", order.getPatient()));
-		c.add(eq("concept", labOrderConfig.getTestOrderNumberQuestion()));
-		c.add(eq("valueText", order.getOrderNumber()));
+		c.add(eq("order", order));
+		c.add(isNotNull("encounter"));
+		if (!linkingConcepts.isEmpty()) {
+			c.add(in("concept", linkingConcepts));
+		}
 		c.addOrder(desc("obsDatetime"));
 		c.setMaxResults(1);
 		List<Obs> l = c.list();
@@ -420,10 +423,14 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Authorized(PrivilegeConstants.GET_OBS)
 	@SuppressWarnings({ "unchecked" })
 	public Obs getReasonOrderNotFulfilled(Order order) {
+		Concept reasonConcept = labOrderConfig.getReasonTestNotPerformedQuestion();
+		if (reasonConcept == null) {
+			return null;
+		}
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
 		c.add(eq("voided", false));
 		c.add(eq("person", order.getPatient()));
-		c.add(eq("concept", labOrderConfig.getReasonTestNotPerformedQuestion()));
+		c.add(eq("concept", reasonConcept));
 		c.add(eq("order", order));
 		c.addOrder(desc("obsDatetime"));
 		c.setMaxResults(1);
@@ -465,10 +472,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					obs.setPreviousVersion(existingValue);
 					obs.setEncounter(existingValue.getEncounter());
 				}
-
 				obsService.saveObs(obs, "");
 			}
-			else {
+			else if (existingValue != null) {
 				obsService.voidObs(existingValue, "Voided by pihAppsService.markOrdersAsNotFulfilled");
 			}
 		}

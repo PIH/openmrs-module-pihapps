@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog/1.9"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog/1.9
+                  http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-1.9.xsd">
+
+    <changeSet id="UHM-9341-backfill-testordernumber-obs-order-id" author="mseaton">
+        <comment>
+            UHM-9341: Backfill obs.order_id on existing testOrderNumber obs written by pre-redesign pihapps.
+            The old specimenCollectionEncounter.gsp wrote testOrderNumber obs without setting obs.order_id,
+            so the new indexed order_id-based fulfiller encounter lookup cannot find those encounters.
+            This sets obs.order_id by matching obs.value_text to orders.order_number, scoped to the
+            testOrderNumber concept (UUID 393dec41-2fb5-428f-acfa-36ea85da6666).
+            Safe to run on sites where no matching obs exist — affects 0 rows.
+        </comment>
+        <sql>
+            UPDATE obs o
+            INNER JOIN orders ord ON ord.order_number = o.value_text AND ord.voided = 0
+            SET o.order_id = ord.order_id
+            WHERE o.order_id IS NULL
+              AND o.voided = 0
+              AND o.value_text IS NOT NULL
+              AND o.concept_id IN (SELECT concept_id FROM concept WHERE uuid = '393dec41-2fb5-428f-acfa-36ea85da6666');
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

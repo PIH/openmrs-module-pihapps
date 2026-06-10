@@ -169,6 +169,7 @@
                     encounterToSubmit.obs.push({
                         concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
                         valueText: o.orderNumber,
+                        order: o.uuid,
                         formNamespaceAndPath: formName + "/order_number_" + index
                     });
                 });
