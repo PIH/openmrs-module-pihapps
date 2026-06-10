@@ -117,41 +117,44 @@ testOrderNumber obs for linkage purposes. When status changes (e.g. IN_PROGRESS 
 a new obs is created rather than voiding the previous one, providing a full history of status
 transitions per order.
 
-### Concept Options for the Status Obs
+### Concept for the Status Obs
 
-Two options remain, differing primarily on how strictly typed the value needs to be.
+**Decision: coded obs using an existing PIH question concept.**
 
-**Option A: Coded obs using an existing PIH question concept**
+A coded obs is preferred over a text-based alternative for two reasons:
+1. Reuses existing PIH concepts — minimal new concept creation required.
+2. The coded answer set is open: any concept can be used as a coded answer regardless of
+   what is formally "associated" with the question concept. This means intermediate or
+   site-specific statuses beyond the four `FulfillerStatus` enum values (e.g., "Sent to
+   external lab", "Awaiting pathologist review") can be recorded as obs values without
+   changing the enum or the code — they simply won't map to a known `FulfillerStatus` and
+   will be treated as opaque history entries.
 
-OpenMRS does not enforce which concepts may be used as coded answers, so the answer set is
-not a constraint. The existing PIH concepts "Completed", "In Progress", and "Not Done"
-(already associated with "Test Status") cover three of the four FulfillerStatus values:
+**Question concept:** `pihapps.labs.fulfillerStatusConcept`
+
+Two candidates:
+- **"Fulfillment Status"** — already used in PIH for referral order workflow; semantically
+  the best fit since it already represents order fulfillment state. Preferred.
+- **"Test Status"** — a Finding/Coded concept; slightly less precise semantically but
+  already has "Completed", "In Progress", and "Not Done" associated.
+
+**Answer concept mapping**
+
+The existing PIH concepts "Completed", "In Progress", and "Not Done" cover three of the
+four `FulfillerStatus` values. One additional concept is needed for RECEIVED/null (specimen
+received, awaiting results) — "Pending" is semantically accurate; confirm from the PIH
+dictionary whether it already exists.
 
 | FulfillerStatus | Coded answer concept | GP |
 |---|---|---|
 | IN_PROGRESS | "In Progress" | `pihapps.labs.fulfillerStatusConcept.inProgress` |
 | COMPLETED | "Completed" | `pihapps.labs.fulfillerStatusConcept.completed` |
 | EXCEPTION | "Not Done" | `pihapps.labs.fulfillerStatusConcept.exception` |
-| RECEIVED / null | "Pending" or "None" (TBD from PIH dictionary) | `pihapps.labs.fulfillerStatusConcept.received` |
+| RECEIVED / null | "Pending" (TBD) | `pihapps.labs.fulfillerStatusConcept.received` |
 
-The fourth answer concept (for RECEIVED/null — specimen received, awaiting results)
-needs to be confirmed from the PIH dictionary. "Pending" is semantically accurate; "None"
-is less descriptive. Whichever exists (or is added) can be used.
-
-Two candidate question concepts:
-- **"Fulfillment Status"** — already used in PIH for referral order workflow; semantically
-  the best fit since it already represents order fulfillment state.
-- **"Test Status"** — a Finding/Coded concept; slightly less precise semantically but
-  already has "Completed", "In Progress", and "Not Done" associated.
-
-"Fulfillment Status" is preferred. Either works since answer sets are not enforced.
-
-The question concept UUID is configured via `pihapps.labs.fulfillerStatusConcept`.
-
-**Enum-to-concept mapping in code**
-
-`LabOrderConfig` exposes one getter per FulfillerStatus value, each backed by the
-corresponding GP. The service uses two mapping methods:
+`LabOrderConfig` exposes one getter per value, each backed by the corresponding GP. The
+service uses two mapping methods — one for writing an obs, one for reading history back into
+the enum:
 
 ```java
 // Writing an obs: FulfillerStatus → Concept
@@ -165,45 +168,22 @@ Concept getConceptForFulfillerStatus(Order.FulfillerStatus status) {
     }
 }
 
-// Reading history: Concept → FulfillerStatus
+// Reading history: Concept → FulfillerStatus (null = unknown/custom status)
 Order.FulfillerStatus getFulfillerStatusForConcept(Concept concept) {
     if (concept.equals(labOrderConfig.getFulfillerStatusInProgressConcept())) return IN_PROGRESS;
     if (concept.equals(labOrderConfig.getFulfillerStatusCompletedConcept()))  return COMPLETED;
     if (concept.equals(labOrderConfig.getFulfillerStatusExceptionConcept()))  return EXCEPTION;
     if (concept.equals(labOrderConfig.getFulfillerStatusReceivedConcept()))   return RECEIVED;
-    return null;
+    return null;  // custom/intermediary status — preserve as obs, no enum mapping
 }
 ```
 
-Note: the answer concept GPs are only needed when reading or writing status values. If a
-site configures only the question concept GP (`pihapps.labs.fulfillerStatusConcept`) but
-not the answer GPs, the encounter linkage still works — the linkage query filters by
-`obs.order_id` and `obs.concept_id` only, never by value.
+The answer concept GPs are only required for reading or writing `FulfillerStatus` values. If
+a site configures only the question concept GP but not the answer GPs, encounter linkage still
+works — the linkage query filters by `obs.order_id` and `obs.concept_id` only, never by value.
 
-**Option B: Text-based "Lab Order Status" (new concept, text type)**
-
-A new text-type concept whose `obs.valueText` stores the FulfillerStatus enum string
-directly: `"IN_PROGRESS"`, `"COMPLETED"`, `"EXCEPTION"`, `"RECEIVED"`.
-
-- No coded answer concepts or per-value GPs needed; enum string is self-documenting
-- Trivially extensible if new statuses are added — no concept curation required
-- The value is a system field, not a clinical observation, so the lack of coding is acceptable
-- Requires creating one new concept (the question concept)
-- Querying by status value uses `obs.value_text` (not indexed), but the linkage query never
-  filters by value — only by `obs.order_id` and `obs.concept_id`, both indexed
-- Status history is readable by comparing `obs.valueText` directly to the enum name
-
-**Recommendation:** Option A with "Fulfillment Status" as the question concept requires the
-least new concept creation (at most one new answer concept for RECEIVED/null) and is
-semantically coherent with its existing use in the PIH system. The four per-value GPs add
-configuration overhead but give each mapping explicit control.
-
-Option B eliminates the coded answer concepts and per-value GPs entirely at the cost of one
-new concept, and avoids any future drift if the FulfillerStatus enum is extended. It is a
-valid alternative if the configurability of Option A is not needed.
-
-The question concept UUID (either option) is also added to
-`pihapps.labs.fulfillerEncounterLinkingConcepts` for pihemr deployments.
+The question concept UUID is also added to `pihapps.labs.fulfillerEncounterLinkingConcepts`
+for pihemr deployments.
 
 ### Configurable Linking Concepts
 
