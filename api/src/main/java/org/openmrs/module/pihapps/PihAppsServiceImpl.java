@@ -481,6 +481,19 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	@Override
+	@Transactional
+	@Authorized(PrivilegeConstants.EDIT_ORDERS)
+	public void revertOrdersToOrdered(List<Order> orders) {
+		for (Order order : orders) {
+			Obs existingReason = getReasonOrderNotFulfilled(order);
+			if (existingReason != null) {
+				obsService.voidObs(existingReason, "Reverted to ordered by pihAppsService.revertOrdersToOrdered");
+			}
+			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.RECEIVED, null);
+		}
+	}
+
+	@Override
 	@Transactional(readOnly = true)
 	@Authorized(PrivilegeConstants.GET_PATIENTS)
 	@SuppressWarnings({ "unchecked" })

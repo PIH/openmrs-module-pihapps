@@ -56,31 +56,14 @@
         // Populate default values each time form is opened
         parentElement.find(".errors-section").html("");
 
-        const saveButton = parentElement.find(".action-button.confirm");
-        saveButton.off("click");
-        saveButton.on("click", (event) => {
-
-            event.preventDefault();
+        const postAndClose = (url, payload) => {
             parentElement.find(".action-button").attr("disabled", "disabled");
-            const errorsSection = parentElement.find(".errors-section");
-
-            errorsSection.html("");
-            const removeReason = reasonPicker.val();
-            if (!removeReason) {
-                errorsSection.append(jq("<div>").html('${ ui.message("pihapps.reasonRequired") }'));
-                jq(".action-button").removeAttr("disabled");
-                return;
-            }
-
-            const removeOrdersPayload = {
-                "orders": orders.map(o => o.uuid),
-                "reason": removeReason
-            }
+            parentElement.find(".errors-section").html("");
             jq.ajax({
-                url: openmrsContextPath + "/ws/rest/v1/pihapps/markOrdersAsNotPerformed",
+                url: openmrsContextPath + url,
                 type: "POST",
                 contentType: "application/json; charset=utf-8",
-                data: JSON.stringify(removeOrdersPayload),
+                data: JSON.stringify(payload),
                 dataType: "json",
                 success: () => {
                     onSuccessFunction();
@@ -89,11 +72,40 @@
                 error: (xhr) => {
                     parentElement.find(".action-button").removeAttr("disabled");
                     const error = xhr?.responseJSON?.error;
-                    const message = error?.translatedMessage ?? error.message ?? error;
-                    errorsSection.html(message);
+                    const message = error?.translatedMessage ?? error?.message ?? error;
+                    parentElement.find(".errors-section").html(message);
                 }
             });
+        };
+
+        const saveButton = parentElement.find(".action-button.confirm");
+        saveButton.off("click");
+        saveButton.on("click", (event) => {
+            event.preventDefault();
+            const removeReason = reasonPicker.val();
+            if (!removeReason) {
+                parentElement.find(".errors-section").html('<div>${ ui.message("pihapps.reasonRequired") }</div>');
+                return;
+            }
+            postAndClose("/ws/rest/v1/pihapps/markOrdersAsNotPerformed", {
+                orders: orders.map(o => o.uuid),
+                reason: removeReason
+            });
         });
+
+        const revertButton = parentElement.find(".action-button.revert");
+        revertButton.off("click");
+        if (reason) {
+            revertButton.show();
+            revertButton.on("click", (event) => {
+                event.preventDefault();
+                postAndClose("/ws/rest/v1/pihapps/revertOrdersToOrdered", {
+                    orders: orders.map(o => o.uuid)
+                });
+            });
+        } else {
+            revertButton.hide();
+        }
 
         parentElement.show();
     }
@@ -115,6 +127,7 @@
             </div>
             <br><br>
             <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
+            <button class="revert action-button" style="display:none;">${ ui.message("pihapps.revertToOrdered") }</button>
             <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
         </div>
     </form>

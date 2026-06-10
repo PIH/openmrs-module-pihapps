@@ -245,6 +245,30 @@ public class LabOrderRestController {
         }
     }
 
+    @RequestMapping(value = "/rest/v1/pihapps/revertOrdersToOrdered", method = RequestMethod.POST)
+    public Object revertOrdersToOrdered(HttpServletRequest request, HttpServletResponse response, @RequestBody SimpleObject post) throws ResponseException {
+        try {
+            List<String> orderUuids = post.get("orders");
+            if (orderUuids == null || orderUuids.isEmpty()) {
+                throw new RuntimeException("You must specify at least one order");
+            }
+            List<Order> orders = new ArrayList<>();
+            for (String orderUuid : orderUuids) {
+                Order order = orderService.getOrderByUuid(orderUuid);
+                if (order == null) {
+                    throw new Exception("No order found with uuid " + orderUuid);
+                }
+                orders.add(order);
+            }
+            pihAppsService.revertOrdersToOrdered(orders);
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        }
+        catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
+        }
+    }
+
     /**
      * There is no OrderType Property Editor registered with core, so convert from String uuids to OrderTypes
      */
