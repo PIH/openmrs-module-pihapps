@@ -132,11 +132,11 @@ A coded obs is preferred over a text-based alternative for two reasons:
 
 **Question concept:** `pihapps.labs.fulfillerStatusConcept`
 
-Two candidates:
+Two candidates; **"Test Status" is chosen**:
+- **"Test Status"** — a Finding/Coded concept with "Completed", "In Progress", and "Not Done"
+  already associated, most closely matching the required answer set. Chosen.
 - **"Fulfillment Status"** — already used in PIH for referral order workflow; semantically
-  the best fit since it already represents order fulfillment state. Preferred.
-- **"Test Status"** — a Finding/Coded concept; slightly less precise semantically but
-  already has "Completed", "In Progress", and "Not Done" associated.
+  precise but its existing answer set is less aligned with lab FulfillerStatus values.
 
 **Answer concept mapping**
 
