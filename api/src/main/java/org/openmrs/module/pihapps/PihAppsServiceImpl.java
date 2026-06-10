@@ -498,7 +498,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 
 	private Concept getConceptForFulfillerStatus(Order.FulfillerStatus status) {
 		if (status == null) {
-			return null;
+			return labOrderConfig.getFulfillerStatusReceivedConcept();
 		}
 		switch (status) {
 			case IN_PROGRESS: return labOrderConfig.getFulfillerStatusInProgressConcept();

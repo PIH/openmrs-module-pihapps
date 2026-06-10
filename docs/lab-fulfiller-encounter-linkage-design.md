@@ -150,8 +150,7 @@ dictionary whether it already exists.
 | IN_PROGRESS | "In Progress" | `pihapps.labs.fulfillerStatusConcept.inProgress` |
 | COMPLETED | "Completed" | `pihapps.labs.fulfillerStatusConcept.completed` |
 | EXCEPTION | "Not Done" | `pihapps.labs.fulfillerStatusConcept.exception` |
-| RECEIVED | "Pending" (TBD) | `pihapps.labs.fulfillerStatusConcept.received` |
-| null | _(no obs written)_ | n/a |
+| RECEIVED / null | "Pending" (TBD) | `pihapps.labs.fulfillerStatusConcept.received` |
 
 `LabOrderConfig` exposes one getter per value, each backed by the corresponding GP. The
 service uses two mapping methods — one for writing an obs, one for reading history back into
@@ -159,9 +158,9 @@ the enum:
 
 ```java
 // Writing an obs: FulfillerStatus → Concept
-// null status returns null → saveFulfillerStatusObs() skips the save (no obs for unset status)
+// null status maps to the RECEIVED concept — the obs must always be written to establish linkage
 Concept getConceptForFulfillerStatus(Order.FulfillerStatus status) {
-    if (status == null) return null;
+    if (status == null) return labOrderConfig.getFulfillerStatusReceivedConcept();
     switch (status) {
         case IN_PROGRESS: return labOrderConfig.getFulfillerStatusInProgressConcept();
         case COMPLETED:   return labOrderConfig.getFulfillerStatusCompletedConcept();
