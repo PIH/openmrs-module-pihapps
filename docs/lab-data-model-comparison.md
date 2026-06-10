@@ -173,27 +173,20 @@ Options:
 
 ### Gap C — Legacy fulfiller encounter lookup
 
-**Status:** Interim solution on `legacy-rwanda` branch. Superseded by redesign — see
-`docs/lab-fulfiller-encounter-linkage-design.md`.
+**Status:** Open — addressed by redesign in `docs/lab-fulfiller-encounter-linkage-design.md`.
 
-`getFulfillerEncounterForOrder()` only found pihapps-style specimen encounters (via
-testOrderNumberConcept obs). Legacy orders with results had no such obs, causing them to
+`getFulfillerEncounterForOrder()` only finds pihapps-style specimen encounters (via
+testOrderNumberConcept obs). Legacy orders with results have no such obs, causing them to
 appear as "orphaned orders" (has fulfillerStatus but no fulfillerEncounter) in the pihapps UI.
 
-The `legacy-rwanda` branch implemented a toggled fallback
-(`pihapps.labs.enableLegacyFulfillerEncounterLookup`) that queries for any encounter with obs
-linked to the order via `obs.order_id`. This is the right general direction, but the full
-redesign replaces it with a more general configurable linking mechanism:
-
-- The new GP `pihapps.labs.fulfillerEncounterLinkingConcepts` (comma-separated concept UUIDs)
-  controls which obs concepts are considered for encounter linkage.
-- Empty/unset = any obs with `obs.order_id` (equivalent to the legacy-rwanda toggle always on).
+The redesign addresses this with a configurable GP
+`pihapps.labs.fulfillerEncounterLinkingConcepts` (comma-separated concept UUIDs):
+- Empty/unset = any obs with `obs.order_id` counts (covers all legacy data without migration).
 - Set to specific concepts = only those concepts, e.g. testOrderNumber + fulfillerStatus.
 - The testOrderNumber obs is replaced by a **fulfiller status obs** (with `obs.order_id` set)
   as pihapps' native linkage mechanism going forward.
 
-The binary toggle on the `legacy-rwanda` branch is superseded by this approach and should not
-be merged. See the design document for deployment details per site.
+See the design document for full deployment details per site.
 
 ### Gap D — Required two-phase encounter workflow vs. optional single-phase
 
@@ -265,8 +258,9 @@ laboratorymanagement.multipleAnswerConceptIds  → pihapps.labs.multipleAnswerCo
   any orders the real-time handler missed. This addresses the Rwanda-specific gap where
   laboratorymanagement-v2 never set fulfiller status.
 
-- `openmrs-distro-rwandaemr` configures all pihapps lab GPs, including
-  `pihapps.labs.enableLegacyFulfillerEncounterLookup = true` (on `legacy-rwanda` branch).
+- `openmrs-distro-rwandaemr` configures all pihapps lab GPs. The new
+  `pihapps.labs.fulfillerEncounterLinkingConcepts` GP will be left empty (unset) for Rwanda,
+  enabling the "any obs with obs.order_id" compatibility mode for legacy data.
 
 - Rwanda lab categories (Hematology, Parasitology, Urinary Chemistry, Bacteriology,
   Hemostasis, Immunoserology, Tumour Markers, Blood Chemistry, Fertility Hormones,
