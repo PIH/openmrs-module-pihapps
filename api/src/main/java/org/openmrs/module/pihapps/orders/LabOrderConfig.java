@@ -378,34 +378,6 @@ public class LabOrderConfig {
         return conceptService.getConceptByReference(getTestOrderNumberQuestionReference());
     }
 
-    // Fulfiller Status concept (question concept, e.g. "Test Status")
-
-    public String getFulfillerStatusConceptReference() {
-        return ConfigUtil.getGlobalProperty("pihapps.labs.fulfillerStatusConcept");
-    }
-
-    public Concept getFulfillerStatusConcept() {
-        return conceptService.getConceptByReference(getFulfillerStatusConceptReference());
-    }
-
-    // Fulfiller Status answer concepts — one per Order.FulfillerStatus value
-
-    public Concept getFulfillerStatusInProgressConcept() {
-        return conceptService.getConceptByReference(ConfigUtil.getGlobalProperty("pihapps.labs.fulfillerStatusConcept.inProgress"));
-    }
-
-    public Concept getFulfillerStatusCompletedConcept() {
-        return conceptService.getConceptByReference(ConfigUtil.getGlobalProperty("pihapps.labs.fulfillerStatusConcept.completed"));
-    }
-
-    public Concept getFulfillerStatusExceptionConcept() {
-        return conceptService.getConceptByReference(ConfigUtil.getGlobalProperty("pihapps.labs.fulfillerStatusConcept.exception"));
-    }
-
-    public Concept getFulfillerStatusReceivedConcept() {
-        return conceptService.getConceptByReference(ConfigUtil.getGlobalProperty("pihapps.labs.fulfillerStatusConcept.received"));
-    }
-
     // Fulfiller encounter linking concepts — comma-separated concept references used to find
     // the fulfiller encounter for an order via obs.order_id. If empty, any obs with
     // obs.order_id set is considered (maximum compatibility mode for legacy data).
