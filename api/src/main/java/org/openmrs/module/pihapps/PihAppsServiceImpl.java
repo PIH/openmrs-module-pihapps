@@ -348,13 +348,23 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (encounterFulfillingOrders.getEncounter() == null) {
 			throw new  IllegalArgumentException("Encounter is required");
 		}
+		Encounter encounter = encounterFulfillingOrders.getEncounter();
 		String accessionNumber = null;
-		for (Obs obs : encounterFulfillingOrders.getEncounter().getObsAtTopLevel(true)) {
+		for (Obs obs : encounter.getObsAtTopLevel(true)) {
 			if (obs.getConcept().equals(accessionNumberConcept)) {
 				accessionNumber = BooleanUtils.isTrue(obs.getVoided()) ? "" : obs.getValueText();
 			}
 		}
-		encounterService.saveEncounter(encounterFulfillingOrders.getEncounter());
+		if (encounterFulfillingOrders.getOrders() != null) {
+			for (Order order : encounterFulfillingOrders.getOrders()) {
+				Order.FulfillerStatus fulfillerStatus = order.getFulfillerStatus();
+				if (fulfillerStatus == null) {
+					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
+				}
+				addFulfillerStatusObsIfChanged(encounter, order, fulfillerStatus, fulfillerStatusConcept);
+			}
+		}
+		encounterService.saveEncounter(encounter);
 		if (encounterFulfillingOrders.getOrders() != null) {
 			for (Order order : encounterFulfillingOrders.getOrders()) {
 				if (accessionNumber != null) {
@@ -365,7 +375,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
 				}
 				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, null, accessionNumber);
-				saveFulfillerStatusObs(order, encounterFulfillingOrders.getEncounter(), fulfillerStatus, fulfillerStatusConcept);
 			}
 		}
 		return encounterFulfillingOrders;
@@ -444,7 +453,10 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.EXCEPTION, null);
 			Obs existingValue = getReasonOrderNotFulfilled(order);
 			Encounter fulfillerEncounter = existingValue != null ? existingValue.getEncounter() : getFulfillerEncounterForOrder(order);
-			saveFulfillerStatusObs(order, fulfillerEncounter, Order.FulfillerStatus.EXCEPTION, fulfillerStatusConcept);
+			if (fulfillerEncounter != null) {
+				addFulfillerStatusObsIfChanged(fulfillerEncounter, order, Order.FulfillerStatus.EXCEPTION, fulfillerStatusConcept);
+				encounterService.saveEncounter(fulfillerEncounter);
+			}
 			if (reason != null) {
 				if (labOrderConfig.getReasonTestNotPerformedQuestion() == null) {
 					throw new IllegalArgumentException("Reason test not performed question is not configured");
@@ -478,23 +490,23 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 	}
 
-	@SuppressWarnings("unchecked")
-	private void saveFulfillerStatusObs(Order order, Encounter encounter, Order.FulfillerStatus status, Concept statusConcept) {
-		if (statusConcept == null || encounter == null) {
+	private void addFulfillerStatusObsIfChanged(Encounter encounter, Order order, Order.FulfillerStatus status, Concept statusConcept) {
+		if (statusConcept == null) {
 			return;
 		}
 		Concept valueConcept = getConceptForFulfillerStatus(status);
 		if (valueConcept == null) {
 			return;
 		}
-		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
-		c.add(eq("voided", false));
-		c.add(eq("order", order));
-		c.add(eq("concept", statusConcept));
-		c.addOrder(desc("obsDatetime"));
-		c.setMaxResults(1);
-		List<Obs> existing = c.list();
-		if (!existing.isEmpty() && valueConcept.equals(existing.get(0).getValueCoded())) {
+		Obs mostRecent = null;
+		for (Obs obs : encounter.getObsAtTopLevel(false)) {
+			if (statusConcept.equals(obs.getConcept()) && order.equals(obs.getOrder())) {
+				if (mostRecent == null || obs.getObsDatetime().after(mostRecent.getObsDatetime())) {
+					mostRecent = obs;
+				}
+			}
+		}
+		if (mostRecent != null && valueConcept.equals(mostRecent.getValueCoded())) {
 			return;
 		}
 		Obs obs = new Obs();
@@ -504,7 +516,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		obs.setValueCoded(valueConcept);
 		obs.setOrder(order);
 		obs.setEncounter(encounter);
-		obsService.saveObs(obs, "");
+		encounter.addObs(obs);
 	}
 
 	private Concept getConceptForFulfillerStatus(Order.FulfillerStatus status) {
