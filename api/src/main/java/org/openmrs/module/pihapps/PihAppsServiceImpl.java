@@ -478,12 +478,23 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	private void saveFulfillerStatusObs(Order order, Encounter encounter, Order.FulfillerStatus status, Concept statusConcept) {
 		if (statusConcept == null || encounter == null) {
 			return;
 		}
 		Concept valueConcept = getConceptForFulfillerStatus(status);
 		if (valueConcept == null) {
+			return;
+		}
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
+		c.add(eq("voided", false));
+		c.add(eq("order", order));
+		c.add(eq("concept", statusConcept));
+		c.addOrder(desc("obsDatetime"));
+		c.setMaxResults(1);
+		List<Obs> existing = c.list();
+		if (!existing.isEmpty() && valueConcept.equals(existing.get(0).getValueCoded())) {
 			return;
 		}
 		Obs obs = new Obs();
