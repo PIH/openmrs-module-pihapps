@@ -11,8 +11,8 @@
             The old specimenCollectionEncounter.gsp wrote testOrderNumber obs without setting obs.order_id,
             so the new indexed order_id-based fulfiller encounter lookup cannot find those encounters.
             This sets obs.order_id by matching obs.value_text to orders.order_number, scoped to the
-            concept UUID stored in the testOrderNumber GP (pihapps or labworkflow namespace).
-            Safe to run on sites where the GP is unset or no matching obs exist — affects 0 rows.
+            testOrderNumber concept (UUID 393dec41-2fb5-428f-acfa-36ea85da6666).
+            Safe to run on sites where no matching obs exist — affects 0 rows.
         </comment>
         <sql>
             UPDATE obs o
@@ -21,15 +21,7 @@
             WHERE o.order_id IS NULL
               AND o.voided = 0
               AND o.value_text IS NOT NULL
-              AND o.concept_id IN (
-                SELECT c.concept_id FROM concept c
-                WHERE c.uuid IN (
-                  SELECT gp.property_value FROM global_property gp
-                  WHERE gp.property IN ('pihapps.labs.testOrderNumberConcept', 'labworkflowowa.testOrderNumberConcept')
-                    AND gp.property_value IS NOT NULL
-                    AND gp.property_value != ''
-                )
-              );
+              AND o.concept_id IN (SELECT concept_id FROM concept WHERE uuid = '393dec41-2fb5-428f-acfa-36ea85da6666');
         </sql>
     </changeSet>
 

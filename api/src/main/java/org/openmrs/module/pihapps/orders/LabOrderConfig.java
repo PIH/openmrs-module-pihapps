@@ -114,11 +114,11 @@ public class LabOrderConfig {
                 else {
                     Concept orderableConcept = conceptService.getConceptByReference(split[0]);
                     if (orderableConcept == null) {
-                        log.warn("Invalid orderReasonMap entry.  Unable to find concept " + split[0]);
+                        throw new IllegalStateException("Invalid orderReasonMap entry.  Unable to find concept " + split[0]);
                     }
                     Concept reasonConcept = conceptService.getConceptByReference(split[1]);
                     if (reasonConcept == null) {
-                        log.warn("Invalid orderReasonMap entry.  Unable to find concept " + split[1]);
+                        throw new IllegalStateException("Invalid orderReasonMap entry.  Unable to find concept " + split[1]);
                     }
                     if (orderableConcept != null && reasonConcept != null) {
                         List<Concept> orderReasons = new ArrayList<>();
@@ -219,8 +219,8 @@ public class LabOrderConfig {
                 encounterRole = encounterService.getEncounterRoleByName(encounterRoleRef);
             }
         }
-        if (encounterRole == null) {
-            log.warn("Invalid labOrderEncounterRole configuration: " + encounterRoleRef);
+        if (encounterRole == null && StringUtils.isNotBlank(encounterRoleRef)) {
+            throw new IllegalStateException("Invalid labOrderEncounterRole configuration: " + encounterRoleRef);
         }
         return encounterRole;
     }
@@ -281,11 +281,9 @@ public class LabOrderConfig {
                 lookup = lookup.trim();
                 Concept concept = conceptService.getConceptByReference(lookup);
                 if (concept == null) {
-                    log.warn("Invalid concept configured for enabled lab tests: " + lookup);
+                    throw new IllegalStateException("Invalid concept configured for enabled lab tests: " + lookup);
                 }
-                else {
-                    ret.add(concept);
-                }
+                ret.add(concept);
             }
         }
         return ret;
@@ -382,8 +380,15 @@ public class LabOrderConfig {
     // the fulfiller encounter for an order via obs.order_id. If empty, any obs with
     // obs.order_id set is considered (maximum compatibility mode for legacy data).
 
+    private String cachedFulfillerEncounterLinkingConceptsRef = null;
+    private List<Concept> cachedFulfillerEncounterLinkingConcepts = null;
+
     public List<Concept> getFulfillerEncounterLinkingConcepts() {
         String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.fulfillerEncounterLinkingConcepts");
+        if (cachedFulfillerEncounterLinkingConcepts != null
+                && StringUtils.equals(configVal, cachedFulfillerEncounterLinkingConceptsRef)) {
+            return cachedFulfillerEncounterLinkingConcepts;
+        }
         List<Concept> concepts = new ArrayList<>();
         if (StringUtils.isNotBlank(configVal)) {
             for (String lookup : configVal.split(",")) {
@@ -393,12 +398,13 @@ public class LabOrderConfig {
                 }
                 Concept concept = conceptService.getConceptByReference(lookup);
                 if (concept == null) {
-                    log.warn("Invalid concept configured for fulfillerEncounterLinkingConcepts: " + lookup);
-                } else {
-                    concepts.add(concept);
+                    throw new IllegalStateException("Invalid concept configured for fulfillerEncounterLinkingConcepts: " + lookup);
                 }
+                concepts.add(concept);
             }
         }
+        cachedFulfillerEncounterLinkingConceptsRef = configVal;
+        cachedFulfillerEncounterLinkingConcepts = concepts;
         return concepts;
     }
 
@@ -490,10 +496,9 @@ public class LabOrderConfig {
                 }
                 Concept concept = conceptService.getConceptByReference(lookup);
                 if (concept == null) {
-                    log.warn("Invalid concept configured for multiple answer concepts: " + lookup);
-                } else {
-                    ret.add(concept);
+                    throw new IllegalStateException("Invalid concept configured for multiple answer concepts: " + lookup);
                 }
+                ret.add(concept);
             }
         }
         cachedMultipleAnswerConceptsRef = configVal;
@@ -517,8 +522,8 @@ public class LabOrderConfig {
                 encounterType = encounterService.getEncounterType(encounterTypeRef);
             }
         }
-        if (encounterType == null) {
-            log.warn("Invalid configuration.  No matching encounter type for reference: " + encounterTypeRef);
+        if (encounterType == null && StringUtils.isNotBlank(encounterTypeRef)) {
+            throw new IllegalStateException("Invalid configuration.  No matching encounter type for reference: " + encounterTypeRef);
         }
         return encounterType;
     }
