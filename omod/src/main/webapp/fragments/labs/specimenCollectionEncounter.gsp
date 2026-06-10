@@ -163,17 +163,6 @@
                 return;
             }
 
-            // If this is a new submission, then add in order numbers as obs
-            if (!encounterToSubmit.uuid) {
-                checkedOrders.forEach((o, index) => {
-                    encounterToSubmit.obs.push({
-                        concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
-                        valueText: o.orderNumber,
-                        formNamespaceAndPath: formName + "/order_number_" + index
-                    });
-                });
-            }
-
             const payload = { encounter: encounterToSubmit, orders: checkedOrders.map(o => o.uuid) };
             jq.ajax({
                 url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders",

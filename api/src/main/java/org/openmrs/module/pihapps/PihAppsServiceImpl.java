@@ -330,12 +330,14 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Transactional
 	@Authorized(PrivilegeConstants.ADD_ENCOUNTERS)
 	public EncounterFulfillingOrders saveEncounterFulfillingOrders(EncounterFulfillingOrders encounterFulfillingOrders) {
-		// We need to ensure that the session does not flush when we retrieve this concept, to avoid errors with ImmutableObsInterceptor
+		// Load concepts before saving to avoid ImmutableObsInterceptor flush issues
 		Concept accessionNumberConcept;
+		Concept fulfillerStatusConcept;
 		FlushMode flushMode = sessionFactory.getCurrentSession().getFlushMode();
 		try {
 			sessionFactory.getCurrentSession().setFlushMode(FlushMode.MANUAL);
 			accessionNumberConcept = labOrderConfig.getLabIdentifierConcept();
+			fulfillerStatusConcept = labOrderConfig.getFulfillerStatusConcept();
 		}
 		finally {
 			sessionFactory.getCurrentSession().setFlushMode(flushMode);
@@ -363,6 +365,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
 				}
 				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, null, accessionNumber);
+				saveFulfillerStatusObs(order, encounterFulfillingOrders.getEncounter(), fulfillerStatus, fulfillerStatusConcept);
 			}
 		}
 		return encounterFulfillingOrders;
@@ -371,28 +374,24 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Override
 	@Transactional(readOnly = true)
 	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
+	@SuppressWarnings({ "unchecked" })
 	public EncounterFulfillingOrders getEncounterFulfillingOrders(String encounterUuid) {
 		Encounter encounter = encounterService.getEncounterByUuid(encounterUuid);
 		if (encounter == null) {
 			return null;
 		}
-		EncounterFulfillingOrders  encounterFulfillingOrders = new EncounterFulfillingOrders();
+		EncounterFulfillingOrders encounterFulfillingOrders = new EncounterFulfillingOrders();
 		encounterFulfillingOrders.setEncounter(encounter);
-		Concept orderNumberConcept = labOrderConfig.getTestOrderNumberQuestion();
-		if (orderNumberConcept == null) {
-			throw new IllegalArgumentException("Test Order Number Concept configuration is required");
+		List<Concept> linkingConcepts = labOrderConfig.getFulfillerEncounterLinkingConcepts();
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
+		c.add(eq("voided", false));
+		c.add(eq("encounter", encounter));
+		c.add(isNotNull("order"));
+		if (!linkingConcepts.isEmpty()) {
+			c.add(in("concept", linkingConcepts));
 		}
-		List<String> orderNumbers = new ArrayList<>();
-		for (Obs obs : encounter.getObs()) {
-			if (BooleanUtils.isNotTrue(obs.getVoided()) && obs.getConcept().equals(orderNumberConcept)) {
-				orderNumbers.add(obs.getValueText());
-			}
-		}
-		OrderSearchCriteria orderSearchCriteria = new OrderSearchCriteria();
-		orderSearchCriteria.setPatient(encounter.getPatient());
-		orderSearchCriteria.setOrderNumbers(orderNumbers);
-		List<Order> orders = getOrders(orderSearchCriteria).getOrders();
-		encounterFulfillingOrders.setOrders(orders);
+		c.setProjection(Projections.distinct(Projections.property("order")));
+		encounterFulfillingOrders.setOrders(c.list());
 		return encounterFulfillingOrders;
 	}
 
@@ -401,11 +400,13 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
 	@SuppressWarnings({ "unchecked" })
 	public Encounter getFulfillerEncounterForOrder(Order order) {
+		List<Concept> linkingConcepts = labOrderConfig.getFulfillerEncounterLinkingConcepts();
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
 		c.add(eq("voided", false));
-		c.add(eq("person", order.getPatient()));
-		c.add(eq("concept", labOrderConfig.getTestOrderNumberQuestion()));
-		c.add(eq("valueText", order.getOrderNumber()));
+		c.add(eq("order", order));
+		if (!linkingConcepts.isEmpty()) {
+			c.add(in("concept", linkingConcepts));
+		}
 		c.addOrder(desc("obsDatetime"));
 		c.setMaxResults(1);
 		List<Obs> l = c.list();
@@ -438,9 +439,12 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Transactional
 	@Authorized(PrivilegeConstants.EDIT_ORDERS)
 	public void markOrdersAsNotFulfilled(List<Order> orders, Concept reason) {
+		Concept fulfillerStatusConcept = labOrderConfig.getFulfillerStatusConcept();
 		for (Order order : orders) {
 			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.EXCEPTION, null);
 			Obs existingValue = getReasonOrderNotFulfilled(order);
+			Encounter fulfillerEncounter = existingValue != null ? existingValue.getEncounter() : getFulfillerEncounterForOrder(order);
+			saveFulfillerStatusObs(order, fulfillerEncounter, Order.FulfillerStatus.EXCEPTION, fulfillerStatusConcept);
 			if (reason != null) {
 				if (labOrderConfig.getReasonTestNotPerformedQuestion() == null) {
 					throw new IllegalArgumentException("Reason test not performed question is not configured");
@@ -471,6 +475,37 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			else {
 				obsService.voidObs(existingValue, "Voided by pihAppsService.markOrdersAsNotFulfilled");
 			}
+		}
+	}
+
+	private void saveFulfillerStatusObs(Order order, Encounter encounter, Order.FulfillerStatus status, Concept statusConcept) {
+		if (statusConcept == null || encounter == null) {
+			return;
+		}
+		Concept valueConcept = getConceptForFulfillerStatus(status);
+		if (valueConcept == null) {
+			return;
+		}
+		Obs obs = new Obs();
+		obs.setPerson(order.getPatient());
+		obs.setObsDatetime(new Date());
+		obs.setConcept(statusConcept);
+		obs.setValueCoded(valueConcept);
+		obs.setOrder(order);
+		obs.setEncounter(encounter);
+		obsService.saveObs(obs, "");
+	}
+
+	private Concept getConceptForFulfillerStatus(Order.FulfillerStatus status) {
+		if (status == null) {
+			return labOrderConfig.getFulfillerStatusReceivedConcept();
+		}
+		switch (status) {
+			case IN_PROGRESS: return labOrderConfig.getFulfillerStatusInProgressConcept();
+			case COMPLETED:   return labOrderConfig.getFulfillerStatusCompletedConcept();
+			case EXCEPTION:   return labOrderConfig.getFulfillerStatusExceptionConcept();
+			case RECEIVED:    return labOrderConfig.getFulfillerStatusReceivedConcept();
+			default: return null;
 		}
 	}
 
