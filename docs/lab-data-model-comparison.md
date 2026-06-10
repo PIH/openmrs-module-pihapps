@@ -44,19 +44,26 @@ This is the most significant structural difference between the three systems.
 
 ### laboratorymanagement-v2
 
-Single results encounter. No specimen collection encounter.
+One encounter for everything. Orders and their result obs both live in the same encounter,
+of the single configured type (`LAB_TEST_ENCOUNTER_TYPE` / `laboratorymanagement.encounterType.labEncounterTypeId`).
+`getLabEncounter()` finds or creates an encounter of this type for the patient on the current
+date, reusing it if one already exists. Result obs are written back to `labOrder.getEncounter()` —
+i.e. the same encounter the order is in.
 
 ```
-[LAB TEST encounter]          [Lab Results encounter]
-  └─ TestOrder           →      └─ Obs (result, obs.order_id = order.id, obs.accession_number set)
-       accession_number           └─ Obs (result, obs.order_id = order.id, obs.accession_number set)
+[LAB TEST encounter]
+  └─ TestOrder  (accession_number = "RW-12345")
+  └─ Obs: resultConcept = value  (obs.order_id set, obs.accession_number set)
+  └─ Obs: resultConcept = value  (obs.order_id set, obs.accession_number set)
 ```
 
 ### labworkflow OWA
 
 Single encounter containing both specimen metadata and results. The encounter is linked to
-the order by a `testOrderNumberConcept` obs whose value is `order.orderNumber`.
-Result obs have **no** `obs.order_id` set.
+the order by a `testOrderNumberConcept` obs whose value is `order.orderNumber`. Result obs
+also have `obs.order_id` set: `LabResultEntry.jsx` passes `orderForObs={selectedOrder}` to
+`EncounterFormPanel`, and the react-components form saga sets `obs.order = orderUuid` for
+each submitted obs (sagas.js line 98).
 
 ```
 [Lab Results encounter]
@@ -65,8 +72,8 @@ Result obs have **no** `obs.order_id` set.
   └─ Obs: estimatedCollectionDate   = true/false
   └─ Obs: testLocation              = coded
   └─ Obs: resultsDate               = 2024-01-16
-  └─ Obs: resultConcept             = value            (obs.order_id NOT set)
-  └─ Obs: resultConcept             = value            (obs.order_id NOT set)
+  └─ Obs: resultConcept             = value            (obs.order_id set)
+  └─ Obs: resultConcept             = value            (obs.order_id set)
 ```
 
 ### pihapps
@@ -98,14 +105,14 @@ This is the most important query-time concern.
 
 | Link mechanism | laboratorymanagement-v2 | labworkflow OWA | pihapps |
 |---|---|---|---|
-| `obs.order_id` set on result obs | YES | NO | YES (via encounter POST) |
+| `obs.order_id` set on result obs | YES | YES (`orderForObs` prop → sagas.js line 98) | YES (via encounter POST) |
 | `testOrderNumberConcept` obs in encounter | NO | YES | YES |
 | `obs.accession_number` set on result obs | YES | NO | NO |
 
-**laboratorymanagement-v2** queries results primarily via `obs.order_id` and `obs.accession_number`.  
-**labworkflow** queries via testOrderNumberConcept → encounter → all obs in that encounter.  
-**pihapps** uses testOrderNumberConcept to find the encounter (`getFulfillerEncounterForOrder`) but
-result obs also have `obs.order_id` set, supporting both query styles.
+All three systems set `obs.order_id` on result obs. The distinction is that labworkflow and
+pihapps also record a `testOrderNumberConcept` obs to find the encounter from an order,
+while laboratorymanagement-v2 relies solely on `obs.order_id` (and `obs.accession_number`)
+for that lookup.
 
 ---
 
