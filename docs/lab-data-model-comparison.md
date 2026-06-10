@@ -3,6 +3,10 @@
 This document tracks the analysis of how three lab systems model their data, in support of
 evolving `openmrs-module-pihapps` to replace both legacy systems.
 
+See also: [`lab-fulfiller-encounter-linkage-design.md`](lab-fulfiller-encounter-linkage-design.md)
+for the proposed redesign of how pihapps links orders to fulfiller encounters, and how that
+design is backward-compatible with both legacy systems.
+
 ## Systems Under Comparison
 
 | System | Repo | Used In |
@@ -110,12 +114,15 @@ This is the most important query-time concern.
 |---|---|---|---|
 | `obs.order_id` set on result obs | YES | YES (`orderForObs` prop → sagas.js line 98) | YES (via encounter POST) |
 | `testOrderNumberConcept` obs in encounter | NO | YES | YES |
+| `obs.order_id` set on `testOrderNumberConcept` obs | N/A | **YES** — form saga applies `obs.order = orderUuid` to all obs including testOrderNumber (sagas.js line 98) | **NO** — built manually in `specimenCollectionEncounter.gsp` with no `order` field |
 | `obs.accession_number` set on result obs | YES | NO | NO |
 
-All three systems set `obs.order_id` on result obs. The distinction is that labworkflow and
-pihapps also record a `testOrderNumberConcept` obs to find the encounter from an order,
-while laboratorymanagement-v2 relies solely on `obs.order_id` (and `obs.accession_number`)
-for that lookup.
+All three systems set `obs.order_id` on result obs. labworkflow additionally sets `obs.order_id`
+on the testOrderNumber obs (because it goes through the same form saga as result obs).
+pihapps writes the testOrderNumber obs manually without `obs.order_id`, so the only indexed
+FK linkage in pihapps encounters is on result obs — not on the testOrderNumber obs used for
+encounter lookup. laboratorymanagement-v2 has no testOrderNumber obs and relies solely on
+`obs.order_id` on result obs (and `obs.accession_number`) for all linkage.
 
 ---
 
@@ -164,20 +171,29 @@ Options:
    before entering results (workflow change).
 3. Configurable single-encounter mode (see Gap D).
 
-### Gap C — Legacy fulfiller encounter lookup (ADDRESSED on `legacy-rwanda` branch)
+### Gap C — Legacy fulfiller encounter lookup
 
-**Status:** Implemented on branch `legacy-rwanda`, not yet merged.
+**Status:** Interim solution on `legacy-rwanda` branch. Superseded by redesign — see
+`docs/lab-fulfiller-encounter-linkage-design.md`.
 
 `getFulfillerEncounterForOrder()` only found pihapps-style specimen encounters (via
 testOrderNumberConcept obs). Legacy orders with results had no such obs, causing them to
 appear as "orphaned orders" (has fulfillerStatus but no fulfillerEncounter) in the pihapps UI.
 
-Solution: toggled fallback (`pihapps.labs.enableLegacyFulfillerEncounterLookup`, default false)
-that queries for any encounter with obs directly linked to the order via `obs.order_id`.
-Rwanda distro sets the toggle to true. Performance cost is one additional indexed query per
-order on page load, only when toggle is on and primary strategy finds nothing.
+The `legacy-rwanda` branch implemented a toggled fallback
+(`pihapps.labs.enableLegacyFulfillerEncounterLookup`) that queries for any encounter with obs
+linked to the order via `obs.order_id`. This is the right general direction, but the full
+redesign replaces it with a more general configurable linking mechanism:
 
-`getEncounterFulfillingOrders()` has the same symmetric fallback for the reverse direction.
+- The new GP `pihapps.labs.fulfillerEncounterLinkingConcepts` (comma-separated concept UUIDs)
+  controls which obs concepts are considered for encounter linkage.
+- Empty/unset = any obs with `obs.order_id` (equivalent to the legacy-rwanda toggle always on).
+- Set to specific concepts = only those concepts, e.g. testOrderNumber + fulfillerStatus.
+- The testOrderNumber obs is replaced by a **fulfiller status obs** (with `obs.order_id` set)
+  as pihapps' native linkage mechanism going forward.
+
+The binary toggle on the `legacy-rwanda` branch is superseded by this approach and should not
+be merged. See the design document for deployment details per site.
 
 ### Gap D — Required two-phase encounter workflow vs. optional single-phase
 
