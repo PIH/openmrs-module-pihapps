@@ -359,12 +359,12 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				if (!encounter.getPatient().equals(order.getPatient())) {
 					throw new IllegalArgumentException("Order " + order.getUuid() + " does not belong to the same patient as the encounter");
 				}
-				Order.FulfillerStatus fulfillerStatus = order.getFulfillerStatus();
-				if (fulfillerStatus == null || fulfillerStatus == Order.FulfillerStatus.RECEIVED) {
-					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
-				}
 				if (accessionNumber != null) {
 					order.setAccessionNumber(accessionNumber);
+				}
+				Order.FulfillerStatus fulfillerStatus = order.getFulfillerStatus();
+				if (fulfillerStatus == null) {
+					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
 				}
 				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, null, accessionNumber);
 			}
