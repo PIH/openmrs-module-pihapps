@@ -52,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -333,11 +334,17 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		// Load concepts before saving to avoid ImmutableObsInterceptor flush issues
 		Concept accessionNumberConcept;
 		Concept fulfillerStatusConcept;
+		Map<Order.FulfillerStatus, Concept> valueConceptByStatus;
 		FlushMode flushMode = sessionFactory.getCurrentSession().getFlushMode();
 		try {
 			sessionFactory.getCurrentSession().setFlushMode(FlushMode.MANUAL);
 			accessionNumberConcept = labOrderConfig.getLabIdentifierConcept();
 			fulfillerStatusConcept = labOrderConfig.getFulfillerStatusConcept();
+			valueConceptByStatus = new EnumMap<>(Order.FulfillerStatus.class);
+			valueConceptByStatus.put(Order.FulfillerStatus.IN_PROGRESS, labOrderConfig.getFulfillerStatusInProgressConcept());
+			valueConceptByStatus.put(Order.FulfillerStatus.COMPLETED, labOrderConfig.getFulfillerStatusCompletedConcept());
+			valueConceptByStatus.put(Order.FulfillerStatus.EXCEPTION, labOrderConfig.getFulfillerStatusExceptionConcept());
+			valueConceptByStatus.put(Order.FulfillerStatus.RECEIVED, labOrderConfig.getFulfillerStatusReceivedConcept());
 		}
 		finally {
 			sessionFactory.getCurrentSession().setFlushMode(flushMode);
@@ -357,26 +364,21 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		if (encounterFulfillingOrders.getOrders() != null) {
 			for (Order order : encounterFulfillingOrders.getOrders()) {
+				if (!encounter.getPatient().equals(order.getPatient())) {
+					throw new IllegalArgumentException("Order " + order.getUuid() + " does not belong to the same patient as the encounter");
+				}
 				Order.FulfillerStatus fulfillerStatus = order.getFulfillerStatus();
-				if (fulfillerStatus == null) {
+				if (fulfillerStatus == null || fulfillerStatus == Order.FulfillerStatus.RECEIVED) {
 					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
 				}
-				addFulfillerStatusObsIfChanged(encounter, order, fulfillerStatus, fulfillerStatusConcept);
-			}
-		}
-		encounterService.saveEncounter(encounter);
-		if (encounterFulfillingOrders.getOrders() != null) {
-			for (Order order : encounterFulfillingOrders.getOrders()) {
+				addFulfillerStatusObsIfChanged(encounter, order, fulfillerStatusConcept, valueConceptByStatus.get(fulfillerStatus));
 				if (accessionNumber != null) {
 					order.setAccessionNumber(accessionNumber);
-				}
-				Order.FulfillerStatus fulfillerStatus = order.getFulfillerStatus();
-				if (fulfillerStatus == null) {
-					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
 				}
 				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, null, accessionNumber);
 			}
 		}
+		encounterService.saveEncounter(encounter);
 		return encounterFulfillingOrders;
 	}
 
@@ -413,6 +415,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
 		c.add(eq("voided", false));
 		c.add(eq("order", order));
+		c.add(isNotNull("encounter"));
 		if (!linkingConcepts.isEmpty()) {
 			c.add(in("concept", linkingConcepts));
 		}
@@ -430,10 +433,14 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Authorized(PrivilegeConstants.GET_OBS)
 	@SuppressWarnings({ "unchecked" })
 	public Obs getReasonOrderNotFulfilled(Order order) {
+		Concept reasonConcept = labOrderConfig.getReasonTestNotPerformedQuestion();
+		if (reasonConcept == null) {
+			return null;
+		}
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
 		c.add(eq("voided", false));
 		c.add(eq("person", order.getPatient()));
-		c.add(eq("concept", labOrderConfig.getReasonTestNotPerformedQuestion()));
+		c.add(eq("concept", reasonConcept));
 		c.add(eq("order", order));
 		c.addOrder(desc("obsDatetime"));
 		c.setMaxResults(1);
@@ -446,15 +453,27 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 
 	@Override
 	@Transactional
-	@Authorized(PrivilegeConstants.EDIT_ORDERS)
+	@Authorized({ PrivilegeConstants.EDIT_ORDERS, PrivilegeConstants.EDIT_ENCOUNTERS })
 	public void markOrdersAsNotFulfilled(List<Order> orders, Concept reason) {
-		Concept fulfillerStatusConcept = labOrderConfig.getFulfillerStatusConcept();
+		Concept fulfillerStatusConcept;
+		Concept exceptionConcept;
+		FlushMode flushMode = sessionFactory.getCurrentSession().getFlushMode();
+		try {
+			sessionFactory.getCurrentSession().setFlushMode(FlushMode.MANUAL);
+			fulfillerStatusConcept = labOrderConfig.getFulfillerStatusConcept();
+			exceptionConcept = labOrderConfig.getFulfillerStatusExceptionConcept();
+		}
+		finally {
+			sessionFactory.getCurrentSession().setFlushMode(flushMode);
+		}
 		for (Order order : orders) {
 			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.EXCEPTION, null);
 			Obs existingValue = getReasonOrderNotFulfilled(order);
-			Encounter fulfillerEncounter = existingValue != null ? existingValue.getEncounter() : getFulfillerEncounterForOrder(order);
+			Encounter fulfillerEncounter = (existingValue != null && existingValue.getEncounter() != null)
+					? existingValue.getEncounter()
+					: getFulfillerEncounterForOrder(order);
 			if (fulfillerEncounter != null) {
-				addFulfillerStatusObsIfChanged(fulfillerEncounter, order, Order.FulfillerStatus.EXCEPTION, fulfillerStatusConcept);
+				addFulfillerStatusObsIfChanged(fulfillerEncounter, order, fulfillerStatusConcept, exceptionConcept);
 				encounterService.saveEncounter(fulfillerEncounter);
 			}
 			if (reason != null) {
@@ -481,27 +500,29 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					obs.setPreviousVersion(existingValue);
 					obs.setEncounter(existingValue.getEncounter());
 				}
+				else if (fulfillerEncounter != null) {
+					obs.setEncounter(fulfillerEncounter);
+				}
 
 				obsService.saveObs(obs, "");
 			}
-			else {
+			else if (existingValue != null) {
 				obsService.voidObs(existingValue, "Voided by pihAppsService.markOrdersAsNotFulfilled");
 			}
 		}
 	}
 
-	private void addFulfillerStatusObsIfChanged(Encounter encounter, Order order, Order.FulfillerStatus status, Concept statusConcept) {
+	private void addFulfillerStatusObsIfChanged(Encounter encounter, Order order, Concept statusConcept, Concept valueConcept) {
 		if (statusConcept == null) {
-			return;
+			throw new IllegalStateException("Fulfiller status concept is not configured (pihapps.labs.fulfillerStatusConcept)");
 		}
-		Concept valueConcept = getConceptForFulfillerStatus(status);
 		if (valueConcept == null) {
-			return;
+			throw new IllegalStateException("No concept configured for fulfiller status value");
 		}
 		Obs mostRecent = null;
 		for (Obs obs : encounter.getObsAtTopLevel(false)) {
 			if (statusConcept.equals(obs.getConcept()) && order.equals(obs.getOrder())) {
-				if (mostRecent == null || obs.getObsDatetime().after(mostRecent.getObsDatetime())) {
+				if (mostRecent == null || isLaterObs(obs, mostRecent)) {
 					mostRecent = obs;
 				}
 			}
@@ -519,17 +540,21 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		encounter.addObs(obs);
 	}
 
-	private Concept getConceptForFulfillerStatus(Order.FulfillerStatus status) {
-		if (status == null) {
-			return labOrderConfig.getFulfillerStatusReceivedConcept();
+	private boolean isLaterObs(Obs candidate, Obs current) {
+		if (candidate.getObsDatetime() == null) {
+			return false;
 		}
-		switch (status) {
-			case IN_PROGRESS: return labOrderConfig.getFulfillerStatusInProgressConcept();
-			case COMPLETED:   return labOrderConfig.getFulfillerStatusCompletedConcept();
-			case EXCEPTION:   return labOrderConfig.getFulfillerStatusExceptionConcept();
-			case RECEIVED:    return labOrderConfig.getFulfillerStatusReceivedConcept();
-			default: return null;
+		if (current.getObsDatetime() == null) {
+			return true;
 		}
+		int cmp = candidate.getObsDatetime().compareTo(current.getObsDatetime());
+		if (cmp != 0) {
+			return cmp > 0;
+		}
+		if (candidate.getId() != null && current.getId() != null) {
+			return candidate.getId() > current.getId();
+		}
+		return false;
 	}
 
 	@Override

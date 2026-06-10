@@ -406,7 +406,7 @@ public class LabOrderConfig {
         return conceptService.getConceptByReference(ConfigUtil.getGlobalProperty("pihapps.labs.fulfillerStatusConcept.received"));
     }
 
-    // Fulfiller encounter linking concepts — comma-separated concept UUIDs used to find
+    // Fulfiller encounter linking concepts — comma-separated concept references used to find
     // the fulfiller encounter for an order via obs.order_id. If empty, any obs with
     // obs.order_id set is considered (maximum compatibility mode for legacy data).
 
