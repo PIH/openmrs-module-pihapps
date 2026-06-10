@@ -22,7 +22,7 @@ All three systems use OpenMRS `TestOrder` stored in the `orders` table. No custo
 | Order type config | `laboratorymanagement.orderType.labOrderTypeId` | `labworkflowowa.testOrderType` | `pihapps.labs.labOrderType` (falls back to both legacy GPs) |
 | Orderable concepts | `laboratorymanagement.labExamCategory` — hardcoded concept IDs | `orderentryowa.labOrderablesConceptSet` — concept set UUID | `orderentryowa.labOrderablesConceptSet` — same as labworkflow |
 | Concept hierarchy | 3-level: category → group → individual test (grandfather/parent/child) | 2-level via concept set: category → test (panels as set members) | 2-level via concept set: category → test (panels as set members) |
-| Fulfiller status | Never set by module; backfilled to COMPLETED by `MarkOrderAsFulfilledEventHandler` in `openmrs-module-rwandaemr` when obs are created | Set to COMPLETED (or EXCEPTION) after results entry | Set progressively: RECEIVED on order → IN_PROGRESS on specimen collection → COMPLETED on results |
+| Fulfiller status | Never set by module; backfilled to COMPLETED by `MarkOrderAsFulfilledEventHandler` in `openmrs-module-rwandaemr` when obs are created | Set after results entry via `saveFulfillerStatus` saga: EXCEPTION if "did not perform" obs present, COMPLETED if result obs present, IN_PROGRESS if encounter exists with no result obs | Set to IN_PROGRESS on specimen collection, COMPLETED on results entry. Orders start with null fulfiller status; `OrderFulfillmentStatus.AWAITING_FULFILLMENT` treats both null and RECEIVED as the same state — pihapps never explicitly sets RECEIVED |
 | Urgency | Not used | ROUTINE / STAT | ROUTINE / STAT |
 
 ---
@@ -81,10 +81,13 @@ each submitted obs (sagas.js line 98).
 One Laboratory Encounter holds both specimen metadata and results — the same structure as
 labworkflow. The difference is that this encounter is created in two phases: first at specimen
 reception (specimen metadata obs are recorded and fulfillerStatus set to IN_PROGRESS), then
-results are added to that same encounter later (fulfillerStatus set to COMPLETED). All three
-systems have a separate ordering encounter where orders are originally placed; that is not
-specific to pihapps. Result obs have `obs.order_id` set (via the standard OpenMRS
+results are added to that same encounter later (fulfillerStatus set to COMPLETED). Orders are
+placed in a separate LAB TEST encounter by a different tool; the Laboratory Encounter is
+pihapps' concern. Result obs have `obs.order_id` set (via the standard OpenMRS
 encounter/obs REST endpoint).
+
+Note: unlike labworkflow and pihapps, laboratorymanagement-v2 uses the **same** encounter
+for both orders and results — there is no separate ordering encounter in that system.
 
 ```
 [LAB TEST encounter]          [Laboratory Encounter] (specimen collection + results)
@@ -204,27 +207,37 @@ identical to new pihapps data.
 pihapps properties were designed to mirror labworkflow's with a namespace change. Labs-v2 is
 largely orthogonal (separate namespace, some hardcoded values).
 
+The following mappings are **actual code fallback chains** in `LabOrderConfig` — if the
+pihapps GP is not set, the labworkflow GP is read automatically:
+
 ```
 labworkflow GP                              → pihapps GP
 ─────────────────────────────────────────────────────────────────────────────
+labworkflowowa.testOrderType                → pihapps.labs.labOrderType
 labworkflowowa.testOrderNumberConcept       → pihapps.labs.testOrderNumberConcept
 labworkflowowa.labResultsEntryEncounterType → pihapps.labs.specimenCollectionEncounterType
-labworkflowowa.testOrderType                → pihapps.labs.labOrderType
-labworkflowowa.didNotPerformQuestion        → pihapps.labs.didNotPerformReason (simplified)
 labworkflowowa.locationOfLaboratory         → pihapps.labs.locationOfLaboratory
-labworkflowowa.estimatedCollectionDateQ/A   → pihapps.labs.estimatedCollectionDateQuestion/Answer
-labworkflowowa.labResultsDateConcept        → pihapps.labs.resultsDateConcept
+labworkflowowa.estimatedCollectionDateQuestion → pihapps.labs.estimatedCollectionDateQuestion
+labworkflowowa.estimatedCollectionDateAnswer   → pihapps.labs.estimatedCollectionDateAnswer
+labworkflowowa.didNotPerformReason          → pihapps.labs.didNotPerformReason
 labworkflowowa.labCategoriesConceptSet      → pihapps.labs.labResultCategoriesConceptSet
-orderentryowa.labOrderablesConceptSet       → orderentryowa.labOrderablesConceptSet (same)
+orderentryowa.labOrderablesConceptSet       → orderentryowa.labOrderablesConceptSet (same, no alias)
+```
 
-laboratorymanagement-v2 GP                 → pihapps GP (fallback support)
-─────────────────────────────────────────────────────────────────────────────
+The following pihapps GPs have **no labworkflow fallback** — they use hardcoded defaults:
+
+```
+pihapps.labs.specimenReceivedDateConcept    default: PIH:21057   (labworkflow hardcoded 6234d61b-...)
+pihapps.labs.resultsDateConcept             default: PIH:10783   (labworkflow GP: labworkflowowa.labResultsDateConcept — no fallback)
+pihapps.labs.labIdentifierConcept           default: CIEL:162086 (no labworkflow equivalent)
+```
+
+The following labs-v2 GPs are **actual code fallbacks** in `LabOrderConfig`:
+
+```
 laboratorymanagement.orderType.labOrderTypeId  → pihapps.labs.labOrderType (fallback chain)
 laboratorymanagement.multipleAnswerConceptIds  → pihapps.labs.multipleAnswerConcepts (fallback)
 ```
-
-pihapps `LabOrderConfig` already has fallback chains that read the labworkflow and
-laboratorymanagement-v2 GPs when pihapps-specific ones are not set.
 
 ---
 
