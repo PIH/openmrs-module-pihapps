@@ -17,6 +17,13 @@
 %>
 
 <script type="text/javascript">
+    function showSpecimenCollectionLoading() {
+        const parentElement = jq("#${id}");
+        parentElement.find(".errors-section").html("");
+        parentElement.find(".form-content-section").hide();
+        parentElement.find(".loading-section").show();
+    }
+
     function initializeSpecimenCollectionForm(formConfig) {
 
         const patientUuid = formConfig.patientUuid;
@@ -195,12 +202,15 @@
             });
         });
 
-        parentElement.show();
+        parentElement.find(".loading-section").hide();
+        parentElement.find(".form-content-section").show();
     }
 </script>
 
 <div id="${id}">
+    <div class="loading-section"><i class="icon-spinner icon-spin icon-4x"></i></div>
     <div class="errors-section"></div>
+    <div class="form-content-section" style="display:none;">
     <form>
         <div class="dialog-content form">
             ${ ui.includeFragment("pihapps", "labs/selectedOrders") }
@@ -243,4 +253,5 @@
             <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
         </div>
     </form>
+    </div>
 </div>

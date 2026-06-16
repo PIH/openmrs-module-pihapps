@@ -14,6 +14,13 @@
 %>
 
 <script type="text/javascript">
+    function showOrderNotFulfilledLoading() {
+        const parentElement = jq("#${id}");
+        parentElement.find(".errors-section").html("");
+        parentElement.find(".form-content-section").hide();
+        parentElement.find(".loading-section").show();
+    }
+
     function initializeOrderNotFulfilledForm(formConfig) {
 
         const orders = formConfig.orders;
@@ -107,28 +114,32 @@
             revertButton.hide();
         }
 
-        parentElement.show();
+        parentElement.find(".loading-section").hide();
+        parentElement.find(".form-content-section").show();
     }
 </script>
 
 <div id="${id}">
-    <div class="form-header">
-        ${ui.message("pihapps.removeSelectedOrders")}
-    </div>
+    <div class="loading-section"><i class="icon-spinner icon-spin icon-4x"></i></div>
     <div class="errors-section"></div>
-    <form>
-        <div class="dialog-content form">
-            ${ ui.includeFragment("pihapps", "labs/selectedOrders") }
-            <div class="remove-reason-section form-field-section row">
-                <span class="form-field-label col-4">${ui.message("pihapps.reason")}:</span>
-                <span class="form-field-widgets col-auto">
-                    <span class="obs-field-remove-reason"></span>
-                </span>
-            </div>
-            <br><br>
-            <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
-            <button class="revert action-button" style="display:none;">${ ui.message("pihapps.revertToOrdered") }</button>
-            <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
+    <div class="form-content-section" style="display:none;">
+        <div class="form-header">
+            ${ui.message("pihapps.removeSelectedOrders")}
         </div>
-    </form>
+        <form>
+            <div class="dialog-content form">
+                ${ ui.includeFragment("pihapps", "labs/selectedOrders") }
+                <div class="remove-reason-section form-field-section row">
+                    <span class="form-field-label col-4">${ui.message("pihapps.reason")}:</span>
+                    <span class="form-field-widgets col-auto">
+                        <span class="obs-field-remove-reason"></span>
+                    </span>
+                </div>
+                <br><br>
+                <button class="cancel action-button">${ ui.message("coreapps.cancel") }</button>
+                <button class="revert action-button" style="display:none;">${ ui.message("pihapps.revertToOrdered") }</button>
+                <button class="confirm right action-button">${ ui.message("coreapps.save") }<i class="icon-spinner icon-spin icon-2x" style="display: none; margin-left: 10px;"></i></button>
+            </div>
+        </form>
+    </div>
 </div>

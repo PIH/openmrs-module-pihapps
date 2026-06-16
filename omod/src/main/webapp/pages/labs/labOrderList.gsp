@@ -37,6 +37,8 @@
     const viewSpecimenEncounter = function(encounterUuid) {
         const encounterRep = "id,uuid,patient:" + patientRep + ",encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(uuid,concept:(uuid,datatype:(name)),value,valueCoded:(uuid,display),valueNumeric,valueDatetime,valueText,comment,formNamespaceAndPath)";
         const rep = "encounter:(" + encounterRep + "),orders:(" + orderRep + ")";
+        showSpecimenCollectionLoading();
+        openEncounterEdit();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq.get(openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterUuid + "?v=custom:(" + rep + ")", function (encAndOrders) {
                 jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(encAndOrders.encounter.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
@@ -49,13 +51,14 @@
                     pihAppsConfig: pihAppsConfig,
                     onSuccessFunction: () => { closeEncounterEdit(); pagingDataTable.updateTable(); }
                 });
-                openEncounterEdit();
             });
         });
     };
 
     const viewOrderNotPerformed = function(orderUuid) {
         const rep = orderRep + ",reasonOrderNotFulfilled:(uuid,concept:" + conceptRep + ",valueCoded:" + conceptRep + ")";
+        showOrderNotFulfilledLoading();
+        openReasonNotPerformed();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq.get(openmrsContextPath + "/ws/rest/v1/order/" + orderUuid + "?v=custom:(" + rep + ")", function (order) {
                 jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
@@ -66,12 +69,13 @@
                     pihAppsConfig: pihAppsConfig,
                     onSuccessFunction: () => { closeReasonNotPerformed(); pagingDataTable.updateTable(); }
                 });
-                openReasonNotPerformed();
             });
         });
     }
 
     const markNotPerformed = function(patient, orders) {
+        showOrderNotFulfilledLoading();
+        openReasonNotPerformed();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
             jq(".lab-patient-name").html(patient.person.display);
@@ -87,11 +91,12 @@
                     }
                 }
             });
-            openReasonNotPerformed();
         });
     };
 
     const collectSpecimen = function(patient, orders, selectedOrderUuids) {
+        showSpecimenCollectionLoading();
+        openEncounterEdit();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
             jq(".lab-patient-name").html(patient.person.display);
@@ -110,7 +115,6 @@
                     }
                 }
             });
-            openEncounterEdit();
         });
     };
 
