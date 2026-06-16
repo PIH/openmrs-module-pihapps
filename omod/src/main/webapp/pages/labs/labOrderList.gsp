@@ -41,8 +41,6 @@
         openEncounterEdit();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq.get(openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterUuid + "?v=custom:(" + rep + ")", function (encAndOrders) {
-                jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(encAndOrders.encounter.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
-                jq(".lab-patient-name").html(encAndOrders.encounter.patient.person.display);
                 initializeSpecimenCollectionForm({
                     patientUuid: encAndOrders.encounter.patient.uuid,
                     orders: encAndOrders.orders,
@@ -61,8 +59,6 @@
         openReasonNotPerformed();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
             jq.get(openmrsContextPath + "/ws/rest/v1/order/" + orderUuid + "?v=custom:(" + rep + ")", function (order) {
-                jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
-                jq(".lab-patient-name").html(order.patient.person.display);
                 initializeOrderNotFulfilledForm({
                     orders: [order],
                     reason: order.reasonOrderNotFulfilled,
@@ -77,8 +73,6 @@
         showOrderNotFulfilledLoading();
         openReasonNotPerformed();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
-            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
-            jq(".lab-patient-name").html(patient.person.display);
             initializeOrderNotFulfilledForm({
                 orders: orders,
                 pihAppsConfig: pihAppsConfig,
@@ -98,8 +92,6 @@
         showSpecimenCollectionLoading();
         openEncounterEdit();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
-            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
-            jq(".lab-patient-name").html(patient.person.display);
             initializeSpecimenCollectionForm({
                 patientUuid: patient.uuid,
                 orders: orders,
@@ -264,6 +256,8 @@
                     event.stopPropagation();
                     const orderUuid = jq(event.currentTarget).data().orderUuid;
                     const order = getOrderFromTable(orderUuid);
+                    jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                    jq(".lab-patient-name").html(order.patient.person.display);
                     if (order.fulfillerEncounter) {
                         viewSpecimenEncounter(order.fulfillerEncounter.uuid);
                     } else {
@@ -274,6 +268,8 @@
                     event.stopPropagation();
                     const orderUuid = jq(event.currentTarget).data().orderUuid;
                     const order = getOrderFromTable(orderUuid);
+                    jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(order.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                    jq(".lab-patient-name").html(order.patient.person.display);
                     if (getOrderStatus(order) === 'NOT_PERFORMED') {
                         viewOrderNotPerformed(order.uuid);
                     } else {
@@ -401,6 +397,8 @@
                         // Collect specimen
                         jq("." + subRowClass2 + " .collect-specimen-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
                             event.stopPropagation();
+                            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patientWithOrders.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                            jq(".lab-patient-name").html(patientWithOrders.patient.person.display);
                             if (order.fulfillerEncounter) {
                                 viewSpecimenEncounter(order.fulfillerEncounter.uuid);
                             } else {
@@ -410,6 +408,8 @@
                         // Mark not performed (pre-collection)
                         jq("." + subRowClass2 + " .mark-not-performed-action[data-order-uuid='" + order.uuid + "']").on("click", (event) => {
                             event.stopPropagation();
+                            jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patientWithOrders.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                            jq(".lab-patient-name").html(patientWithOrders.patient.person.display);
                             if (getOrderStatus(order) === 'NOT_PERFORMED') {
                                 viewOrderNotPerformed(order.uuid);
                             } else {
@@ -439,6 +439,8 @@
                     const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
                     if (patientWithOrders) {
                         const awaitingOrders = patientWithOrders.orders.filter(o => { const s = getOrderStatus(o); return s === 'AWAITING' || s === 'ORPHANED'; });
+                        jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patientWithOrders.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                        jq(".lab-patient-name").html(patientWithOrders.patient.person.display);
                         collectSpecimen(patientWithOrders.patient, awaitingOrders, awaitingOrders.map(o => o.uuid));
                     }
                 });
@@ -450,6 +452,8 @@
                     const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
                     if (patientWithOrders) {
                         const awaitingOrders = patientWithOrders.orders.filter(o => { const s = getOrderStatus(o); return s === 'AWAITING' || s === 'ORPHANED'; });
+                        jq(".lab-emr-id").html(patientUtils.getPreferredIdentifier(patientWithOrders.patient, pihAppsConfig.primaryIdentifierType?.uuid ?? ''));
+                        jq(".lab-patient-name").html(patientWithOrders.patient.person.display);
                         markNotPerformed(patientWithOrders.patient, awaitingOrders);
                     }
                 });
