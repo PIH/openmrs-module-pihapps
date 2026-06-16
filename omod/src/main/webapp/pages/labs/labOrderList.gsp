@@ -302,13 +302,13 @@
             const getAggregateStatusBadge = (patientWithOrders) => {
                 const status = getAggregateStatus(patientWithOrders.orders);
                 const labels = {
-                    'AWAITING':      { cls: 'badge-warning',   key: '${ui.message("pihapps.allAwaiting")}' },
-                    'COLLECTED':     { cls: 'badge-info',      key: '${ui.message("pihapps.allCollected")}' },
-                    'COMPLETED':     { cls: 'badge-success',   key: '${ui.message("pihapps.allCompleted")}' },
-                    'EXPIRED':       { cls: 'badge-dark',      key: '${ui.message("pihapps.allExpired")}' },
-                    'CANCELED':      { cls: 'badge-dark',      key: '${ui.message("pihapps.allCanceled")}' },
-                    'NOT_PERFORMED': { cls: 'badge-secondary', key: '${ui.message("pihapps.allNotPerformed")}' },
-                    'MIXED':         { cls: 'badge-secondary', key: '${ui.message("pihapps.mixedStatus")}' }
+                    'AWAITING':      { cls: 'badge-warning',   key: '${ui.encodeJavaScript(ui.message("pihapps.allAwaiting"))}' },
+                    'COLLECTED':     { cls: 'badge-info',      key: '${ui.encodeJavaScript(ui.message("pihapps.allCollected"))}' },
+                    'COMPLETED':     { cls: 'badge-success',   key: '${ui.encodeJavaScript(ui.message("pihapps.allCompleted"))}' },
+                    'EXPIRED':       { cls: 'badge-dark',      key: '${ui.encodeJavaScript(ui.message("pihapps.allExpired"))}' },
+                    'CANCELED':      { cls: 'badge-dark',      key: '${ui.encodeJavaScript(ui.message("pihapps.allCanceled"))}' },
+                    'NOT_PERFORMED': { cls: 'badge-secondary', key: '${ui.encodeJavaScript(ui.message("pihapps.allNotPerformed"))}' },
+                    'MIXED':         { cls: 'badge-secondary', key: '${ui.encodeJavaScript(ui.message("pihapps.mixedStatus"))}' }
                 };
                 const label = labels[status] || labels['MIXED'];
                 return '<span class="badge ' + label.cls + '">' + label.key + '</span>';
@@ -356,10 +356,10 @@
                         const urgencyIcon = order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color:red;"></i>' : '';
                         const metaLabel = (key) => '<span class="text-muted">' + key + ': </span>';
                         const metaParts = [
-                            metaLabel('${ ui.message("pihapps.orderDate") }') + dateUtils.formatAsDateWithoutTime(order.dateActivated),
-                            order.encounter?.location?.display ? metaLabel('${ ui.message("pihapps.orderLocation") }') + order.encounter.location.display : null,
-                            order.accessionNumber ? metaLabel('${ ui.message("pihapps.labId") }') + order.accessionNumber : null,
-                            metaLabel('${ ui.message("pihapps.orderNumber") }') + order.orderNumber
+                            metaLabel('${ ui.encodeJavaScript(ui.message("pihapps.orderDate")) }') + dateUtils.formatAsDateWithoutTime(order.dateActivated),
+                            order.encounter?.location?.display ? metaLabel('${ ui.encodeJavaScript(ui.message("pihapps.orderLocation")) }') + order.encounter.location.display : null,
+                            order.accessionNumber ? metaLabel('${ ui.encodeJavaScript(ui.message("pihapps.labId")) }') + order.accessionNumber : null,
+                            metaLabel('${ ui.encodeJavaScript(ui.message("pihapps.orderNumber")) }') + order.orderNumber
                         ].filter(p => !!p);
                         const cellHtml =
                             '<div class="patient-sub-row-details">' +
@@ -646,6 +646,10 @@
     }
     .patient-sub-row-details .psrd-meta-block {
         flex: 1;
+    }
+    #orders-table td:last-child,
+    #patients-table td:last-child {
+        white-space: nowrap;
     }
     .lab-action-icon {
         font-size: 1.1em;

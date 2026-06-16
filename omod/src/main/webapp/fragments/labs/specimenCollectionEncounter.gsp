@@ -133,15 +133,15 @@
             const collectionDateStr =  encounterToSubmit.encounterDatetime;
             const collectionDate = collectionDateStr ? moment(collectionDateStr) : null;
             if (collectionDate && collectionDate.isAfter(currentDate)) {
-                errors.push('${ ui.message("pihapps.specimenCollectionDateCannotBeFuture") }');
+                errors.push('${ ui.encodeJavaScript(ui.message("pihapps.specimenCollectionDateCannotBeFuture")) }');
             }
             const receivedDateStr = encounterToSubmit.obs.find(o => o.concept === receivedDateQuestion.uuid)?.valueDatetime;
             const receivedDate = receivedDateStr ? moment(receivedDateStr) : null;
             if (receivedDate && receivedDate.isAfter(currentDate)) {
-                errors.push('${ ui.message("pihapps.specimenReceivedDateCannotBeFuture") }');
+                errors.push('${ ui.encodeJavaScript(ui.message("pihapps.specimenReceivedDateCannotBeFuture")) }');
             }
             if (collectionDate && receivedDate && collectionDate.isAfter(receivedDate)) {
-                errors.push('${ ui.message("pihapps.specimenReceivedCannotBeBeforeCollected") }');
+                errors.push('${ ui.encodeJavaScript(ui.message("pihapps.specimenReceivedCannotBeBeforeCollected")) }');
             }
             if (errors && errors.length > 0) {
                 errors.forEach(e => {

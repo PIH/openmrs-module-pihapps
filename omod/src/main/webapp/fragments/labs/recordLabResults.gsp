@@ -30,21 +30,22 @@
         parentElement.find(".errors-section").html("");
 
         const messages = {
-            estimated: '${ ui.message("pihapps.estimated") }',
-            valueMustBeInteger: '${ ui.message("pihapps.valueCannotBeDecimal") }',
-            abnormalValue: '${ ui.message("pihapps.abnormalValue") }',
-            criticalValue: '${ ui.message("pihapps.criticalValue") }',
-            minimumAllowedValue: '${ ui.message("pihapps.minimumAllowedValue") }',
-            maximumAllowedValue: '${ ui.message("pihapps.maximumAllowedValue") }',
-            resultDateCannotBeFuture: '${ ui.message("pihapps.resultDateCannotBeFuture") }',
-            resultDateCannotBeBeforeSpecimenDate: '${ ui.message("pihapps.resultDateCannotBeBeforeSpecimenDate") }',
-            resultsMustHaveAssociatedSpecimenEncounter: '${ ui.message("pihapps.resultsMustHaveAssociatedSpecimenEncounter") }',
-            noResultsEntered: '${ ui.message("pihapps.noResultsEntered") }',
-            errorsWithOneOrMoreFields: '${ ui.message("pihapps.errorsWithOneOrMoreFields") }',
-            reasonRequired: '${ ui.message("pihapps.reasonRequired") }',
-            addComment: '${ ui.message("pihapps.addComment") }',
-            removeComment: '${ ui.message("pihapps.removeComment") }',
-            removeResult: '${ ui.message("pihapps.removeResult") }',
+            estimated: '${ ui.encodeJavaScript(ui.message("pihapps.estimated")) }',
+            valueMustBeInteger: '${ ui.encodeJavaScript(ui.message("pihapps.valueCannotBeDecimal")) }',
+            abnormalValue: '${ ui.encodeJavaScript(ui.message("pihapps.abnormalValue")) }',
+            criticalValue: '${ ui.encodeJavaScript(ui.message("pihapps.criticalValue")) }',
+            minimumAllowedValue: '${ ui.encodeJavaScript(ui.message("pihapps.minimumAllowedValue")) }',
+            maximumAllowedValue: '${ ui.encodeJavaScript(ui.message("pihapps.maximumAllowedValue")) }',
+            resultDateCannotBeFuture: '${ ui.encodeJavaScript(ui.message("pihapps.resultDateCannotBeFuture")) }',
+            resultDateCannotBeBeforeSpecimenDate: '${ ui.encodeJavaScript(ui.message("pihapps.resultDateCannotBeBeforeSpecimenDate")) }',
+            resultsMustHaveAssociatedSpecimenEncounter: '${ ui.encodeJavaScript(ui.message("pihapps.resultsMustHaveAssociatedSpecimenEncounter")) }',
+            noResultsEntered: '${ ui.encodeJavaScript(ui.message("pihapps.noResultsEntered")) }',
+            errorsWithOneOrMoreFields: '${ ui.encodeJavaScript(ui.message("pihapps.errorsWithOneOrMoreFields")) }',
+            reasonRequired: '${ ui.encodeJavaScript(ui.message("pihapps.reasonRequired")) }',
+            addComment: '${ ui.encodeJavaScript(ui.message("pihapps.addComment")) }',
+            removeComment: '${ ui.encodeJavaScript(ui.message("pihapps.removeComment")) }',
+            removeResult: '${ ui.encodeJavaScript(ui.message("pihapps.removeResult")) }',
+            addAnotherResult: '${ ui.encodeJavaScript(ui.message("pihapps.addAnotherResult")) }',
         };
 
         if (!order || !order.fulfillerEncounter) {
@@ -281,7 +282,7 @@
                         const addBtn = jq("<button>")
                             .addClass("btn btn-sm btn-outline-secondary multi-value-add mt-1")
                             .attr("type", "button")
-                            .text('${ ui.message("pihapps.addAnotherResult") }');
+                            .text(messages.addAnotherResult);
                         addBtn.on("click", () => {
                             addBtn.before(renderMultiValueRow(null, false));
                             if (syncOptions) syncOptions();
