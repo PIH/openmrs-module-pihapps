@@ -353,7 +353,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				accessionNumber = BooleanUtils.isTrue(obs.getVoided()) ? "" : obs.getValueText();
 			}
 		}
-		encounterService.saveEncounter(encounter);
+		// Update orders before saving the encounter: the obs INSERT (from saveEncounter) needs a shared lock on
+		// the referenced order rows for FK constraint verification. Updating orders first acquires exclusive locks
+		// on those rows, preventing contention with concurrent transactions that also hold exclusive order locks.
 		if (encounterFulfillingOrders.getOrders() != null) {
 			for (Order order : encounterFulfillingOrders.getOrders()) {
 				if (!encounter.getPatient().equals(order.getPatient())) {
@@ -369,6 +371,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, null, accessionNumber);
 			}
 		}
+		encounterService.saveEncounter(encounter);
 		return encounterFulfillingOrders;
 	}
 

@@ -19,6 +19,7 @@
     ];
 
     const visitLocationUuid = '${ visitLocationUuid }';
+    const patientGroupActionExtensions = ${ ui.toJson(patientGroupActionExtensions) };
 
     const patientRep = "(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
     const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
@@ -328,18 +329,17 @@
                             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
                     );
                 }
-                // TODO: Print Results and Notify Patient require configuration before enabling.
-                // Uncomment the block below once the downstream handlers are implemented.
-                // else if (status === 'COMPLETED') {
-                //     actions.append(
-                //         jq("<i>").addClass("fas fa-fw fa-print lab-action-icon print-results-action mr-1")
-                //             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.printResults') }" })
-                //     );
-                //     actions.append(
-                //         jq("<i>").addClass("fas fa-fw fa-bell lab-action-icon notify-patient-action")
-                //             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.notifyPatient') }" })
-                //     );
-                // }
+                patientGroupActionExtensions.forEach(ext => {
+                    const iconClass = (ext.extensionParams && ext.extensionParams.iconClass) || 'fas fa-fw fa-cog';
+                    actions.append(
+                        jq("<i>").addClass(iconClass + " lab-action-icon lab-ext-group-action")
+                            .attr({
+                                "data-patient-uuid": patientUuid,
+                                "data-extension-id": ext.id,
+                                "title": ext.label || ext.id
+                            })
+                    );
+                });
                 return actions.html();
             };
 
@@ -458,15 +458,22 @@
                     }
                 });
 
-                // TODO: Uncomment when Print Results and Notify Patient are implemented.
-                // jq(".print-results-action").off("click").on("click", (event) => {
-                //     event.stopPropagation();
-                //     const patientUuid = jq(event.currentTarget).data("patientUuid");
-                // });
-                // jq(".notify-patient-action").off("click").on("click", (event) => {
-                //     event.stopPropagation();
-                //     const patientUuid = jq(event.currentTarget).data("patientUuid");
-                // });
+                // Extension-configured group actions
+                jq(".lab-ext-group-action").off("click").on("click", (event) => {
+                    event.stopPropagation();
+                    const extensionId = jq(event.currentTarget).data("extensionId");
+                    const patientUuid = jq(event.currentTarget).data("patientUuid");
+                    const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
+                    if (patientWithOrders) {
+                        const ext = patientGroupActionExtensions.find(e => e.id === extensionId);
+                        if (ext && ext.extensionParams && ext.extensionParams.jsFunction) {
+                            const fn = window[ext.extensionParams.jsFunction];
+                            if (typeof fn === 'function') {
+                                fn(patientWithOrders, ext.extensionParams);
+                            }
+                        }
+                    }
+                });
 
                 // Expand/collapse on row click
                 jq("#patients-table tbody tr.patient-group-row").off("click").on("click", function(event) {
