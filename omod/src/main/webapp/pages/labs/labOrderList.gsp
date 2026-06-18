@@ -19,6 +19,7 @@
     ];
 
     const visitLocationUuid = '${ visitLocationUuid }';
+    const visitLocationName = '${ visitLocationForSessionLocation ? ui.encodeJavaScript(visitLocationForSessionLocation.name) : "" }';
     const patientGroupActionExtensions = ${ ui.toJson(patientGroupActionExtensions) };
 
     const patientRep = "(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
