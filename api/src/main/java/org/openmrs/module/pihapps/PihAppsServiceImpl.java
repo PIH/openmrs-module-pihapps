@@ -470,7 +470,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				obs.setOrder(order);
 				obs.setValueCoded(reason);
 				obs.setAccessionNumber(order.getAccessionNumber());
-				obs.setComment("result-entry-form^did-not-perform-dropdown"); // This is here for backwards-compatibility with the labworkflow owa
 				if (existingValue != null) {
 					obs.setPreviousVersion(existingValue);
 					obs.setEncounter(existingValue.getEncounter());
