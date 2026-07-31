@@ -134,7 +134,7 @@
         // Read URL params for deep linking (e.g., Specimen Collection Queue)
         const urlParams = new URLSearchParams(window.location.search);
         const initialGrouping = urlParams.get('grouping');   // 'patient' or null
-        const initialStatuses = urlParams.getAll('status');   // e.g. ['AWAITING_FULFILLMENT', 'IN_FULFILLMENT'] or []
+        const initialStatuses = urlParams.getAll('status').filter(s => s);   // e.g. ['AWAITING_FULFILLMENT', 'IN_FULFILLMENT'] or []
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
 
@@ -240,6 +240,17 @@
                     ? "${ ui.encodeJavaScript(ui.message('pihapps.allStatuses')) }"
                     : checked.map((i, el) => jq(el).data("display")).get().join(", ");
                 jq("#orderFulfillmentStatus-filter-summary").text(summary);
+            }
+
+            const refreshActiveTable = function() {
+                const params = getFilterParameterValues();
+                if (jq("#group-by-patient-btn").hasClass("active")) {
+                    patientPagingDataTable.setParameters(params);
+                    patientPagingDataTable.goToFirstPage();
+                } else {
+                    pagingDataTable.setParameters(params);
+                    pagingDataTable.goToFirstPage();
+                }
             }
 
             const orderTableUpdated = function() {
@@ -495,6 +506,29 @@
                 });
             };
 
+            orderFulfillmentStatusOptions.forEach((statusOption) => {
+                const checkboxId = "orderFulfillmentStatus-option-" + statusOption.status;
+                const checkbox = jq("<input>").attr({
+                    type: "checkbox",
+                    id: checkboxId,
+                    value: statusOption.status,
+                    "data-display": statusOption.display
+                }).addClass("orderFulfillmentStatus-checkbox");
+                const optionLabel = jq("<label>").addClass("status-filter-option").attr("for", checkboxId)
+                    .append(checkbox).append(" " + statusOption.display);
+                jq("#orderFulfillmentStatus-filter-menu").append(optionLabel);
+            });
+            jq(".orderFulfillmentStatus-checkbox").on("change", updateOrderFulfillmentStatusSummary);
+            updateOrderFulfillmentStatusSummary();
+
+            // Apply initial status filter: URL param(s) if present, otherwise default to Ordered + Collected
+            const defaultFulfillmentStatuses = ["AWAITING_FULFILLMENT", "IN_FULFILLMENT"];
+            const statusesToApply = initialStatuses.length > 0 ? initialStatuses : defaultFulfillmentStatuses;
+            jq(".orderFulfillmentStatus-checkbox").prop("checked", function() {
+                return statusesToApply.includes(jq(this).val());
+            });
+            updateOrderFulfillmentStatusSummary();
+
             pagingDataTable.initialize({
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
@@ -530,21 +564,6 @@
                 jq("#testConcept-filter").append(optGroup);
             });
 
-            orderFulfillmentStatusOptions.forEach((statusOption) => {
-                const checkboxId = "orderFulfillmentStatus-option-" + statusOption.status;
-                const checkbox = jq("<input>").attr({
-                    type: "checkbox",
-                    id: checkboxId,
-                    value: statusOption.status,
-                    "data-display": statusOption.display
-                }).addClass("orderFulfillmentStatus-checkbox");
-                const optionLabel = jq("<label>").addClass("status-filter-option").attr("for", checkboxId)
-                    .append(checkbox).append(" " + statusOption.display);
-                jq("#orderFulfillmentStatus-filter-menu").append(optionLabel);
-            });
-            jq(".orderFulfillmentStatus-checkbox").on("change", updateOrderFulfillmentStatusSummary);
-            updateOrderFulfillmentStatusSummary();
-
             if (visitLocationUuid) {
                 const locationRep = "custom:(uuid,display,descendantLocations:(uuid,display,tags:(uuid,name)))";
                 jq.get(openmrsContextPath + "/ws/rest/v1/location/" + visitLocationUuid + "?v=" + locationRep, function(visitLocation) {
@@ -557,16 +576,7 @@
                 });
             }
 
-            jq("#test-filter-form").find(":input").change(function () {
-                const params = getFilterParameterValues();
-                if (jq("#group-by-patient-btn").hasClass("active")) {
-                    patientPagingDataTable.setParameters(params);
-                    patientPagingDataTable.goToFirstPage();
-                } else {
-                    pagingDataTable.setParameters(params);
-                    pagingDataTable.goToFirstPage();
-                }
-            });
+            jq("#test-filter-form").find(":input").change(refreshActiveTable);
 
             jq("#group-by-order-btn").on("click", function() {
                 jq(this).blur();
@@ -633,15 +643,6 @@
                 return pagingDataTable.getRowObjects().find((o) => o.uuid === orderUuid);
             }
 
-            // Apply initial status filter: URL param(s) if present, otherwise default to Ordered + Collected
-            const defaultFulfillmentStatuses = ["AWAITING_FULFILLMENT", "IN_FULFILLMENT"];
-            const statusesToApply = initialStatuses.length > 0 ? initialStatuses : defaultFulfillmentStatuses;
-            jq(".orderFulfillmentStatus-checkbox").prop("checked", function() {
-                return statusesToApply.includes(jq(this).val());
-            });
-            updateOrderFulfillmentStatusSummary();
-            jq(".orderFulfillmentStatus-checkbox").first().trigger("change");
-
             // Add clear buttons to filters
             jq(".clearable-input-wrapper").find(".icon-remove").on("click", (event) => {
                 const icon = jq(event.target);
@@ -662,7 +663,7 @@
                 event.stopPropagation();
                 jq(".orderFulfillmentStatus-checkbox").prop("checked", false);
                 updateOrderFulfillmentStatusSummary();
-                jq(".orderFulfillmentStatus-checkbox").first().trigger("change");
+                refreshActiveTable();
             });
         });
     });

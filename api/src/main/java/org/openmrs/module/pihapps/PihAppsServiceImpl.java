@@ -275,6 +275,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (searchCriteria.getOrderFulfillmentStatuses() != null && !searchCriteria.getOrderFulfillmentStatuses().isEmpty()) {
 			List<Criterion> statusCriteria = new ArrayList<>();
 			for (OrderFulfillmentStatus status : searchCriteria.getOrderFulfillmentStatuses()) {
+				if (status == null) {
+					continue;
+				}
 				Criterion orderStatusClause = null;
 				if (status.getOrderStatus() == OrderStatus.ACTIVE) {
 					Criterion orderIsNotExpired = or(isNull("autoExpireDate"), gt("autoExpireDate", now));

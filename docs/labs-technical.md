@@ -144,7 +144,7 @@ Searches orders with pagination. Delegates to `PihAppsService.getOrders(OrderSea
 | `activatedOnOrAfter` | `yyyy-MM-dd` | |
 | `activatedOnOrBefore` | `yyyy-MM-dd` | |
 | `accessionNumber` | string | |
-| `orderFulfillmentStatus` | `OrderFulfillmentStatus` enum name | |
+| `orderFulfillmentStatus` | `OrderFulfillmentStatus` enum name (repeatable) | |
 | `sortBy` | `field-DIRECTION` (repeatable) | e.g. `dateActivated-desc` |
 | `v` | custom representation | Standard OpenMRS REST `v` param |
 | `startIndex`, `limit` | int | Pagination |
