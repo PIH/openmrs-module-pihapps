@@ -96,11 +96,7 @@ public class LabOrderRestController {
             searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
             searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
             if (orderFulfillmentStatus != null) {
-                if (orderFulfillmentStatus.getOrderStatus() != null) {
-                    searchCriteria.setOrderStatus(Collections.singletonList(orderFulfillmentStatus.getOrderStatus()));
-                }
-                searchCriteria.setFulfillerStatuses(orderFulfillmentStatus.getFulfillerStatuses());
-                searchCriteria.setIncludeNullFulfillerStatus(orderFulfillmentStatus.getIncludeNullFulfillerStatus());
+                searchCriteria.setOrderFulfillmentStatuses(Collections.singletonList(orderFulfillmentStatus));
             }
             searchCriteria.setStartIndex(requestContext.getStartIndex());
             searchCriteria.setLimit(requestContext.getLimit());
@@ -169,11 +165,7 @@ public class LabOrderRestController {
             searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
             searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
             if (orderFulfillmentStatus != null) {
-                if (orderFulfillmentStatus.getOrderStatus() != null) {
-                    searchCriteria.setOrderStatus(Collections.singletonList(orderFulfillmentStatus.getOrderStatus()));
-                }
-                searchCriteria.setFulfillerStatuses(orderFulfillmentStatus.getFulfillerStatuses());
-                searchCriteria.setIncludeNullFulfillerStatus(orderFulfillmentStatus.getIncludeNullFulfillerStatus());
+                searchCriteria.setOrderFulfillmentStatuses(Collections.singletonList(orderFulfillmentStatus));
             }
             searchCriteria.setStartIndex(requestContext.getStartIndex());
             searchCriteria.setLimit(requestContext.getLimit());
