@@ -654,7 +654,7 @@
                 jq("#orderFulfillmentStatus-filter-menu").toggleClass("show");
             });
             jq(document).on("click", (event) => {
-                if (!jq(event.target).closest("#orderFulfillmentStatus-filter-menu, #orderFulfillmentStatus-filter-toggle").length) {
+                if (!jq(event.target).closest("#orderFulfillmentStatus-filter-menu, #orderFulfillmentStatus-filter-toggle, #orderFulfillmentStatus-filter-label").length) {
                     jq("#orderFulfillmentStatus-filter-menu").removeClass("show");
                 }
             });
@@ -781,7 +781,7 @@
                 ])}
             </div>
             <div class="col">
-                <label for="orderFulfillmentStatus-filter-toggle">${ ui.message("pihapps.orderStatus") }</label>
+                <label for="orderFulfillmentStatus-filter-toggle" id="orderFulfillmentStatus-filter-label">${ ui.message("pihapps.orderStatus") }</label>
                 <div class="status-filter-dropdown-wrapper">
                     <button type="button" id="orderFulfillmentStatus-filter-toggle" class="form-control status-filter-dropdown-toggle">
                         <span id="orderFulfillmentStatus-filter-summary"></span>
