@@ -161,7 +161,11 @@ class PagingDataTable {
         });
         table.pagedTable.fnAddData([loadingRow]);
 
-        jq.get(table.endpoint, requestParameters, (data) => {
+        jq.ajax({
+            url: table.endpoint,
+            data: requestParameters,
+            traditional: true  // serialize array-valued params as repeated keys (a=1&a=2), not a[]=1&a[]=2
+        }).done((data) => {
             if (currentUpdateDate !== this.getLastUpdateDate()) {
                 return;  // This happens if a table update is requested while an existing update/search is in progress
             }
