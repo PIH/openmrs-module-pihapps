@@ -615,11 +615,9 @@
                 return pagingDataTable.getRowObjects().find((o) => o.uuid === orderUuid);
             }
 
-            // Apply initial status from URL param, or fall back to default
+            // Apply initial status from URL param, if present
             if (initialStatus) {
                 jq("#orderFulfillmentStatus-filter").val(initialStatus).trigger("change");
-            } else {
-                jq("#orderFulfillmentStatus-filter").val("IN_FULFILLMENT").trigger("change");
             }
 
             // Add clear buttons to filters

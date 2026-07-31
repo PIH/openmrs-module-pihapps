@@ -285,6 +285,10 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }});
             };
         });
+
+        jq("#cancel-button").click(() => {
+            history.back();
+        });
     });
 </script>
 <style>
@@ -305,6 +309,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     }
     #lab-trends-section {
         display: none;
+    }
+    .action-buttons {
+        padding-top: 10px;
     }
 </style>
 <div id="patient-lab-results-section">
@@ -389,6 +396,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         <div class="row justify-content-between info-and-paging-row">
             <div class="col paging-size">${ ui.message("uicommons.dataTable.lengthMenu") }</div>
         </div>
+    </div>
+    <div class="action-buttons">
+        <button id="cancel-button" class="cancel action-button">${ ui.message("uicommons.return") }</button>
     </div>
 </div>
 
