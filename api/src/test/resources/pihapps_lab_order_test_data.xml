@@ -11,6 +11,8 @@
   Added here:
     order 101: patient 7, STAT,    no fulfiller_status → AWAITING_FULFILLMENT  (gives patient 7 a higher urgency than patient 2)
     order 102: patient 2, ROUTINE, fulfiller_status=IN_PROGRESS                → IN_FULFILLMENT
+    order 103: patient 2, ROUTINE, fulfiller_status=IN_PROGRESS, date_stopped  → IN_FULFILLMENT
+               (collected, then later discontinued — order-level STOPPED must NOT exclude it from IN_FULFILLMENT)
 
   Encounter 3 is patient 7's. Encounter 6 is patient 2's.
   All use care_setting 1 (OUTPATIENT), orderer 1, concept 5497, order_type 2 (Test order).
@@ -48,6 +50,25 @@
             voided="false"
             patient_id="2"
             uuid="b2c3d4e5-f6a7-8901-bcde-f12345678901"
+            care_setting="1"
+            encounter_id="6" />
+
+    <!-- IN_PROGRESS order for patient 2, later stopped: must still appear in IN_FULFILLMENT filter -->
+    <orders order_id="103"
+            order_type_id="2"
+            order_number="ORD-103"
+            urgency="ROUTINE"
+            order_action="NEW"
+            concept_id="5497"
+            orderer="1"
+            fulfiller_status="IN_PROGRESS"
+            date_activated="2009-01-15 10:00:00.0"
+            date_stopped="2009-01-16 10:00:00.0"
+            creator="1"
+            date_created="2009-01-15 10:00:00.0"
+            voided="false"
+            patient_id="2"
+            uuid="c3d4e5f6-a7b8-9012-cdef-123456789012"
             care_setting="1"
             encounter_id="6" />
 </dataset>

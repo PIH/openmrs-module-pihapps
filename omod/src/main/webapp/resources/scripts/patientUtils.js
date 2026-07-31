@@ -45,7 +45,10 @@ class PihAppsPatientUtils {
     }
 
     getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions) {
-        if (order.fulfillerStatus) {
+        // RECEIVED means fulfillment hasn't actually started yet, so it's treated the same as no
+        // fulfillerStatus at all here — matching the backend's OrderFulfillmentStatus enum, where
+        // AWAITING/EXPIRED_BEFORE/CANCELLED_BEFORE all include RECEIVED alongside null.
+        if (order.fulfillerStatus && order.fulfillerStatus !== 'RECEIVED') {
             if (order.fulfillerStatus === 'IN_PROGRESS' || order.fulfillerStatus === 'ON_HOLD') {
                 return orderFulfillmentStatusOptions.filter((option) => option.status === 'IN_FULFILLMENT')[0];
             }

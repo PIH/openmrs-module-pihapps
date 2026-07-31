@@ -134,7 +134,7 @@
         // Read URL params for deep linking (e.g., Specimen Collection Queue)
         const urlParams = new URLSearchParams(window.location.search);
         const initialGrouping = urlParams.get('grouping');   // 'patient' or null
-        const initialStatus = urlParams.get('status');        // e.g. 'AWAITING_FULFILLMENT' or null
+        const initialStatuses = urlParams.getAll('status').filter(s => s);   // e.g. ['AWAITING_FULFILLMENT', 'IN_FULFILLMENT'] or []
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
 
@@ -229,9 +229,43 @@
                     "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
                     "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
                     "accessionNumber": jq("#lab-id-filter").val(),
-                    "orderFulfillmentStatus": jq("#orderFulfillmentStatus-filter").val(),
+                    "orderFulfillmentStatus": jq(".orderFulfillmentStatus-checkbox:checked").map((i, el) => jq(el).val()).get(),
                     "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?
                 }
+            }
+
+            const updateOrderFulfillmentStatusSummary = function() {
+                const checked = jq(".orderFulfillmentStatus-checkbox:checked");
+                const summary = checked.length === 0
+                    ? "${ ui.encodeJavaScript(ui.message('pihapps.allStatuses')) }"
+                    : checked.map((i, el) => jq(el).data("display")).get().join(", ");
+                jq("#orderFulfillmentStatus-filter-summary").text(summary);
+            }
+
+            const refreshActiveTable = function() {
+                const params = getFilterParameterValues();
+                if (jq("#group-by-patient-btn").hasClass("active")) {
+                    patientPagingDataTable.setParameters(params);
+                    patientPagingDataTable.goToFirstPage();
+                } else {
+                    pagingDataTable.setParameters(params);
+                    pagingDataTable.goToFirstPage();
+                }
+            }
+
+            // The menu is appended to <body> (see below) so it can't be clipped or covered by
+            // ancestor stacking/overflow rules from shared page-layout CSS outside this module's
+            // control — the same technique jQuery UI's autocomplete widget already uses on this
+            // page (it defaults to appendTo: "body"). Since it's no longer positioned relative to
+            // its original wrapper, its screen position is computed from the toggle button instead.
+            const positionOrderFulfillmentStatusMenu = function() {
+                const toggle = jq("#orderFulfillmentStatus-filter-toggle");
+                const offset = toggle.offset();
+                jq("#orderFulfillmentStatus-filter-menu").css({
+                    top: (offset.top + toggle.outerHeight()) + "px",
+                    left: offset.left + "px",
+                    minWidth: toggle.outerWidth() + "px"
+                });
             }
 
             const orderTableUpdated = function() {
@@ -487,6 +521,33 @@
                 });
             };
 
+            orderFulfillmentStatusOptions.forEach((statusOption) => {
+                const checkboxId = "orderFulfillmentStatus-option-" + statusOption.status;
+                const checkbox = jq("<input>").attr({
+                    type: "checkbox",
+                    id: checkboxId,
+                    value: statusOption.status,
+                    "data-display": statusOption.display
+                }).addClass("orderFulfillmentStatus-checkbox");
+                const optionLabel = jq("<label>").addClass("status-filter-option").attr("for", checkboxId)
+                    .append(checkbox).append(" " + statusOption.display);
+                jq("#orderFulfillmentStatus-filter-menu").append(optionLabel);
+            });
+            jq("#orderFulfillmentStatus-filter-menu").appendTo("body");
+            jq(".orderFulfillmentStatus-checkbox").on("change", () => {
+                updateOrderFulfillmentStatusSummary();
+                refreshActiveTable();
+            });
+            updateOrderFulfillmentStatusSummary();
+
+            // Apply initial status filter: URL param(s) if present, otherwise default to Ordered + Collected
+            const defaultFulfillmentStatuses = ["AWAITING_FULFILLMENT", "IN_FULFILLMENT"];
+            const statusesToApply = initialStatuses.length > 0 ? initialStatuses : defaultFulfillmentStatuses;
+            jq(".orderFulfillmentStatus-checkbox").prop("checked", function() {
+                return statusesToApply.includes(jq(this).val());
+            });
+            updateOrderFulfillmentStatusSummary();
+
             pagingDataTable.initialize({
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
@@ -522,11 +583,6 @@
                 jq("#testConcept-filter").append(optGroup);
             });
 
-            orderFulfillmentStatusOptions.forEach((statusOption) => {
-                const option = jq("<option>").attr("value", statusOption.status).html(statusOption.display);
-                jq("#orderFulfillmentStatus-filter").append(option);
-            });
-
             if (visitLocationUuid) {
                 const locationRep = "custom:(uuid,display,descendantLocations:(uuid,display,tags:(uuid,name)))";
                 jq.get(openmrsContextPath + "/ws/rest/v1/location/" + visitLocationUuid + "?v=" + locationRep, function(visitLocation) {
@@ -539,16 +595,7 @@
                 });
             }
 
-            jq("#test-filter-form").find(":input").change(function () {
-                const params = getFilterParameterValues();
-                if (jq("#group-by-patient-btn").hasClass("active")) {
-                    patientPagingDataTable.setParameters(params);
-                    patientPagingDataTable.goToFirstPage();
-                } else {
-                    pagingDataTable.setParameters(params);
-                    pagingDataTable.goToFirstPage();
-                }
-            });
+            jq("#test-filter-form").find(":input").change(refreshActiveTable);
 
             jq("#group-by-order-btn").on("click", function() {
                 jq(this).blur();
@@ -615,16 +662,32 @@
                 return pagingDataTable.getRowObjects().find((o) => o.uuid === orderUuid);
             }
 
-            // Apply initial status from URL param, if present
-            if (initialStatus) {
-                jq("#orderFulfillmentStatus-filter").val(initialStatus).trigger("change");
-            }
-
             // Add clear buttons to filters
             jq(".clearable-input-wrapper").find(".icon-remove").on("click", (event) => {
                 const icon = jq(event.target);
                 icon.siblings(".clearable-input").val("").change();
             })
+
+            // Order status dropdown: open/close toggle, outside-click to close, clear-all
+            jq("#orderFulfillmentStatus-filter-toggle").on("click", (event) => {
+                event.stopPropagation();
+                const menu = jq("#orderFulfillmentStatus-filter-menu");
+                if (!menu.hasClass("show")) {
+                    positionOrderFulfillmentStatusMenu();
+                }
+                menu.toggleClass("show");
+            });
+            jq(document).on("click", (event) => {
+                if (!jq(event.target).closest("#orderFulfillmentStatus-filter-menu, #orderFulfillmentStatus-filter-toggle, #orderFulfillmentStatus-filter-label").length) {
+                    jq("#orderFulfillmentStatus-filter-menu").removeClass("show");
+                }
+            });
+            jq("#orderFulfillmentStatus-filter-clear").on("click", (event) => {
+                event.stopPropagation();
+                jq(".orderFulfillmentStatus-checkbox").prop("checked", false);
+                updateOrderFulfillmentStatusSummary();
+                refreshActiveTable();
+            });
         });
     });
 </script>
@@ -742,10 +805,13 @@
                 ])}
             </div>
             <div class="col">
-                <label for="orderFulfillmentStatus-filter">${ ui.message("pihapps.orderStatus") }</label>
-                <div class="clearable-input-wrapper">
-                    <select id="orderFulfillmentStatus-filter" name="orderFulfillmentStatus" class="clearable-input"></select>
-                    <i class="icon-remove small"></i>
+                <label for="orderFulfillmentStatus-filter-toggle" id="orderFulfillmentStatus-filter-label">${ ui.message("pihapps.orderStatus") }</label>
+                <div class="status-filter-dropdown-wrapper">
+                    <button type="button" id="orderFulfillmentStatus-filter-toggle" class="form-control status-filter-dropdown-toggle">
+                        <span id="orderFulfillmentStatus-filter-summary"></span>
+                    </button>
+                    <i class="icon-remove small status-filter-clear" id="orderFulfillmentStatus-filter-clear"></i>
+                    <div id="orderFulfillmentStatus-filter-menu" class="status-filter-dropdown-menu"></div>
                 </div>
             </div>
             <div class="col">

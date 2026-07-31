@@ -3,7 +3,6 @@ package org.openmrs.module.pihapps.orders;
 import lombok.Data;
 import org.openmrs.Concept;
 import org.openmrs.Location;
-import org.openmrs.Order;
 import org.openmrs.OrderType;
 import org.openmrs.Patient;
 import org.openmrs.module.pihapps.SortCriteria;
@@ -21,9 +20,7 @@ public class OrderSearchCriteria {
     private List<String> orderNumbers;
     private Date activatedOnOrBefore;
     private Date activatedOnOrAfter;
-    private List<OrderStatus> orderStatus;
-    private List<Order.FulfillerStatus> fulfillerStatuses;
-    private Boolean includeNullFulfillerStatus;
+    private List<OrderFulfillmentStatus> orderFulfillmentStatuses;
     private List<SortCriteria> sortCriteria;
     private Integer startIndex;
     private Integer limit;

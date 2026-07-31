@@ -41,6 +41,7 @@ import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentStatus;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
 import org.openmrs.module.pihapps.orders.OrderStatus;
@@ -271,38 +272,56 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			Date onOrAfter = OpenmrsUtil.firstSecondOfDay(searchCriteria.getActivatedOnOrAfter());
 			c.add(ge("dateActivated", onOrAfter));
 		}
-		if (searchCriteria.getOrderStatus() != null && !searchCriteria.getOrderStatus().isEmpty()) {
-			Criterion[] orderStatusCriteria = new Criterion[searchCriteria.getOrderStatus().size()];
-			for (int i = 0; i < searchCriteria.getOrderStatus().size(); i++) {
-				OrderStatus orderStatus = searchCriteria.getOrderStatus().get(i);
-				if (orderStatus == OrderStatus.ACTIVE) {
+		if (searchCriteria.getOrderFulfillmentStatuses() != null && !searchCriteria.getOrderFulfillmentStatuses().isEmpty()) {
+			List<Criterion> statusCriteria = new ArrayList<>();
+			for (OrderFulfillmentStatus status : searchCriteria.getOrderFulfillmentStatuses()) {
+				if (status == null) {
+					continue;
+				}
+				Criterion orderStatusClause = null;
+				if (status.getOrderStatus() == OrderStatus.ACTIVE) {
 					Criterion orderIsNotExpired = or(isNull("autoExpireDate"), gt("autoExpireDate", now));
 					Criterion orderIsNotStopped = or(isNull("dateStopped")); // This should never be in the future
-					orderStatusCriteria[i] = and(orderIsNotExpired, orderIsNotStopped);
+					orderStatusClause = and(orderIsNotExpired, orderIsNotStopped);
 				}
-				else if (orderStatus == OrderStatus.EXPIRED) {
-					orderStatusCriteria[i] = le("autoExpireDate", now);
+				else if (status.getOrderStatus() == OrderStatus.EXPIRED) {
+					orderStatusClause = le("autoExpireDate", now);
 				}
-				else if (orderStatus == OrderStatus.STOPPED) {
-					orderStatusCriteria[i] = isNotNull("dateStopped");
+				else if (status.getOrderStatus() == OrderStatus.STOPPED) {
+					orderStatusClause = isNotNull("dateStopped");
+				}
+
+				List<Criterion> fulfillerStatusClauses = new ArrayList<>();
+				if (status.getFulfillerStatuses() != null) {
+					for (Order.FulfillerStatus fulfillerStatus : status.getFulfillerStatuses()) {
+						fulfillerStatusClauses.add(eq("fulfillerStatus", fulfillerStatus));
+					}
+				}
+				if (status.getIncludeNullFulfillerStatus() == Boolean.TRUE) {
+					fulfillerStatusClauses.add(isNull("fulfillerStatus"));
+				}
+				else if (status.getIncludeNullFulfillerStatus() == Boolean.FALSE) {
+					fulfillerStatusClauses.add(isNotNull("fulfillerStatus"));
+				}
+				Criterion fulfillerStatusClause = fulfillerStatusClauses.isEmpty() ? null : or(fulfillerStatusClauses.toArray(new Criterion[0]));
+
+				Criterion statusCriterion;
+				if (orderStatusClause != null && fulfillerStatusClause != null) {
+					statusCriterion = and(orderStatusClause, fulfillerStatusClause);
+				}
+				else if (orderStatusClause != null) {
+					statusCriterion = orderStatusClause;
+				}
+				else {
+					statusCriterion = fulfillerStatusClause;
+				}
+				if (statusCriterion != null) {
+					statusCriteria.add(statusCriterion);
 				}
 			}
-			c.add(or(orderStatusCriteria));
-		}
-		List<Criterion> fulfillerStatusCriteria = new ArrayList<>();
-		if (searchCriteria.getFulfillerStatuses() != null && !searchCriteria.getFulfillerStatuses().isEmpty()) {
-			for (Order.FulfillerStatus fulfillerStatus : searchCriteria.getFulfillerStatuses()) {
-				fulfillerStatusCriteria.add(eq("fulfillerStatus", fulfillerStatus));
+			if (!statusCriteria.isEmpty()) {
+				c.add(or(statusCriteria.toArray(new Criterion[0])));
 			}
-		}
-		if (searchCriteria.getIncludeNullFulfillerStatus() == Boolean.TRUE) {
-			fulfillerStatusCriteria.add(isNull("fulfillerStatus"));
-		}
-		else if (searchCriteria.getIncludeNullFulfillerStatus() == Boolean.FALSE) {
-			fulfillerStatusCriteria.add(isNotNull("fulfillerStatus"));
-		}
-		if (!fulfillerStatusCriteria.isEmpty()) {
-			c.add(or(fulfillerStatusCriteria.toArray(new Criterion[0])));
 		}
 
 		if (applySortCriteria) {

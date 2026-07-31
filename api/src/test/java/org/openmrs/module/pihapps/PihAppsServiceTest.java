@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -178,13 +179,17 @@ public class PihAppsServiceTest extends BaseModuleContextSensitiveTest {
 
         OrderSearchCriteria criteria = new OrderSearchCriteria();
         criteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
-        applyFulfillmentStatus(criteria, OrderFulfillmentStatus.IN_FULFILLMENT);
+        criteria.setOrderFulfillmentStatuses(Collections.singletonList(OrderFulfillmentStatus.IN_FULFILLMENT));
 
         OrderSearchResult result = pihAppsService.getOrders(criteria);
 
-        // Only order 102 (IN_PROGRESS) should match; standard dataset has none with IN_PROGRESS
-        assertThat(result.getTotalCount(), equalTo(1L));
-        assertThat(result.getOrders().get(0).getFulfillerStatus(), equalTo(Order.FulfillerStatus.IN_PROGRESS));
+        // Orders 102 and 103 (both IN_PROGRESS) should match; standard dataset has none with IN_PROGRESS.
+        // Order 103 is also order-level STOPPED, but IN_FULFILLMENT has no order-status constraint
+        // (only a fulfiller-status constraint), so it still matches.
+        assertThat(result.getTotalCount(), equalTo(2L));
+        for (Order order : result.getOrders()) {
+            assertThat(order.getFulfillerStatus(), equalTo(Order.FulfillerStatus.IN_PROGRESS));
+        }
     }
 
     @Test
@@ -192,7 +197,7 @@ public class PihAppsServiceTest extends BaseModuleContextSensitiveTest {
         // Standard dataset order 7: patient 2, RECEIVED, active → AWAITING_FULFILLMENT
         OrderSearchCriteria criteria = new OrderSearchCriteria();
         criteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
-        applyFulfillmentStatus(criteria, OrderFulfillmentStatus.AWAITING_FULFILLMENT);
+        criteria.setOrderFulfillmentStatuses(Collections.singletonList(OrderFulfillmentStatus.AWAITING_FULFILLMENT));
 
         OrderSearchResult result = pihAppsService.getOrders(criteria);
 
@@ -211,7 +216,7 @@ public class PihAppsServiceTest extends BaseModuleContextSensitiveTest {
         // Standard dataset order 6: patient 2, COMPLETED
         OrderSearchCriteria criteria = new OrderSearchCriteria();
         criteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
-        applyFulfillmentStatus(criteria, OrderFulfillmentStatus.COMPLETED_FULFILLMENT);
+        criteria.setOrderFulfillmentStatuses(Collections.singletonList(OrderFulfillmentStatus.COMPLETED_FULFILLMENT));
 
         OrderSearchResult result = pihAppsService.getOrders(criteria);
 
@@ -221,12 +226,32 @@ public class PihAppsServiceTest extends BaseModuleContextSensitiveTest {
         }
     }
 
-    private void applyFulfillmentStatus(OrderSearchCriteria criteria, OrderFulfillmentStatus status) {
-        if (status.getOrderStatus() != null) {
-            criteria.setOrderStatus(Collections.singletonList(status.getOrderStatus()));
+    @Test
+    public void getOrders_shouldFilterByMultipleFulfillmentStatusesIndependently() throws Exception {
+        executeDataSet("pihapps_lab_order_test_data.xml");
+
+        OrderSearchCriteria criteria = new OrderSearchCriteria();
+        criteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
+        criteria.setOrderFulfillmentStatuses(Arrays.asList(
+                OrderFulfillmentStatus.AWAITING_FULFILLMENT, OrderFulfillmentStatus.IN_FULFILLMENT));
+
+        OrderSearchResult result = pihAppsService.getOrders(criteria);
+
+        // Order 103 has fulfillerStatus=IN_PROGRESS (Collected) but dateStopped set (order-level STOPPED).
+        // It must still match IN_FULFILLMENT: combining statuses must evaluate each independently rather
+        // than ANDing a shared orderStatus across both, which would wrongly require ACTIVE for this order too.
+        boolean order103Matched = result.getOrders().stream()
+                .anyMatch(o -> "c3d4e5f6-a7b8-9012-cdef-123456789012".equals(o.getUuid()));
+        assertThat("collected-then-stopped order must still match IN_FULFILLMENT", order103Matched, equalTo(true));
+
+        for (Order order : result.getOrders()) {
+            boolean matchesAwaiting = order.getDateStopped() == null
+                    && (order.getFulfillerStatus() == null || order.getFulfillerStatus() == Order.FulfillerStatus.RECEIVED);
+            boolean matchesInFulfillment = order.getFulfillerStatus() == Order.FulfillerStatus.IN_PROGRESS
+                    || order.getFulfillerStatus() == Order.FulfillerStatus.ON_HOLD;
+            assertThat("every returned order must independently satisfy AWAITING or IN_FULFILLMENT",
+                    matchesAwaiting || matchesInFulfillment, equalTo(true));
         }
-        criteria.setFulfillerStatuses(status.getFulfillerStatuses());
-        criteria.setIncludeNullFulfillerStatus(status.getIncludeNullFulfillerStatus());
     }
 
     void printResult(OrderSearchResult result) {
