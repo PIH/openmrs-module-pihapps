@@ -40,7 +40,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -78,7 +77,7 @@ public class LabOrderRestController {
                                @RequestParam(value = "activatedOnOrBefore", required = false) String activatedOnOrBefore,
                                @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
                                @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
-                               @RequestParam(value = "orderFulfillmentStatus", required = false) OrderFulfillmentStatus orderFulfillmentStatus,
+                               @RequestParam(value = "orderFulfillmentStatus", required = false) List<OrderFulfillmentStatus> orderFulfillmentStatus,
                                @RequestParam(value = "sortBy", required = false) List<String> sortBy
                                ) throws ResponseException {
 
@@ -95,9 +94,7 @@ public class LabOrderRestController {
             searchCriteria.setAccessionNumber(accessionNumber);
             searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
             searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
-            if (orderFulfillmentStatus != null) {
-                searchCriteria.setOrderFulfillmentStatuses(Collections.singletonList(orderFulfillmentStatus));
-            }
+            searchCriteria.setOrderFulfillmentStatuses(orderFulfillmentStatus);
             searchCriteria.setStartIndex(requestContext.getStartIndex());
             searchCriteria.setLimit(requestContext.getLimit());
 
@@ -147,7 +144,7 @@ public class LabOrderRestController {
                                @RequestParam(value = "activatedOnOrBefore", required = false) String activatedOnOrBefore,
                                @RequestParam(value = "activatedOnOrAfter", required = false) String activatedOnOrAfter,
                                @RequestParam(value = "accessionNumber", required = false) String accessionNumber,
-                               @RequestParam(value = "orderFulfillmentStatus", required = false) OrderFulfillmentStatus orderFulfillmentStatus,
+                               @RequestParam(value = "orderFulfillmentStatus", required = false) List<OrderFulfillmentStatus> orderFulfillmentStatus,
                                @RequestParam(value = "sortBy", required = false) List<String> sortBy
     ) throws ResponseException {
 
@@ -164,9 +161,7 @@ public class LabOrderRestController {
             searchCriteria.setAccessionNumber(accessionNumber);
             searchCriteria.setActivatedOnOrBefore(getDate(activatedOnOrBefore));
             searchCriteria.setActivatedOnOrAfter(getDate(activatedOnOrAfter));
-            if (orderFulfillmentStatus != null) {
-                searchCriteria.setOrderFulfillmentStatuses(Collections.singletonList(orderFulfillmentStatus));
-            }
+            searchCriteria.setOrderFulfillmentStatuses(orderFulfillmentStatus);
             searchCriteria.setStartIndex(requestContext.getStartIndex());
             searchCriteria.setLimit(requestContext.getLimit());
 
