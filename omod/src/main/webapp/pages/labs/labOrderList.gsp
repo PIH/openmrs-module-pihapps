@@ -253,6 +253,21 @@
                 }
             }
 
+            // The menu is appended to <body> (see below) so it can't be clipped or covered by
+            // ancestor stacking/overflow rules from shared page-layout CSS outside this module's
+            // control — the same technique jQuery UI's autocomplete widget already uses on this
+            // page (it defaults to appendTo: "body"). Since it's no longer positioned relative to
+            // its original wrapper, its screen position is computed from the toggle button instead.
+            const positionOrderFulfillmentStatusMenu = function() {
+                const toggle = jq("#orderFulfillmentStatus-filter-toggle");
+                const offset = toggle.offset();
+                jq("#orderFulfillmentStatus-filter-menu").css({
+                    top: (offset.top + toggle.outerHeight()) + "px",
+                    left: offset.left + "px",
+                    minWidth: toggle.outerWidth() + "px"
+                });
+            }
+
             const orderTableUpdated = function() {
                 jq(".enter-results-action").off("click").on("click", (event) => {
                     const orderUuid = jq(event.target).data().orderUuid;
@@ -518,7 +533,11 @@
                     .append(checkbox).append(" " + statusOption.display);
                 jq("#orderFulfillmentStatus-filter-menu").append(optionLabel);
             });
-            jq(".orderFulfillmentStatus-checkbox").on("change", updateOrderFulfillmentStatusSummary);
+            jq("#orderFulfillmentStatus-filter-menu").appendTo("body");
+            jq(".orderFulfillmentStatus-checkbox").on("change", () => {
+                updateOrderFulfillmentStatusSummary();
+                refreshActiveTable();
+            });
             updateOrderFulfillmentStatusSummary();
 
             // Apply initial status filter: URL param(s) if present, otherwise default to Ordered + Collected
@@ -652,7 +671,11 @@
             // Order status dropdown: open/close toggle, outside-click to close, clear-all
             jq("#orderFulfillmentStatus-filter-toggle").on("click", (event) => {
                 event.stopPropagation();
-                jq("#orderFulfillmentStatus-filter-menu").toggleClass("show");
+                const menu = jq("#orderFulfillmentStatus-filter-menu");
+                if (!menu.hasClass("show")) {
+                    positionOrderFulfillmentStatusMenu();
+                }
+                menu.toggleClass("show");
             });
             jq(document).on("click", (event) => {
                 if (!jq(event.target).closest("#orderFulfillmentStatus-filter-menu, #orderFulfillmentStatus-filter-toggle, #orderFulfillmentStatus-filter-label").length) {

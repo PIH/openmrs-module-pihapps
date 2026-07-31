@@ -56,8 +56,6 @@ form input, form select, form textarea, .form input, .form select, .form textare
 }
 
 #test-filter-form {
-    position: relative;
-    z-index: 1000;
     padding-bottom: 20px;
     table-layout: fixed;
 }
@@ -176,7 +174,6 @@ form input, form select, form textarea, .form input, .form select, .form textare
     background: #fff;
     border: 1px solid #ccc;
     padding: 0.5em;
-    min-width: 100%;
     white-space: nowrap;
 }
 .status-filter-dropdown-menu.show {
