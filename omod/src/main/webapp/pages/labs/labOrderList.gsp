@@ -134,7 +134,7 @@
         // Read URL params for deep linking (e.g., Specimen Collection Queue)
         const urlParams = new URLSearchParams(window.location.search);
         const initialGrouping = urlParams.get('grouping');   // 'patient' or null
-        const initialStatus = urlParams.get('status');        // e.g. 'AWAITING_FULFILLMENT' or null
+        const initialStatuses = urlParams.getAll('status');   // e.g. ['AWAITING_FULFILLMENT', 'IN_FULFILLMENT'] or []
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
 
@@ -229,9 +229,17 @@
                     "activatedOnOrAfter": jq("#orderedFrom-filter-field").val(),
                     "activatedOnOrBefore": jq("#orderedTo-filter-field").val(),
                     "accessionNumber": jq("#lab-id-filter").val(),
-                    "orderFulfillmentStatus": jq("#orderFulfillmentStatus-filter").val(),
+                    "orderFulfillmentStatus": jq(".orderFulfillmentStatus-checkbox:checked").map((i, el) => jq(el).val()).get(),
                     "sortBy": "dateActivated-desc"  // TODO: Sorting by dateActivated desc does not seem right, but doing this to match existing labWorkflow, but shouldn't this order by urgency and asc?
                 }
+            }
+
+            const updateOrderFulfillmentStatusSummary = function() {
+                const checked = jq(".orderFulfillmentStatus-checkbox:checked");
+                const summary = checked.length === 0
+                    ? "${ ui.encodeJavaScript(ui.message('pihapps.allStatuses')) }"
+                    : checked.map((i, el) => jq(el).data("display")).get().join(", ");
+                jq("#orderFulfillmentStatus-filter-summary").text(summary);
             }
 
             const orderTableUpdated = function() {
@@ -523,9 +531,19 @@
             });
 
             orderFulfillmentStatusOptions.forEach((statusOption) => {
-                const option = jq("<option>").attr("value", statusOption.status).html(statusOption.display);
-                jq("#orderFulfillmentStatus-filter").append(option);
+                const checkboxId = "orderFulfillmentStatus-option-" + statusOption.status;
+                const checkbox = jq("<input>").attr({
+                    type: "checkbox",
+                    id: checkboxId,
+                    value: statusOption.status,
+                    "data-display": statusOption.display
+                }).addClass("orderFulfillmentStatus-checkbox");
+                const optionLabel = jq("<label>").addClass("status-filter-option").attr("for", checkboxId)
+                    .append(checkbox).append(" " + statusOption.display);
+                jq("#orderFulfillmentStatus-filter-menu").append(optionLabel);
             });
+            jq(".orderFulfillmentStatus-checkbox").on("change", updateOrderFulfillmentStatusSummary);
+            updateOrderFulfillmentStatusSummary();
 
             if (visitLocationUuid) {
                 const locationRep = "custom:(uuid,display,descendantLocations:(uuid,display,tags:(uuid,name)))";
@@ -615,16 +633,37 @@
                 return pagingDataTable.getRowObjects().find((o) => o.uuid === orderUuid);
             }
 
-            // Apply initial status from URL param, if present
-            if (initialStatus) {
-                jq("#orderFulfillmentStatus-filter").val(initialStatus).trigger("change");
-            }
+            // Apply initial status filter: URL param(s) if present, otherwise default to Ordered + Collected
+            const defaultFulfillmentStatuses = ["AWAITING_FULFILLMENT", "IN_FULFILLMENT"];
+            const statusesToApply = initialStatuses.length > 0 ? initialStatuses : defaultFulfillmentStatuses;
+            jq(".orderFulfillmentStatus-checkbox").prop("checked", function() {
+                return statusesToApply.includes(jq(this).val());
+            });
+            updateOrderFulfillmentStatusSummary();
+            jq(".orderFulfillmentStatus-checkbox").first().trigger("change");
 
             // Add clear buttons to filters
             jq(".clearable-input-wrapper").find(".icon-remove").on("click", (event) => {
                 const icon = jq(event.target);
                 icon.siblings(".clearable-input").val("").change();
             })
+
+            // Order status dropdown: open/close toggle, outside-click to close, clear-all
+            jq("#orderFulfillmentStatus-filter-toggle").on("click", (event) => {
+                event.stopPropagation();
+                jq("#orderFulfillmentStatus-filter-menu").toggleClass("show");
+            });
+            jq(document).on("click", (event) => {
+                if (!jq(event.target).closest("#orderFulfillmentStatus-filter-menu, #orderFulfillmentStatus-filter-toggle").length) {
+                    jq("#orderFulfillmentStatus-filter-menu").removeClass("show");
+                }
+            });
+            jq("#orderFulfillmentStatus-filter-clear").on("click", (event) => {
+                event.stopPropagation();
+                jq(".orderFulfillmentStatus-checkbox").prop("checked", false);
+                updateOrderFulfillmentStatusSummary();
+                jq(".orderFulfillmentStatus-checkbox").first().trigger("change");
+            });
         });
     });
 </script>
@@ -742,10 +781,13 @@
                 ])}
             </div>
             <div class="col">
-                <label for="orderFulfillmentStatus-filter">${ ui.message("pihapps.orderStatus") }</label>
-                <div class="clearable-input-wrapper">
-                    <select id="orderFulfillmentStatus-filter" name="orderFulfillmentStatus" class="clearable-input"></select>
-                    <i class="icon-remove small"></i>
+                <label for="orderFulfillmentStatus-filter-toggle">${ ui.message("pihapps.orderStatus") }</label>
+                <div class="status-filter-dropdown-wrapper">
+                    <button type="button" id="orderFulfillmentStatus-filter-toggle" class="form-control status-filter-dropdown-toggle">
+                        <span id="orderFulfillmentStatus-filter-summary"></span>
+                    </button>
+                    <i class="icon-remove small status-filter-clear" id="orderFulfillmentStatus-filter-clear"></i>
+                    <div id="orderFulfillmentStatus-filter-menu" class="status-filter-dropdown-menu"></div>
                 </div>
             </div>
             <div class="col">
