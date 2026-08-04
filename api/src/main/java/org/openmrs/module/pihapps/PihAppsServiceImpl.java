@@ -285,7 +285,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					orderStatusClause = and(orderIsNotExpired, orderIsNotStopped);
 				}
 				else if (status.getOrderStatus() == OrderStatus.EXPIRED) {
-					orderStatusClause = le("autoExpireDate", now);
+					orderStatusClause = and(le("autoExpireDate", now), isNull("dateStopped"));
 				}
 				else if (status.getOrderStatus() == OrderStatus.STOPPED) {
 					orderStatusClause = isNotNull("dateStopped");

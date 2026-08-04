@@ -148,8 +148,8 @@ form input, form select, form textarea, .form input, .form select, .form textare
 }
 
 .status-filter-dropdown-wrapper {
-    position: relative;
-    display: inline-block;
+    display: flex;
+    align-items: center;
     width: 100%;
 }
 .status-filter-dropdown-toggle {
@@ -158,14 +158,15 @@ form input, form select, form textarea, .form input, .form select, .form textare
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: pointer;
-    padding-right: 1.5em;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 .status-filter-clear {
-    position: absolute;
-    right: 0.5em;
-    top: 50%;
-    transform: translateY(-50%);
     cursor: pointer;
+    flex: 0 0 auto;
+}
+.status-filter-clear.small {
+    font-size: unset;
 }
 .status-filter-dropdown-menu {
     display: none;

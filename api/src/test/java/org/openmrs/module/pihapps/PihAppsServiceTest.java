@@ -254,6 +254,23 @@ public class PihAppsServiceTest extends BaseModuleContextSensitiveTest {
         }
     }
 
+    @Test
+    public void getOrders_shouldNotIncludeStoppedOrdersInExpiredFulfillmentStatus() {
+        // Standard dataset order 9: patient 2, fulfiller_status=RECEIVED, date_stopped=2007-12-17,
+        // auto_expire_date=2007-12-20. It is STOPPED (cancelled), even though its auto_expire_date
+        // has also passed. It must match CANCELLED_BEFORE_FULFILLMENT only, not EXPIRED_BEFORE_FULFILLMENT
+        // (matching the dateStopped-takes-precedence rule used client-side in patientUtils.js).
+        OrderSearchCriteria criteria = new OrderSearchCriteria();
+        criteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
+        criteria.setOrderFulfillmentStatuses(Collections.singletonList(OrderFulfillmentStatus.EXPIRED_BEFORE_FULFILLMENT));
+
+        OrderSearchResult result = pihAppsService.getOrders(criteria);
+
+        for (Order order : result.getOrders()) {
+            assertThat("EXPIRED filter must not include stopped (cancelled) orders", order.getDateStopped(), equalTo(null));
+        }
+    }
+
     void printResult(OrderSearchResult result) {
         log.debug("Total count: {}", result.getTotalCount());
         for (Order order : result.getOrders()) {
