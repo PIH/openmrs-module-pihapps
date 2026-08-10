@@ -26,7 +26,7 @@
     const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
     const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated)))),concept:" + conceptRep
 
-    const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,datatype:(name),answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid,datatype:(name)),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid,datatype:(name)),labIdentifierConcept:(uuid,datatype:(name)),specimenReceivedDateQuestion:(uuid,datatype:(name)),resultsDateQuestion:(uuid,datatype:(name)),reasonTestNotPerformedQuestion:(uuid,datatype:(name),answers:(uuid,display)),collectResultComments)";
+    const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,datatype:(name),answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid,datatype:(name)),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid,datatype:(name)),labIdentifierConcept:(uuid,datatype:(name)),specimenReceivedDateQuestion:(uuid,datatype:(name)),resultsDateQuestion:(uuid,datatype:(name)),reasonTestNotPerformedQuestion:(uuid,datatype:(name),answers:(uuid,display)),collectResultComments,defaultOrderedFromLookbackDays)";
     const pihAppsConfigRep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
     moment.locale(window.sessionContext?.locale ?? 'en');
@@ -141,6 +141,10 @@
             const primaryIdentifierType = pihAppsConfig.primaryIdentifierType?.uuid ?? '';
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
             const orderFulfillmentStatusOptions = pihAppsConfig.labOrderConfig.orderFulfillmentStatusOptions;
+
+            const defaultOrderedFrom = moment().subtract(pihAppsConfig.labOrderConfig.defaultOrderedFromLookbackDays, 'days');
+            jq("#orderedFrom-filter-field").val(defaultOrderedFrom.format("YYYY-MM-DD"));
+            jq("#orderedFrom-filter-display").val(defaultOrderedFrom.format("DD MMM YYYY"));
 
             // Column functions
             const getEmrId = (order) => { return patientUtils.getPreferredIdentifier(order.patient, primaryIdentifierType); };

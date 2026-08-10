@@ -4,6 +4,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Concept;
+import org.openmrs.Encounter;
 import org.openmrs.Location;
 import org.openmrs.Order;
 import org.openmrs.OrderType;
@@ -42,6 +43,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Provides configuration and other endpoints for lab order entry
@@ -124,6 +126,10 @@ public class LabOrderRestController {
                 hasMoreResults = recordsProcessed < result.getTotalCount();
             }
 
+            // Resolve fulfillerEncounter for the whole page in one query
+            Map<Order, Encounter> fulfillerEncounters = pihAppsService.getFulfillerEncountersForOrders(result.getOrders());
+            OrderWithFulfillerDetailsResource.primeFulfillerEncounterCache(fulfillerEncounters);
+
             Converter<Order> orderConverter = ConversionUtil.getConverter(Order.class);
             AlreadyPaged<Order> alreadyPaged = new AlreadyPaged<>(requestContext, result.getOrders(), hasMoreResults, result.getTotalCount());
             return alreadyPaged.toSimpleObject(orderConverter);
@@ -131,6 +137,9 @@ public class LabOrderRestController {
         catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
+        }
+        finally {
+            OrderWithFulfillerDetailsResource.clearFulfillerEncounterCache();
         }
     }
 
@@ -191,6 +200,15 @@ public class LabOrderRestController {
                 hasMoreResults = recordsProcessed < result.getTotalCount();
             }
 
+            // Same batching as getLabOrders, flattened across all patients on this page since the orders
+            // being serialized are nested inside each PatientWithOrders rather than a single flat list.
+            List<Order> allOrders = new ArrayList<>();
+            for (PatientWithOrders patientWithOrders : result.getPatients()) {
+                allOrders.addAll(patientWithOrders.getOrders());
+            }
+            Map<Order, Encounter> fulfillerEncounters = pihAppsService.getFulfillerEncountersForOrders(allOrders);
+            OrderWithFulfillerDetailsResource.primeFulfillerEncounterCache(fulfillerEncounters);
+
             Converter<PatientWithOrders> patientConverter = ConversionUtil.getConverter(PatientWithOrders.class);
             AlreadyPaged<PatientWithOrders> alreadyPaged = new AlreadyPaged<>(requestContext, result.getPatients(), hasMoreResults, result.getTotalCount());
             return alreadyPaged.toSimpleObject(patientConverter);
@@ -198,6 +216,9 @@ public class LabOrderRestController {
         catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
+        }
+        finally {
+            OrderWithFulfillerDetailsResource.clearFulfillerEncounterCache();
         }
     }
 

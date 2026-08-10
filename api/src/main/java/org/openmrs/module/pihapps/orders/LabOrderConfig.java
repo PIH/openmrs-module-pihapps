@@ -259,6 +259,21 @@ public class LabOrderConfig {
         return autoExpireDays;
     }
 
+    // Default lookback for the Lab Order List "ordered from" filter
+
+    public int getDefaultOrderedFromLookbackDays() {
+        int lookbackDays = 90;
+        String configVal = ConfigUtil.getGlobalProperty("pihapps.labs.defaultOrderedFromLookbackDays");
+        if (StringUtils.isNotBlank(configVal)) {
+            try {
+                lookbackDays = Integer.parseInt(configVal);
+            } catch (NumberFormatException e) {
+                log.warn("Invalid defaultOrderedFromLookbackDays configuration, integer expected: " + configVal);
+            }
+        }
+        return lookbackDays;
+    }
+
     // Lab Concept Display Name
 
     public String getConceptDisplayFormat() {
