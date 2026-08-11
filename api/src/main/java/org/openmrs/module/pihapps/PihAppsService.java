@@ -27,6 +27,7 @@ import org.openmrs.module.pihapps.orders.OrderSearchResult;
 import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
 
 import java.util.List;
+import java.util.Map;
 
 public interface PihAppsService extends OpenmrsService {
 
@@ -41,6 +42,8 @@ public interface PihAppsService extends OpenmrsService {
 	EncounterFulfillingOrders getEncounterFulfillingOrders(String encounterUuid);
 
 	Encounter getFulfillerEncounterForOrder(Order order);
+
+	Map<Order, Encounter> getFulfillerEncountersForOrders(List<Order> orders);
 
 	Obs getReasonOrderNotFulfilled(Order order);
 

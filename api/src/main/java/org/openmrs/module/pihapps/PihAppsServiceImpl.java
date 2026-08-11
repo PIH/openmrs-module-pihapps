@@ -53,6 +53,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -137,6 +138,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Authorized(PrivilegeConstants.GET_ORDERS)
 	@SuppressWarnings({ "unchecked" })
 	public OrderSearchResult getOrders(OrderSearchCriteria searchCriteria) {
+		long startMillis = System.currentTimeMillis();
 		OrderSearchResult result = new OrderSearchResult();
 		// First query to get total count
 		Criteria c = createHibernateOrderSearchCriteria(searchCriteria, false);
@@ -156,6 +158,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		List<Order> orders = c.list();
 		result.setOrders(orders);
+		logQueryTiming("getOrders", startMillis, searchCriteria, totalCount, orders.size());
 		return result;
 	}
 
@@ -164,6 +167,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Authorized(PrivilegeConstants.GET_PATIENTS)
 	@SuppressWarnings({ "unchecked" })
 	public PatientWithOrdersSearchResult getPatientsWithOrders(OrderSearchCriteria searchCriteria) {
+		long startMillis = System.currentTimeMillis();
 		PatientWithOrdersSearchResult result = new PatientWithOrdersSearchResult();
 		// First query to get total count of distinct patients
 		Criteria c = createHibernateOrderSearchCriteria(searchCriteria, false);
@@ -211,6 +215,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			patients.add((Patient) row[0]);
 		}
 		if (patients.isEmpty()) {
+			logQueryTiming("getPatientsWithOrders", startMillis, searchCriteria, result.getTotalCount(), 0);
 			return result;
 		}
 		// Retrieve orders for the page's patients and organize in the same patient order
@@ -231,7 +236,29 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		for (Patient p : ordersForPatient.keySet()) {
 			result.getPatients().add(new PatientWithOrders(p, ordersForPatient.get(p)));
 		}
+		logQueryTiming("getPatientsWithOrders", startMillis, searchCriteria, result.getTotalCount(), orders.size());
 		return result;
+	}
+
+	/**
+	 * Logs elapsed time and the resolved filter shape for a Lab Order List query, so slow requests are
+	 * diagnosable from application logs alone on servers where we don't have direct database access.
+	 * Deliberately avoids logging patient identifiers - only whether a patient filter was applied.
+	 */
+	private void logQueryTiming(String operation, long startMillis, OrderSearchCriteria searchCriteria, Long totalCount, int rowsReturned) {
+		long elapsedMillis = System.currentTimeMillis() - startMillis;
+		log.debug(operation + " took " + elapsedMillis + "ms"
+				+ " (totalCount=" + totalCount + ", rowsReturned=" + rowsReturned
+				+ ", orderTypes=" + (searchCriteria.getOrderTypes() == null ? "any" : searchCriteria.getOrderTypes().size())
+				+ ", orderLocations=" + (searchCriteria.getOrderLocations() == null ? "any" : searchCriteria.getOrderLocations().size())
+				+ ", hasPatientFilter=" + (searchCriteria.getPatient() != null)
+				+ ", hasConceptFilter=" + (searchCriteria.getConcept() != null)
+				+ ", hasAccessionNumberFilter=" + StringUtils.isNotBlank(searchCriteria.getAccessionNumber())
+				+ ", activatedOnOrAfter=" + searchCriteria.getActivatedOnOrAfter()
+				+ ", activatedOnOrBefore=" + searchCriteria.getActivatedOnOrBefore()
+				+ ", fulfillmentStatuses=" + searchCriteria.getOrderFulfillmentStatuses()
+				+ ", startIndex=" + searchCriteria.getStartIndex()
+				+ ", limit=" + searchCriteria.getLimit() + ")");
 	}
 
 	@SuppressWarnings({"deprecation"})
@@ -438,6 +465,41 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			return null;
 		}
 		return l.get(0).getEncounter();
+	}
+
+	/**
+	 * Batched equivalent of {@link #getFulfillerEncounterForOrder(Order)}: fetches the fulfiller
+	 * encounter for every given order in a single query, instead of one query per order (which was
+	 * previously invoked once per row when rendering the Lab Order List, an N+1 that dominated as the
+	 * list of returned/nested orders grew).
+	 */
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
+	@SuppressWarnings({ "unchecked" })
+	public Map<Order, Encounter> getFulfillerEncountersForOrders(List<Order> orders) {
+		long startMillis = System.currentTimeMillis();
+		Map<Order, Encounter> result = new HashMap<>();
+		if (orders == null || orders.isEmpty()) {
+			return result;
+		}
+		List<Concept> linkingConcepts = labOrderConfig.getFulfillerEncounterLinkingConcepts();
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
+		c.add(eq("voided", false));
+		c.add(in("order", orders));
+		c.add(isNotNull("encounter"));
+		if (!linkingConcepts.isEmpty()) {
+			c.add(in("concept", linkingConcepts));
+		}
+		c.addOrder(desc("obsDatetime"));
+		// Sorted globally by obsDatetime desc, so the first Obs seen per order is its most recent - matching
+		// the setMaxResults(1)-per-order semantics of the single-order method above.
+		for (Obs obs : (List<Obs>) c.list()) {
+			result.putIfAbsent(obs.getOrder(), obs.getEncounter());
+		}
+		long elapsedMillis = System.currentTimeMillis() - startMillis;
+		log.debug("getFulfillerEncountersForOrders took " + elapsedMillis + "ms for " + orders.size() + " orders");
+		return result;
 	}
 
 	@Override

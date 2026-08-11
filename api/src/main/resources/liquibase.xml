@@ -25,4 +25,46 @@
         </sql>
     </changeSet>
 
+    <changeSet id="UHM-9425-add-orders-lab-order-list-covering-index" author="mseaton">
+        <comment>
+            Adds a covering index on orders for the Lab Order List query (order_type_id, fulfiller_status,
+            voided, order_action, date_stopped, auto_expire_date, date_activated). Without this, only the
+            single-column order_type_id index is available, which forces the database to scan and sort the
+            entire order-type history before it can apply any other filter - this becomes very slow on
+            installations with millions of orders. Making the index fully covering for this WHERE clause
+            lets MySQL's optimizer choose it on its own, with no query hint required. Verified via
+            EXPLAIN ANALYZE against a copy of an affected production database: the default Lab Order List
+            query dropped from ~1.1s to single-digit milliseconds.
+        </comment>
+        <createIndex indexName="orders_lab_order_list_covering" tableName="orders">
+            <column name="order_type_id"/>
+            <column name="fulfiller_status"/>
+            <column name="voided"/>
+            <column name="order_action"/>
+            <column name="date_stopped"/>
+            <column name="auto_expire_date"/>
+            <column name="date_activated"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="UHM-9425-add-orders-lab-order-list-by-date-index" author="mseaton">
+        <comment>
+            Adds a second Lab Order List index on orders (order_type_id, voided, order_action, date_activated),
+            complementing orders_lab_order_list_covering above. That index wins when the fulfillment status
+            filter is narrow (e.g. the default "awaiting/in fulfillment" worklist view) with no date bound.
+            This one wins whenever a date range is applied (e.g. activatedOnOrAfter/activatedOnOrBefore),
+            regardless of how broad the status filter is - by putting date_activated near the front of the
+            index, MySQL can jump directly to the bounded date range instead of scanning the full order-type
+            history. Verified via EXPLAIN ANALYZE against a copy of an affected production database with a
+            broad status filter (including COMPLETED_FULFILLMENT) plus a date filter: query dropped from
+            ~1.15s to well under 1ms.
+        </comment>
+        <createIndex indexName="orders_lab_order_list_by_date" tableName="orders">
+            <column name="order_type_id"/>
+            <column name="voided"/>
+            <column name="order_action"/>
+            <column name="date_activated"/>
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>
