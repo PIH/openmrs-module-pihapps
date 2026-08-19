@@ -433,13 +433,13 @@ public class LabOrderConfig {
         return conceptService.getConceptByReference(getLabIdentifierConceptReference());
     }
 
-    public LabIdGenerator getLabIdGenerator() {
+    public LabIdGenerator resolveLabIdGenerator() {
         List<LabIdGenerator> generators = Context.getRegisteredComponents(LabIdGenerator.class);
         return generators.isEmpty() ? null : generators.get(0);
     }
 
     public boolean isLabIdAutoGenerationEnabled() {
-        return getLabIdGenerator() != null;
+        return resolveLabIdGenerator() != null;
     }
 
     public String getTestLocationQuestionReference() {

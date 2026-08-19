@@ -57,7 +57,7 @@ public class LabOrderConfigTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
-    public void getLabIdGenerator_shouldReturnNullWhenNoGeneratorRegistered() {
-        assertThat(labOrderConfig.getLabIdGenerator(), is(nullValue()));
+    public void resolveLabIdGenerator_shouldReturnNullWhenNoGeneratorRegistered() {
+        assertThat(labOrderConfig.resolveLabIdGenerator(), is(nullValue()));
     }
 }
