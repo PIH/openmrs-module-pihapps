@@ -81,10 +81,11 @@
         const labIdInput = jq("#" + id + "-lab-id-input");
         const labIdGenerateButton = parentElement.find(".lab-id-generate-button");
         const labIdGenerateError = parentElement.find(".lab-id-generate-error");
+        let labIdGeneratorEnabled = false;
 
         function updateLabIdGenerateButtonVisibility() {
             const hasValue = !!labIdInput.val();
-            if (pihAppsConfig.labOrderConfig.labIdAutoGenerationEnabled && !hasValue) {
+            if (labIdGeneratorEnabled && !hasValue) {
                 labIdGenerateButton.show();
             } else {
                 labIdGenerateButton.hide();
@@ -113,6 +114,24 @@
         });
 
         updateLabIdGenerateButtonVisibility();
+
+        // Whether auto-generation is available depends on the session location (a registered
+        // LabIdGenerator may be enabled for some locations and not others), so this can't be
+        // read off the static config - it requires a request to check.
+        jq.ajax({
+            url: openmrsContextPath + "/ws/rest/v1/pihapps/labs/labIdGenerator",
+            type: "POST",
+            success: (data) => {
+                labIdGeneratorEnabled = !!data.enabled;
+                if (data.message) {
+                    console.warn("Lab ID auto-generation check: " + data.message);
+                }
+                updateLabIdGenerateButtonVisibility();
+            },
+            error: (xhr) => {
+                console.warn("Unable to check Lab ID auto-generation availability", xhr);
+            }
+        });
 
         const estimatedDateWidget = formHelper.createObsWidget(estimatedCollectionDateQuestion, {
             id: id + "-estimated-collection-date", valueSet: [ estimatedCollectionDateAnswer ]

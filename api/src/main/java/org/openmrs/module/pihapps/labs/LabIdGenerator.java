@@ -3,12 +3,15 @@ package org.openmrs.module.pihapps.labs;
 import org.openmrs.Location;
 
 /**
- * Extension point for auto-generating a Lab ID for a specimen collection encounter.
- * An implementation is registered as a Spring bean by any module that wants to enable
- * the "Generate" affordance in the specimen collection UI. The presence of a registered
- * bean is itself the feature toggle - see LabOrderConfig#isLabIdAutoGenerationEnabled().
+ * Extension point for auto-generating a Lab ID for a specimen collection encounter at a given Location
  */
 public interface LabIdGenerator {
+
+    /**
+     *
+     * @return true if this particular implementation of the Lab ID generator is enabled
+     */
+    boolean isEnabled(Location sessionLocation);
 
     /**
      * @param sessionLocation the user's current session/login location
