@@ -106,7 +106,7 @@
                 },
                 error: (xhr) => {
                     const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
-                    const message = error?.translatedMessage ?? error?.message ?? error;
+                    const message = error?.translatedMessage ?? error?.message ?? error ?? '${ ui.encodeJavaScript(ui.message("pihapps.labId.generateError")) }';
                     labIdGenerateError.html(message);
                 }
             });

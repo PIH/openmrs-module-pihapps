@@ -92,10 +92,10 @@ public class GenerateLabIdRestControllerTest {
         LabIdGenerator generator = mock(LabIdGenerator.class);
         when(pihAppsConfig.getLabOrderConfig()).thenReturn(labOrderConfig);
         when(labOrderConfig.resolveLabIdGenerator()).thenReturn(generator);
-        when(generator.generateLabId(Mockito.any())).thenReturn("KIB-20260819-0001");
         controller.pihAppsConfig = pihAppsConfig;
 
         Location location = mock(Location.class);
+        when(generator.generateLabId(location)).thenReturn("KIB-20260819-0001");
         MockHttpServletRequest request = requestForLocation(location);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -103,6 +103,25 @@ public class GenerateLabIdRestControllerTest {
 
         assertThat(response.getStatus(), is(200));
         assertThat(((SimpleObject) result).get("labId"), equalTo("KIB-20260819-0001"));
+        Mockito.verify(generator).generateLabId(location);
+    }
+
+    @Test
+    public void generateLabId_shouldReturn500WhenSessionLocationIsNull() {
+        PihAppsConfig pihAppsConfig = mock(PihAppsConfig.class);
+        LabOrderConfig labOrderConfig = mock(LabOrderConfig.class);
+        LabIdGenerator generator = mock(LabIdGenerator.class);
+        when(pihAppsConfig.getLabOrderConfig()).thenReturn(labOrderConfig);
+        when(labOrderConfig.resolveLabIdGenerator()).thenReturn(generator);
+        controller.pihAppsConfig = pihAppsConfig;
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setSession(new MockHttpSession());
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        controller.generateLabId(request, response);
+
+        assertThat(response.getStatus(), is(500));
     }
 
     @Test

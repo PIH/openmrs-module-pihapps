@@ -48,6 +48,9 @@ public class GenerateLabIdRestController {
             }
             UiSessionContext sessionContext = new UiSessionContext(locationService, providerService, request);
             Location sessionLocation = sessionContext.getSessionLocation();
+            if (sessionLocation == null) {
+                throw new IllegalStateException("Unable to generate Lab ID: no session location is set");
+            }
             String labId = generator.generateLabId(sessionLocation);
             SimpleObject result = new SimpleObject();
             result.put("labId", labId);
