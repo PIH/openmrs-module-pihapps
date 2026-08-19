@@ -15,6 +15,7 @@ import org.openmrs.module.appui.UiSessionContext;
 import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.module.pihapps.labs.LabIdGenerator;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.messagesource.MessageSourceService;
 import org.openmrs.module.webservices.rest.SimpleObject;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -30,6 +31,7 @@ public class GenerateLabIdRestControllerTest {
 
     LocationService locationService;
     ProviderService providerService;
+    MessageSourceService messageSourceService;
     GenerateLabIdRestController controller;
 
     @BeforeEach
@@ -47,9 +49,13 @@ public class GenerateLabIdRestControllerTest {
         ServiceContext serviceContext = ServiceContext.getInstance();
         serviceContext.setAdministrationService(administrationService);
 
+        messageSourceService = mock(MessageSourceService.class);
+        when(messageSourceService.getMessage(Mockito.anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+
         controller = new GenerateLabIdRestController();
         controller.locationService = locationService;
         controller.providerService = providerService;
+        controller.messageSourceService = messageSourceService;
     }
 
     @AfterEach

@@ -8,6 +8,7 @@ import org.openmrs.api.ProviderService;
 import org.openmrs.module.appui.UiSessionContext;
 import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.module.pihapps.labs.LabIdGenerator;
+import org.openmrs.messagesource.MessageSourceService;
 import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.RestUtil;
 import org.openmrs.module.webservices.rest.web.response.ResponseException;
@@ -38,18 +39,21 @@ public class GenerateLabIdRestController {
     @Autowired
     ProviderService providerService;
 
+    @Autowired
+    MessageSourceService messageSourceService;
+
     @RequestMapping(value = "/rest/v1/pihapps/labs/generateLabId", method = RequestMethod.POST)
     @ResponseBody
     public Object generateLabId(HttpServletRequest request, HttpServletResponse response) throws ResponseException {
         try {
             LabIdGenerator generator = pihAppsConfig.getLabOrderConfig().resolveLabIdGenerator();
             if (generator == null) {
-                throw new IllegalStateException("Lab ID auto-generation is not enabled");
+                throw new IllegalStateException(messageSourceService.getMessage("pihapps.labId.notEnabled"));
             }
             UiSessionContext sessionContext = new UiSessionContext(locationService, providerService, request);
             Location sessionLocation = sessionContext.getSessionLocation();
             if (sessionLocation == null) {
-                throw new IllegalStateException("Unable to generate Lab ID: no session location is set");
+                throw new IllegalStateException(messageSourceService.getMessage("pihapps.labId.noSessionLocation"));
             }
             String labId = generator.generateLabId(sessionLocation);
             SimpleObject result = new SimpleObject();
