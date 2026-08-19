@@ -40,6 +40,8 @@ public class GenerateLabIdRestControllerTest {
 
         locationService = mock(LocationService.class);
         providerService = mock(ProviderService.class);
+        // Mock AdministrationService because RestUtil.wrapErrorResponse() internally calls Context.getAdministrationService()
+        // with no fallback, so it must be available for error response handling tests to work
         AdministrationService administrationService = mock(AdministrationService.class);
 
         ServiceContext serviceContext = ServiceContext.getInstance();
@@ -53,6 +55,8 @@ public class GenerateLabIdRestControllerTest {
     @AfterEach
     public void tearDown() {
         Context.clearUserContext();
+        // Reset ServiceContext to prevent test pollution; ServiceContext is a JVM-wide static singleton
+        ServiceContext.getInstance().setAdministrationService(null);
     }
 
     private MockHttpServletRequest requestForLocation(Location location) {
