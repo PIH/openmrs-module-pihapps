@@ -78,6 +78,61 @@
         const labIdWidget = formHelper.createObsWidget(labIdQuestion, { id: id + "-lab-id-input" });
         parentElement.find(".obs-field-lab-id").empty().append(labIdWidget);
 
+        const labIdInput = jq("#" + id + "-lab-id-input");
+        const labIdGenerateButton = parentElement.find(".lab-id-generate-button");
+        const labIdGenerateError = parentElement.find(".lab-id-generate-error");
+        let labIdGeneratorEnabled = false;
+
+        function updateLabIdGenerateButtonVisibility() {
+            const hasValue = !!labIdInput.val();
+            if (labIdGeneratorEnabled && !hasValue) {
+                labIdGenerateButton.show();
+            } else {
+                labIdGenerateButton.hide();
+                labIdGenerateError.html("");
+            }
+        }
+
+        labIdInput.off("input").on("input", updateLabIdGenerateButtonVisibility);
+
+        labIdGenerateButton.off("click").on("click", (event) => {
+            event.preventDefault();
+            labIdGenerateError.html("");
+            jq.ajax({
+                url: openmrsContextPath + "/ws/rest/v1/pihapps/labs/generateLabId",
+                type: "POST",
+                success: (data) => {
+                    labIdInput.val(data.labId);
+                    updateLabIdGenerateButtonVisibility();
+                },
+                error: (xhr) => {
+                    const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
+                    const message = error?.translatedMessage ?? error?.message ?? error ?? '${ ui.encodeJavaScript(ui.message("pihapps.labId.generateError")) }';
+                    labIdGenerateError.html(message);
+                }
+            });
+        });
+
+        updateLabIdGenerateButtonVisibility();
+
+        // Whether auto-generation is available depends on the session location (a registered
+        // LabIdGenerator may be enabled for some locations and not others), so this can't be
+        // read off the static config - it requires a request to check.
+        jq.ajax({
+            url: openmrsContextPath + "/ws/rest/v1/pihapps/labs/labIdGenerator",
+            type: "POST",
+            success: (data) => {
+                labIdGeneratorEnabled = !!data.enabled;
+                if (data.message) {
+                    console.warn("Lab ID auto-generation check: " + data.message);
+                }
+                updateLabIdGenerateButtonVisibility();
+            },
+            error: (xhr) => {
+                console.warn("Unable to check Lab ID auto-generation availability", xhr);
+            }
+        });
+
         const estimatedDateWidget = formHelper.createObsWidget(estimatedCollectionDateQuestion, {
             id: id + "-estimated-collection-date", valueSet: [ estimatedCollectionDateAnswer ]
         });
@@ -218,6 +273,10 @@
                 <span class="form-field-label col-4">${ui.message("pihapps.labId")}:</span>
                 <span class="form-field-widgets col-auto">
                     <span class="obs-field-lab-id"></span>
+                </span>
+                <span class="form-field-widgets col" style="margin-top: 5px;">
+                    <button type="button" class="lab-id-generate-button" style="padding: 5px;">${ui.message("pihapps.labId.generate")}</button>
+                    <span class="lab-id-generate-error" style="color:red;"></span>
                 </span>
             </div>
             <div class="specimen-collection-date-section form-field-section row align-items-start">
