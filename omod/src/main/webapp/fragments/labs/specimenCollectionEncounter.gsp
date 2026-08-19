@@ -78,6 +78,42 @@
         const labIdWidget = formHelper.createObsWidget(labIdQuestion, { id: id + "-lab-id-input" });
         parentElement.find(".obs-field-lab-id").empty().append(labIdWidget);
 
+        const labIdInput = jq("#" + id + "-lab-id-input");
+        const labIdGenerateButton = parentElement.find(".lab-id-generate-button");
+        const labIdGenerateError = parentElement.find(".lab-id-generate-error");
+
+        function updateLabIdGenerateButtonVisibility() {
+            const hasValue = !!labIdInput.val();
+            if (pihAppsConfig.labOrderConfig.labIdAutoGenerationEnabled && !hasValue) {
+                labIdGenerateButton.show();
+            } else {
+                labIdGenerateButton.hide();
+                labIdGenerateError.html("");
+            }
+        }
+
+        labIdInput.off("input").on("input", updateLabIdGenerateButtonVisibility);
+
+        labIdGenerateButton.off("click").on("click", (event) => {
+            event.preventDefault();
+            labIdGenerateError.html("");
+            jq.ajax({
+                url: openmrsContextPath + "/ws/rest/v1/pihapps/labs/generateLabId",
+                type: "POST",
+                success: (data) => {
+                    labIdInput.val(data.labId);
+                    updateLabIdGenerateButtonVisibility();
+                },
+                error: (xhr) => {
+                    const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
+                    const message = error?.translatedMessage ?? error?.message ?? error;
+                    labIdGenerateError.html(message);
+                }
+            });
+        });
+
+        updateLabIdGenerateButtonVisibility();
+
         const estimatedDateWidget = formHelper.createObsWidget(estimatedCollectionDateQuestion, {
             id: id + "-estimated-collection-date", valueSet: [ estimatedCollectionDateAnswer ]
         });
@@ -218,6 +254,8 @@
                 <span class="form-field-label col-4">${ui.message("pihapps.labId")}:</span>
                 <span class="form-field-widgets col-auto">
                     <span class="obs-field-lab-id"></span>
+                    <button type="button" class="lab-id-generate-button" style="display:none;">${ui.message("pihapps.labId.generate")}</button>
+                    <span class="lab-id-generate-error" style="color:red;"></span>
                 </span>
             </div>
             <div class="specimen-collection-date-section form-field-section row align-items-start">
