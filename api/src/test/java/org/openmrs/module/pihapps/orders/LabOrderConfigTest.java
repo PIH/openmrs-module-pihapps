@@ -50,4 +50,14 @@ public class LabOrderConfigTest extends BaseModuleContextSensitiveTest {
         List<Concept> result = labOrderConfig.getMultipleAnswerConcepts();
         assertThat(result, empty());
     }
+
+    @Test
+    public void isLabIdAutoGenerationEnabled_shouldReturnFalseWhenNoGeneratorRegistered() {
+        assertThat(labOrderConfig.isLabIdAutoGenerationEnabled(), is(false));
+    }
+
+    @Test
+    public void getLabIdGenerator_shouldReturnNullWhenNoGeneratorRegistered() {
+        assertThat(labOrderConfig.getLabIdGenerator(), is(nullValue()));
+    }
 }

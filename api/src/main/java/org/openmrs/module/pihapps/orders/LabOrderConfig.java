@@ -11,6 +11,7 @@ import org.openmrs.Order;
 import org.openmrs.OrderType;
 import org.openmrs.TestOrder;
 import org.openmrs.api.ConceptService;
+import org.openmrs.module.pihapps.labs.LabIdGenerator;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.OrderService;
 import org.openmrs.api.context.Context;
@@ -430,6 +431,15 @@ public class LabOrderConfig {
 
     public Concept getLabIdentifierConcept() {
         return conceptService.getConceptByReference(getLabIdentifierConceptReference());
+    }
+
+    public LabIdGenerator getLabIdGenerator() {
+        List<LabIdGenerator> generators = Context.getRegisteredComponents(LabIdGenerator.class);
+        return generators.isEmpty() ? null : generators.get(0);
+    }
+
+    public boolean isLabIdAutoGenerationEnabled() {
+        return getLabIdGenerator() != null;
     }
 
     public String getTestLocationQuestionReference() {
