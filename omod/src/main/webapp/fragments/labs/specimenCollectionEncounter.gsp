@@ -273,7 +273,9 @@
                 <span class="form-field-label col-4">${ui.message("pihapps.labId")}:</span>
                 <span class="form-field-widgets col-auto">
                     <span class="obs-field-lab-id"></span>
-                    <button type="button" class="lab-id-generate-button" style="display:none;">${ui.message("pihapps.labId.generate")}</button>
+                </span>
+                <span class="form-field-widgets col" style="margin-top: 5px;">
+                    <button type="button" class="lab-id-generate-button" style="padding: 5px;">${ui.message("pihapps.labId.generate")}</button>
                     <span class="lab-id-generate-error" style="color:red;"></span>
                 </span>
             </div>
