@@ -157,7 +157,7 @@
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
             const orderFulfillmentStatusOptions = pihAppsConfig.labOrderConfig.orderFulfillmentStatusOptions;
 
-            const defaultOrderedFrom = moment().subtract(pihAppsConfig.labOrderConfig.defaultOrderedFromLookbackDays, 'days');
+            const defaultOrderedFrom = moment.parseZone(pihAppsConfig.serverDate).subtract(pihAppsConfig.labOrderConfig.defaultOrderedFromLookbackDays, 'days');
             jq("#orderedFrom-filter-field").val(defaultOrderedFrom.format("YYYY-MM-DD"));
             jq("#orderedFrom-filter-display").val(defaultOrderedFrom.format("DD MMM YYYY"));
 

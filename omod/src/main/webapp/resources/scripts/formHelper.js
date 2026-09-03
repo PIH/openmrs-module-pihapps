@@ -327,7 +327,12 @@ class FormHelper {
         const displayFormat = config.useTime ? "dd M yyyy hh:ii" : "dd M yyyy";
         const submitFormat = config.useTime ? "yyyy-mm-dd hh:ii:ss" : "yyyy-mm-dd";
 
-        const initialValue = config.initialValue ? moment(config.initialValue) : null;
+        // Preserve the server's offset (parseZone) for a raw date string from the server, or the offset
+        // already carried by a moment (e.g. from PihAppsDateUtils), rather than converting to the
+        // browser's local timezone (plain moment(...) would do that) - display should reflect server time.
+        const initialValue = config.initialValue
+            ? (moment.isMoment(config.initialValue) ? config.initialValue.clone() : moment.parseZone(config.initialValue))
+            : null;
         dateDisplayInput.val(initialValue ? initialValue.format(config.useTime ? this.dateTimeFormat : this.dateFormat) : "");
         hiddenInput.val(initialValue ? initialValue.format() : "");
 

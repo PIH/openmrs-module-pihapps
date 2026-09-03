@@ -50,7 +50,8 @@
         initializeSelectedOrders({ orders: orders, selectedOrderUuids: selectedOrderUuids, readOnly: !!encounter, pihAppsConfig: pihAppsConfig, jqElement: ordersWidgetsSection});
 
         const formName = "pihapps^specimenForm";
-        const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(pihAppsConfig.serverDate), 5);
+        // A moment in the server's own offset, rounded down to the nearest 5 minutes
+        const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(pihAppsConfig.serverDate, 5);
 
         const formHelper = new FormHelper({
             jq: jq,
@@ -141,7 +142,7 @@
         const specimenDateWidget = formHelper.createDatePickerWidget({
             id: id+"-specimen-date-picker",
             useTime: true,
-            maxDateTime: currentDatetime,
+            maxDateTime: currentDatetime.toDate(),
             initialValue: encounter?.encounterDatetime ?? currentDatetime
         });
         parentElement.find(".encounter-field-encounter-date").empty().append(specimenDateWidget);

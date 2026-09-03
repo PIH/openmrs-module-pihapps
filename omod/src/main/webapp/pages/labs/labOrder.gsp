@@ -221,7 +221,7 @@
                         orderReason: reasons.get(orderable) ?? null,
                         careSetting: labOrderConfig.defaultCareSetting?.uuid,
                         dateActivated: orderDate,
-                        autoExpireDate: moment(orderDate).add(labOrderConfig?.labOrderAutoExpireDays || 30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS'),
+                        autoExpireDate: moment.parseZone(orderDate).add(labOrderConfig?.labOrderAutoExpireDays || 30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS'),
                     });
                 })
                 const encounterPayload = {

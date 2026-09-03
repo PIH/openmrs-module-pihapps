@@ -32,7 +32,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     const orderer = '${sessionContext.currentProvider.uuid}';
                     const rep = 'custom:(serverDate,labOrderConfig:(labOrderEncounterType:(uuid),labOrderEncounterRole:(uuid),labTestOrderType:(uuid),defaultCareSetting:(uuid)))'
                     jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=" + rep, function(pihAppsConfig) {
-                        const discontinueDate = moment(pihAppsConfig.serverDate).format('YYYY-MM-DDTHH:mm:ss.SSS');
+                        // No offset in the submitted format, so it must be the server's own wall-clock reading
+                        // (parseZone), not the browser's local conversion of the same instant.
+                        const discontinueDate = moment.parseZone(pihAppsConfig.serverDate).format('YYYY-MM-DDTHH:mm:ss.SSS');
                         const labOrderConfig = pihAppsConfig.labOrderConfig;
                         const encounterPayload = {
                             patient: patientUuid,
