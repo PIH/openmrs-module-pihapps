@@ -387,6 +387,7 @@
                         if (resultDate.isAfter(currentDate)) {
                             errors.push(messages.resultDateCannotBeFuture);
                         }
+                        // Result date is currently set as a Date obs, not a Datetime, so just validate against the date portion
                         // Compare literal calendar dates (not via moment) to avoid browser-vs-server timezone issues
                         const resultDateOnly = resultDateStr.substring(0, 10);
                         const encounterDateOnly = encounterToSubmit.encounterDatetime.substring(0, 10);
