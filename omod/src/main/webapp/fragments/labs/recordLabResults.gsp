@@ -387,11 +387,7 @@
                         if (resultDate.isAfter(currentDate)) {
                             errors.push(messages.resultDateCannotBeFuture);
                         }
-                        // Both dates are rendered by the server in the server's own timezone. Compare their literal
-                        // calendar dates directly rather than parsing them with moment, which would convert them to
-                        // the browser's local timezone and can shift them onto the wrong day whenever the browser's
-                        // timezone differs from the server's (e.g. a remote/test client in a different timezone from
-                        // the server it's connecting to).
+                        // Compare literal calendar dates (not via moment) to avoid browser-vs-server timezone issues
                         const resultDateOnly = resultDateStr.substring(0, 10);
                         const encounterDateOnly = encounterToSubmit.encounterDatetime.substring(0, 10);
                         if (encounterDateOnly > resultDateOnly) {
