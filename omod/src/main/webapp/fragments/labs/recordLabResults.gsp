@@ -377,63 +377,66 @@
                     const fulfillerStatusToSubmit = jq("#" + id + "-fulfiller-status").val();
                     const ordersToSubmit = [{ uuid: order.uuid, fulfillerStatus: fulfillerStatusToSubmit }];
 
-                    // Validate
-                    const errors = [];
-                    const currentDate = moment(pihAppsConfig.serverDate);
+                    // Re-fetch the server's current time right before validating - the config fetched when
+                    // this dialog was opened can be stale by the time the user finishes entering results and saves.
+                    jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(serverDate)", function(freshConfig) {
+                        const errors = [];
+                        const currentDate = moment(freshConfig.serverDate);
 
-                    const resultDateStr = encounterToSubmit.obs.find(o => o.concept === resultDateQuestion.uuid)?.valueDatetime;
-                    if (resultDateStr) {
-                        const resultDate = moment(resultDateStr);
-                        if (resultDate.isAfter(currentDate)) {
-                            errors.push(messages.resultDateCannotBeFuture);
+                        const resultDateStr = encounterToSubmit.obs.find(o => o.concept === resultDateQuestion.uuid)?.valueDatetime;
+                        if (resultDateStr) {
+                            const resultDate = moment(resultDateStr);
+                            if (resultDate.isAfter(currentDate)) {
+                                errors.push(messages.resultDateCannotBeFuture);
+                            }
+                            // Compare literal calendar dates (not via moment) to avoid browser-vs-server timezone issues
+                            const resultDateOnly = resultDateStr.substring(0, 10);
+                            const encounterDateOnly = encounterToSubmit.encounterDatetime.substring(0, 10);
+                            if (encounterDateOnly > resultDateOnly) {
+                                errors.push(messages.resultDateCannotBeBeforeSpecimenDate);
+                            }
                         }
-                        // Compare literal calendar dates (not via moment) to avoid browser-vs-server timezone issues
-                        const resultDateOnly = resultDateStr.substring(0, 10);
-                        const encounterDateOnly = encounterToSubmit.encounterDatetime.substring(0, 10);
-                        if (encounterDateOnly > resultDateOnly) {
-                            errors.push(messages.resultDateCannotBeBeforeSpecimenDate);
+
+                        // If not performed, then reason is required
+                        if (fulfillerStatusToSubmit === "EXCEPTION") {
+                            const reasonObs = encounterToSubmit.obs.find(o => o.concept === reasonQuestion.uuid);
+                            if (!reasonObs || !reasonObs.valueCoded) {
+                                errors.push(messages.reasonRequired);
+                            }
                         }
-                    }
 
-                    // If not performed, then reason is required
-                    if (fulfillerStatusToSubmit === "EXCEPTION") {
-                        const reasonObs = encounterToSubmit.obs.find(o => o.concept === reasonQuestion.uuid);
-                        if (!reasonObs || !reasonObs.valueCoded) {
-                            errors.push(messages.reasonRequired);
+                        const fieldErrors = parentElement.find(".field-error.error-value").get().map(element => jq(element).html().trim()).filter(Boolean);
+                        if (fieldErrors.length > 0) {
+                            errors.push(messages.errorsWithOneOrMoreFields);
                         }
-                    }
 
-                    const fieldErrors = parentElement.find(".field-error.error-value").get().map(element => jq(element).html().trim()).filter(Boolean);
-                    if (fieldErrors.length > 0) {
-                        errors.push(messages.errorsWithOneOrMoreFields);
-                    }
+                        if (errors && errors.length > 0) {
+                            errors.forEach(e => {
+                                parentElement.find(".errors-section").append(jq("<div>").html(e));
+                            });
+                            parentElement.find(".action-button").removeAttr("disabled");
+                            return;
+                        }
 
-                    if (errors && errors.length > 0) {
-                        errors.forEach(e => {
-                            parentElement.find(".errors-section").append(jq("<div>").html(e));
+                        const payload = { encounter: encounterToSubmit, orders: ordersToSubmit };
+                        jq.ajax({
+                            url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
+                            type: "POST",
+                            contentType: "application/json; charset=utf-8",
+                            data: JSON.stringify(payload),
+                            dataType: "json",
+                            success: () => {
+                                parentElement.find(".action-button").removeAttr("disabled");
+                                resetForm();
+                                onSuccessFunction();
+                            },
+                            error: (xhr) => {
+                                parentElement.find(".action-button").removeAttr("disabled");
+                                const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
+                                const message = error?.translatedMessage ?? error.message ?? error;
+                                parentElement.find(".errors-section").html(message);
+                            }
                         });
-                        parentElement.find(".action-button").removeAttr("disabled");
-                        return;
-                    }
-
-                    const payload = { encounter: encounterToSubmit, orders: ordersToSubmit };
-                    jq.ajax({
-                        url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
-                        type: "POST",
-                        contentType: "application/json; charset=utf-8",
-                        data: JSON.stringify(payload),
-                        dataType: "json",
-                        success: () => {
-                            parentElement.find(".action-button").removeAttr("disabled");
-                            resetForm();
-                            onSuccessFunction();
-                        },
-                        error: (xhr) => {
-                            parentElement.find(".action-button").removeAttr("disabled");
-                            const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
-                            const message = error?.translatedMessage ?? error.message ?? error;
-                            parentElement.find(".errors-section").html(message);
-                        }
                     });
                 });
 
