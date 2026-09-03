@@ -50,8 +50,7 @@
         initializeSelectedOrders({ orders: orders, selectedOrderUuids: selectedOrderUuids, readOnly: !!encounter, pihAppsConfig: pihAppsConfig, jqElement: ordersWidgetsSection});
 
         const formName = "pihapps^specimenForm";
-        // A moment in the server's own offset, rounded down to the nearest 5 minutes
-        const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(pihAppsConfig.serverDate, 5);
+        const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
 
         const formHelper = new FormHelper({
             jq: jq,
@@ -142,7 +141,7 @@
         const specimenDateWidget = formHelper.createDatePickerWidget({
             id: id+"-specimen-date-picker",
             useTime: true,
-            maxDateTime: currentDatetime.toDate(),
+            maxDateTime: currentDatetime,
             initialValue: encounter?.encounterDatetime ?? currentDatetime
         });
         parentElement.find(".encounter-field-encounter-date").empty().append(specimenDateWidget);
@@ -191,74 +190,70 @@
             encounterToSubmit.encounterDatetime = jq("#" + id+"-specimen-date-picker-field").val();
             encounterToSubmit.location = jq("#" + id+"-specimen-location-picker").val();
 
-            // Re-fetch the server's current time right before validating - the config fetched when this
-            // dialog was opened can be stale by the time the user finishes filling out the form and saves.
-            jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(serverDate)", function(freshConfig) {
-                const errors = [];
-                const currentDate = moment(freshConfig.serverDate);
-                const collectionDateStr =  encounterToSubmit.encounterDatetime;
-                const collectionDate = collectionDateStr ? moment(collectionDateStr) : null;
-                if (collectionDate && collectionDate.isAfter(currentDate)) {
-                    errors.push('${ ui.encodeJavaScript(ui.message("pihapps.specimenCollectionDateCannotBeFuture")) }');
-                }
-                const receivedDateStr = encounterToSubmit.obs.find(o => o.concept === receivedDateQuestion.uuid)?.valueDatetime;
-                const receivedDate = receivedDateStr ? moment(receivedDateStr) : null;
-                if (receivedDate && receivedDate.isAfter(currentDate)) {
-                    errors.push('${ ui.encodeJavaScript(ui.message("pihapps.specimenReceivedDateCannotBeFuture")) }');
-                }
-                if (collectionDate && receivedDate && collectionDate.isAfter(receivedDate)) {
-                    errors.push('${ ui.encodeJavaScript(ui.message("pihapps.specimenReceivedCannotBeBeforeCollected")) }');
-                }
-                if (errors && errors.length > 0) {
-                    errors.forEach(e => {
-                        parentElement.find(".errors-section").append(jq("<div>").html(e));
-                    });
-                    jq(".action-button").removeAttr("disabled");
-                    return;
-                }
-
-                // Derive the set of checked orders from the checklist
-                const checkedOrderUuids = new Set(
-                    parentElement.find(".order-select-checkbox:checked").map((i, el) => jq(el).attr("data-order-uuid")).get()
-                );
-                const checkedOrders = orders.filter(o => checkedOrderUuids.has(o.uuid));
-
-                if (checkedOrders.length === 0) {
-                    parentElement.find(".errors-section").append(jq("<div>").html("${ ui.message("pihapps.noOrdersSelected") }"));
-                    jq(".action-button").removeAttr("disabled");
-                    return;
-                }
-
-                // If this is a new submission, then add in order numbers as obs
-                if (!encounterToSubmit.uuid) {
-                    checkedOrders.forEach((o, index) => {
-                        encounterToSubmit.obs.push({
-                            concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
-                            valueText: o.orderNumber,
-                            order: o.uuid,
-                            formNamespaceAndPath: formName + "/order_number_" + index
-                        });
-                    });
-                }
-
-                const payload = { encounter: encounterToSubmit, orders: checkedOrders.map(o => o.uuid) };
-                jq.ajax({
-                    url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders",
-                    type: "POST",
-                    contentType: "application/json; charset=utf-8",
-                    data: JSON.stringify(payload),
-                    dataType: "json",
-                    success: () => {
-                        onSuccessFunction();
-                        parentElement.find(".action-button").removeAttr("disabled");
-                    },
-                    error: (xhr) => {
-                        parentElement.find(".action-button").removeAttr("disabled");
-                        const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
-                        const message = error?.translatedMessage ?? error.message ?? error;
-                        parentElement.find(".errors-section").html(message);
-                    }
+            const errors = [];
+            const currentDate = moment();
+            const collectionDateStr =  encounterToSubmit.encounterDatetime;
+            const collectionDate = collectionDateStr ? moment(collectionDateStr) : null;
+            if (collectionDate && collectionDate.isAfter(currentDate)) {
+                errors.push('${ ui.encodeJavaScript(ui.message("pihapps.specimenCollectionDateCannotBeFuture")) }');
+            }
+            const receivedDateStr = encounterToSubmit.obs.find(o => o.concept === receivedDateQuestion.uuid)?.valueDatetime;
+            const receivedDate = receivedDateStr ? moment(receivedDateStr) : null;
+            if (receivedDate && receivedDate.isAfter(currentDate)) {
+                errors.push('${ ui.encodeJavaScript(ui.message("pihapps.specimenReceivedDateCannotBeFuture")) }');
+            }
+            if (collectionDate && receivedDate && collectionDate.isAfter(receivedDate)) {
+                errors.push('${ ui.encodeJavaScript(ui.message("pihapps.specimenReceivedCannotBeBeforeCollected")) }');
+            }
+            if (errors && errors.length > 0) {
+                errors.forEach(e => {
+                    parentElement.find(".errors-section").append(jq("<div>").html(e));
                 });
+                jq(".action-button").removeAttr("disabled");
+                return;
+            }
+
+            // Derive the set of checked orders from the checklist
+            const checkedOrderUuids = new Set(
+                parentElement.find(".order-select-checkbox:checked").map((i, el) => jq(el).attr("data-order-uuid")).get()
+            );
+            const checkedOrders = orders.filter(o => checkedOrderUuids.has(o.uuid));
+
+            if (checkedOrders.length === 0) {
+                parentElement.find(".errors-section").append(jq("<div>").html("${ ui.message("pihapps.noOrdersSelected") }"));
+                jq(".action-button").removeAttr("disabled");
+                return;
+            }
+
+            // If this is a new submission, then add in order numbers as obs
+            if (!encounterToSubmit.uuid) {
+                checkedOrders.forEach((o, index) => {
+                    encounterToSubmit.obs.push({
+                        concept: pihAppsConfig.labOrderConfig.testOrderNumberQuestion.uuid,
+                        valueText: o.orderNumber,
+                        order: o.uuid,
+                        formNamespaceAndPath: formName + "/order_number_" + index
+                    });
+                });
+            }
+
+            const payload = { encounter: encounterToSubmit, orders: checkedOrders.map(o => o.uuid) };
+            jq.ajax({
+                url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders",
+                type: "POST",
+                contentType: "application/json; charset=utf-8",
+                data: JSON.stringify(payload),
+                dataType: "json",
+                success: () => {
+                    onSuccessFunction();
+                    parentElement.find(".action-button").removeAttr("disabled");
+                },
+                error: (xhr) => {
+                    parentElement.find(".action-button").removeAttr("disabled");
+                    const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
+                    const message = error?.translatedMessage ?? error.message ?? error;
+                    parentElement.find(".errors-section").html(message);
+                }
             });
         });
 

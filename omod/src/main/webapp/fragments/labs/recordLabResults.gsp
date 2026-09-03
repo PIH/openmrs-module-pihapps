@@ -377,66 +377,67 @@
                     const fulfillerStatusToSubmit = jq("#" + id + "-fulfiller-status").val();
                     const ordersToSubmit = [{ uuid: order.uuid, fulfillerStatus: fulfillerStatusToSubmit }];
 
-                    // Re-fetch the server's current time right before validating - the config fetched when
-                    // this dialog was opened can be stale by the time the user finishes entering results and saves.
-                    jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(serverDate)", function(freshConfig) {
-                        const errors = [];
-                        const currentDate = moment(freshConfig.serverDate);
+                    // Validate
+                    const errors = [];
+                    const currentDate = moment();
 
-                        const resultDateStr = encounterToSubmit.obs.find(o => o.concept === resultDateQuestion.uuid)?.valueDatetime;
-                        if (resultDateStr) {
-                            const resultDate = moment(resultDateStr);
-                            if (resultDate.isAfter(currentDate)) {
-                                errors.push(messages.resultDateCannotBeFuture);
-                            }
-                            // Compare literal calendar dates (not via moment) to avoid browser-vs-server timezone issues
-                            const resultDateOnly = resultDateStr.substring(0, 10);
-                            const encounterDateOnly = encounterToSubmit.encounterDatetime.substring(0, 10);
-                            if (encounterDateOnly > resultDateOnly) {
-                                errors.push(messages.resultDateCannotBeBeforeSpecimenDate);
-                            }
+                    const resultDateStr = encounterToSubmit.obs.find(o => o.concept === resultDateQuestion.uuid)?.valueDatetime;
+                    if (resultDateStr) {
+                        const resultDate = moment(resultDateStr);
+                        if (resultDate.isAfter(currentDate)) {
+                            errors.push(messages.resultDateCannotBeFuture);
                         }
-
-                        // If not performed, then reason is required
-                        if (fulfillerStatusToSubmit === "EXCEPTION") {
-                            const reasonObs = encounterToSubmit.obs.find(o => o.concept === reasonQuestion.uuid);
-                            if (!reasonObs || !reasonObs.valueCoded) {
-                                errors.push(messages.reasonRequired);
-                            }
+                        // Result date is a Date obs (not a Datetime) and is serialized as midnight in whatever
+                        // timezone the server rendered it in. Comparing via moment's 'day' granularity converts
+                        // it to the browser's local timezone first, which can shift it onto the wrong calendar
+                        // day and produce false positives when the browser's timezone differs from the server's.
+                        // Compare the literal calendar dates instead.
+                        const resultDateOnly = resultDateStr.substring(0, 10);
+                        const encounterDateOnly = encounterToSubmit.encounterDatetime.substring(0, 10);
+                        if (encounterDateOnly > resultDateOnly) {
+                            errors.push(messages.resultDateCannotBeBeforeSpecimenDate);
                         }
+                    }
 
-                        const fieldErrors = parentElement.find(".field-error.error-value").get().map(element => jq(element).html().trim()).filter(Boolean);
-                        if (fieldErrors.length > 0) {
-                            errors.push(messages.errorsWithOneOrMoreFields);
+                    // If not performed, then reason is required
+                    if (fulfillerStatusToSubmit === "EXCEPTION") {
+                        const reasonObs = encounterToSubmit.obs.find(o => o.concept === reasonQuestion.uuid);
+                        if (!reasonObs || !reasonObs.valueCoded) {
+                            errors.push(messages.reasonRequired);
                         }
+                    }
 
-                        if (errors && errors.length > 0) {
-                            errors.forEach(e => {
-                                parentElement.find(".errors-section").append(jq("<div>").html(e));
-                            });
-                            parentElement.find(".action-button").removeAttr("disabled");
-                            return;
-                        }
+                    const fieldErrors = parentElement.find(".field-error.error-value").get().map(element => jq(element).html().trim()).filter(Boolean);
+                    if (fieldErrors.length > 0) {
+                        errors.push(messages.errorsWithOneOrMoreFields);
+                    }
 
-                        const payload = { encounter: encounterToSubmit, orders: ordersToSubmit };
-                        jq.ajax({
-                            url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
-                            type: "POST",
-                            contentType: "application/json; charset=utf-8",
-                            data: JSON.stringify(payload),
-                            dataType: "json",
-                            success: () => {
-                                parentElement.find(".action-button").removeAttr("disabled");
-                                resetForm();
-                                onSuccessFunction();
-                            },
-                            error: (xhr) => {
-                                parentElement.find(".action-button").removeAttr("disabled");
-                                const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
-                                const message = error?.translatedMessage ?? error.message ?? error;
-                                parentElement.find(".errors-section").html(message);
-                            }
+                    if (errors && errors.length > 0) {
+                        errors.forEach(e => {
+                            parentElement.find(".errors-section").append(jq("<div>").html(e));
                         });
+                        parentElement.find(".action-button").removeAttr("disabled");
+                        return;
+                    }
+
+                    const payload = { encounter: encounterToSubmit, orders: ordersToSubmit };
+                    jq.ajax({
+                        url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
+                        type: "POST",
+                        contentType: "application/json; charset=utf-8",
+                        data: JSON.stringify(payload),
+                        dataType: "json",
+                        success: () => {
+                            parentElement.find(".action-button").removeAttr("disabled");
+                            resetForm();
+                            onSuccessFunction();
+                        },
+                        error: (xhr) => {
+                            parentElement.find(".action-button").removeAttr("disabled");
+                            const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
+                            const message = error?.translatedMessage ?? error.message ?? error;
+                            parentElement.find(".errors-section").html(message);
+                        }
                     });
                 });
 

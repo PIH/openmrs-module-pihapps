@@ -29,12 +29,10 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 confirm: function() {
 
                     const discontinueReason = jq("#discontinue-reason-field").val();
+                    const discontinueDate = moment().format('YYYY-MM-DDTHH:mm:ss.SSS');
                     const orderer = '${sessionContext.currentProvider.uuid}';
-                    const rep = 'custom:(serverDate,labOrderConfig:(labOrderEncounterType:(uuid),labOrderEncounterRole:(uuid),labTestOrderType:(uuid),defaultCareSetting:(uuid)))'
+                    const rep = 'custom:(labOrderConfig:(labOrderEncounterType:(uuid),labOrderEncounterRole:(uuid),labTestOrderType:(uuid),defaultCareSetting:(uuid)))'
                     jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=" + rep, function(pihAppsConfig) {
-                        // No offset in the submitted format, so it must be the server's own wall-clock reading
-                        // (parseZone), not the browser's local conversion of the same instant.
-                        const discontinueDate = moment.parseZone(pihAppsConfig.serverDate).format('YYYY-MM-DDTHH:mm:ss.SSS');
                         const labOrderConfig = pihAppsConfig.labOrderConfig;
                         const encounterPayload = {
                             patient: patientUuid,
@@ -91,7 +89,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
         const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
         const labOrderConfigRep = "(availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display))";
-        const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),serverDate,labOrderConfig:" + labOrderConfigRep;
+        const rep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + rep + ")", function(pihAppsConfig) {
 
@@ -105,14 +103,14 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const getOrderDate = (order) => { return dateUtils.formatDateWithTimeIfPresent(order.dateActivated); };
             const getOrderNumber = (order) => { return order.orderNumber; }
             const getOrderer = (order) => { return order.orderer.person.display; }
-            const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions, pihAppsConfig.serverDate).display; };
+            const getOrderStatus = (order) => { return patientUtils.getOrderStatusOption(order, orderStatusOptions).display; };
             const getFulfillerStatus = (order) => { return patientUtils.getFulfillerStatusOption(order, fulfillerStatusOptions).display; };
-            const getOrderFulfillmentStatus = (order) => { return patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions, pihAppsConfig.serverDate).display; };
+            const getOrderFulfillmentStatus = (order) => { return patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display; };
             const getLabTest = function(order) {
                 return (order.urgency === 'STAT' ? '<i class="fas fa-fw fa-exclamation" style="color: red;"></i>' : '') + order.concept.displayStringForLab;
             }
             const getActions = function (order) {
-                const orderStatusOption = patientUtils.getOrderStatusOption(order, orderStatusOptions, pihAppsConfig.serverDate);
+                const orderStatusOption = patientUtils.getOrderStatusOption(order, orderStatusOptions);
                 if (orderStatusOption.status === 'ACTIVE') {
                     const discontinueLink = '<a href="#" onClick="discontinueOrder(\\\'' + order.uuid + '\\\', \\\'' + order.concept.uuid + '\\\', \\\'' + order.careSetting.uuid + '\\\')"><i class="icon-remove scale"></i></a>';
                     return '<span class="order-actions-btn" style="text-align: center;">' + discontinueLink + '</span>'
