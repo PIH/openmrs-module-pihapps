@@ -30,11 +30,11 @@ class PihAppsPatientUtils {
         return sortedIdentifiers && sortedIdentifiers.length > 0 ? sortedIdentifiers[0].identifier : "";
     };
 
-    getOrderStatusOption(order, orderStatusOptions) {
+    getOrderStatusOption(order, orderStatusOptions, serverDate) {
         if (order.dateStopped) {
             return orderStatusOptions.filter((option) => option.status === 'STOPPED')[0];
         }
-        if (order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date())) {
+        if (order.autoExpireDate && moment(order.autoExpireDate).isBefore(moment(serverDate))) {
             return orderStatusOptions.filter((option) => option.status === 'EXPIRED')[0];
         }
         return orderStatusOptions.filter((option) => option.status === 'ACTIVE')[0];
@@ -44,7 +44,7 @@ class PihAppsPatientUtils {
         return fulfillerStatusOptions.filter((option) => option.status === (order.fulfillerStatus ?? "none"))[0];
     }
 
-    getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions) {
+    getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions, serverDate) {
         // RECEIVED means fulfillment hasn't actually started yet, so it's treated the same as no
         // fulfillerStatus at all here — matching the backend's OrderFulfillmentStatus enum, where
         // AWAITING/EXPIRED_BEFORE/CANCELLED_BEFORE all include RECEIVED alongside null.
@@ -63,7 +63,7 @@ class PihAppsPatientUtils {
             if (order.dateStopped) {
                 return orderFulfillmentStatusOptions.filter((option) => option.status === 'CANCELLED_BEFORE_FULFILLMENT')[0];
             }
-            else if (order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date())) {
+            else if (order.autoExpireDate && moment(order.autoExpireDate).isBefore(moment(serverDate))) {
                 return orderFulfillmentStatusOptions.filter((option) => option.status === 'EXPIRED_BEFORE_FULFILLMENT')[0];
             }
         }

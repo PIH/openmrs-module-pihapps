@@ -9,6 +9,8 @@ import org.openmrs.util.ConfigUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
+
 @Component
 public class PihAppsConfig {
 
@@ -47,5 +49,11 @@ public class PihAppsConfig {
 
     public String getLanguage() {
         return Context.getLocale().getLanguage();
+    }
+
+    // Client-side date/time validation must be evaluated against the server's clock, not the
+    // browser's - the two can be in different timezones (or just have an inaccurate local clock).
+    public Date getServerDate() {
+        return new Date();
     }
 }

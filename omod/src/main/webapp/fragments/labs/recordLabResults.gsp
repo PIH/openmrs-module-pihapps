@@ -379,7 +379,7 @@
 
                     // Validate
                     const errors = [];
-                    const currentDate = moment();
+                    const currentDate = moment(pihAppsConfig.serverDate);
 
                     const resultDateStr = encounterToSubmit.obs.find(o => o.concept === resultDateQuestion.uuid)?.valueDatetime;
                     if (resultDateStr) {
@@ -387,9 +387,14 @@
                         if (resultDate.isAfter(currentDate)) {
                             errors.push(messages.resultDateCannotBeFuture);
                         }
-                        // Result date is currently set as a Date obs, not a Datetime, so just validate against the date portion
-                        const encounterDate = moment(encounterToSubmit.encounterDatetime);
-                        if (encounterDate.isAfter(resultDate, 'day')) {
+                        // Both dates are rendered by the server in the server's own timezone. Compare their literal
+                        // calendar dates directly rather than parsing them with moment, which would convert them to
+                        // the browser's local timezone and can shift them onto the wrong day whenever the browser's
+                        // timezone differs from the server's (e.g. a remote/test client in a different timezone from
+                        // the server it's connecting to).
+                        const resultDateOnly = resultDateStr.substring(0, 10);
+                        const encounterDateOnly = encounterToSubmit.encounterDatetime.substring(0, 10);
+                        if (encounterDateOnly > resultDateOnly) {
                             errors.push(messages.resultDateCannotBeBeforeSpecimenDate);
                         }
                     }

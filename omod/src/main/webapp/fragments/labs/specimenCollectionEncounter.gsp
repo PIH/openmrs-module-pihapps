@@ -50,7 +50,7 @@
         initializeSelectedOrders({ orders: orders, selectedOrderUuids: selectedOrderUuids, readOnly: !!encounter, pihAppsConfig: pihAppsConfig, jqElement: ordersWidgetsSection});
 
         const formName = "pihapps^specimenForm";
-        const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(), 5);
+        const currentDatetime = dateUtils.roundDownToNearestMinuteInterval(new Date(pihAppsConfig.serverDate), 5);
 
         const formHelper = new FormHelper({
             jq: jq,
@@ -191,7 +191,7 @@
             encounterToSubmit.location = jq("#" + id+"-specimen-location-picker").val();
 
             const errors = [];
-            const currentDate = moment();
+            const currentDate = moment(pihAppsConfig.serverDate);
             const collectionDateStr =  encounterToSubmit.encounterDatetime;
             const collectionDate = collectionDateStr ? moment(collectionDateStr) : null;
             if (collectionDate && collectionDate.isAfter(currentDate)) {
