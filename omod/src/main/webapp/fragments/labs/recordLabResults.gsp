@@ -387,11 +387,7 @@
                         if (resultDate.isAfter(currentDate)) {
                             errors.push(messages.resultDateCannotBeFuture);
                         }
-                        // Result date is a Date obs (not a Datetime) and is serialized as midnight in whatever
-                        // timezone the server rendered it in. Comparing via moment's 'day' granularity converts
-                        // it to the browser's local timezone first, which can shift it onto the wrong calendar
-                        // day and produce false positives when the browser's timezone differs from the server's.
-                        // Compare the literal calendar dates instead.
+                        // Compare literal calendar dates (not via moment) to avoid browser-vs-server timezone issues
                         const resultDateOnly = resultDateStr.substring(0, 10);
                         const encounterDateOnly = encounterToSubmit.encounterDatetime.substring(0, 10);
                         if (encounterDateOnly > resultDateOnly) {
