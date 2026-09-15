@@ -4,6 +4,8 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Concept;
+import org.openmrs.ConceptReferenceRange;
+import org.openmrs.ConceptReferenceRangeContext;
 import org.openmrs.Obs;
 import org.openmrs.Patient;
 import org.openmrs.api.ConceptService;
@@ -13,6 +15,7 @@ import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
@@ -34,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Retrieves lab result observations
@@ -136,7 +140,47 @@ public class LabResultsRestController {
 
         Converter<Obs> obsConverter = ConversionUtil.getConverter(Obs.class);
         AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
-        return alreadyPaged.toSimpleObject(obsConverter);
+        SimpleObject simpleResult = alreadyPaged.toSimpleObject(obsConverter);
+        populateEffectiveReferenceRanges(result.getObs(), simpleResult);
+        return simpleResult;
+    }
+
+    /**
+     * For any obs in the response that has no reference range directly associated with it, falls back to the
+     * reference range associated with its concept (evaluated as of the obs's own date, so that date-relative
+     * criteria like age-at-encounter are evaluated correctly for historical results, not as of today).
+     */
+    @SuppressWarnings("unchecked")
+    void populateEffectiveReferenceRanges(List<Obs> obsList, SimpleObject simpleResult) {
+        Object resultsObject = simpleResult.get("results");
+        if (!(resultsObject instanceof List)) {
+            return;
+        }
+        List<Object> results = (List<Object>) resultsObject;
+        for (int i = 0; i < obsList.size() && i < results.size(); i++) {
+            if (!(results.get(i) instanceof Map)) {
+                continue;
+            }
+            Map<String, Object> obsMap = (Map<String, Object>) results.get(i);
+            if (!obsMap.containsKey("referenceRange") || obsMap.get("referenceRange") != null) {
+                continue;
+            }
+            ConceptReferenceRange effectiveRange = conceptService.getConceptReferenceRange(new ConceptReferenceRangeContext(obsList.get(i)));
+            if (effectiveRange != null) {
+                obsMap.put("referenceRange", toSimpleObject(effectiveRange));
+            }
+        }
+    }
+
+    SimpleObject toSimpleObject(ConceptReferenceRange range) {
+        SimpleObject rangeObject = new SimpleObject();
+        rangeObject.add("hiNormal", range.getHiNormal());
+        rangeObject.add("hiAbsolute", range.getHiAbsolute());
+        rangeObject.add("hiCritical", range.getHiCritical());
+        rangeObject.add("lowNormal", range.getLowNormal());
+        rangeObject.add("lowAbsolute", range.getLowAbsolute());
+        rangeObject.add("lowCritical", range.getLowCritical());
+        return rangeObject;
     }
 
     List<Concept> getSetMembersRecursively(Concept concept) {
