@@ -87,7 +87,7 @@ class PihAppsPatientUtils {
     }
 
     isObsValueAbnormal(obs) {
-        const refRange = obs.referenceRange;
+        const refRange = obs.effectiveReferenceRange;
         const val = obs.valueNumeric;
         if (refRange && val) {
             return (refRange.lowNormal && val < refRange.lowNormal) || (refRange.hiNormal && val > refRange.hiNormal);

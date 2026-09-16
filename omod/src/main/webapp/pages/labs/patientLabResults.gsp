@@ -68,7 +68,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             }
 
             const getNormalRange = (obs) => {
-                return patientUtils.formatReferenceRange(obs.referenceRange, obs.concept.units);
+                return patientUtils.formatReferenceRange(obs.effectiveReferenceRange, obs.concept.units);
             }
 
             const onTableUpdate = () => {

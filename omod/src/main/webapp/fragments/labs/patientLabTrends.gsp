@@ -41,7 +41,7 @@
             columnTransformFunctions: [
                 (obs) => { return dateUtils.formatDateWithTimeIfPresent(obs.obsDatetime) },
                 (obs) => { return patientUtils.formatObsValue(obs, dateUtils) },
-                (obs) => { return patientUtils.formatReferenceRange(obs.referenceRange, obs.concept.units) }
+                (obs) => { return patientUtils.formatReferenceRange(obs.effectiveReferenceRange, obs.concept.units) }
             ],
             datatableOptions: {
                 oLanguage: {

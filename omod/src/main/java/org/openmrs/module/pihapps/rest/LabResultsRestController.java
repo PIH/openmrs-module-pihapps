@@ -3,8 +3,8 @@ package org.openmrs.module.pihapps.rest;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.openmrs.BaseReferenceRange;
 import org.openmrs.Concept;
-import org.openmrs.ConceptReferenceRange;
 import org.openmrs.ConceptReferenceRangeContext;
 import org.openmrs.Obs;
 import org.openmrs.Patient;
@@ -146,9 +146,11 @@ public class LabResultsRestController {
     }
 
     /**
-     * For any obs in the response that has no reference range directly associated with it, falls back to the
-     * reference range associated with its concept (evaluated as of the obs's own date, so that date-relative
-     * criteria like age-at-encounter are evaluated correctly for historical results, not as of today).
+     * Adds an "effectiveReferenceRange" property to each obs in the response: the reference range directly
+     * associated with the obs if there is one, otherwise the reference range associated with its concept
+     * (evaluated as of the obs's own date, so that date-relative criteria like age-at-encounter are evaluated
+     * correctly for historical results, not as of today). This is distinct from "referenceRange", which continues
+     * to reflect only a direct obs-level association, so that a client can still tell the two apart.
      */
     @SuppressWarnings("unchecked")
     void populateEffectiveReferenceRanges(List<Obs> obsList, SimpleObject simpleResult) {
@@ -162,17 +164,19 @@ public class LabResultsRestController {
                 continue;
             }
             Map<String, Object> obsMap = (Map<String, Object>) results.get(i);
-            if (!obsMap.containsKey("referenceRange") || obsMap.get("referenceRange") != null) {
+            if (!obsMap.containsKey("referenceRange")) {
                 continue;
             }
-            ConceptReferenceRange effectiveRange = conceptService.getConceptReferenceRange(new ConceptReferenceRangeContext(obsList.get(i)));
-            if (effectiveRange != null) {
-                obsMap.put("referenceRange", toSimpleObject(effectiveRange));
+            Obs obs = obsList.get(i);
+            BaseReferenceRange effectiveRange = obs.getReferenceRange();
+            if (effectiveRange == null) {
+                effectiveRange = conceptService.getConceptReferenceRange(new ConceptReferenceRangeContext(obs));
             }
+            obsMap.put("effectiveReferenceRange", effectiveRange == null ? null : toSimpleObject(effectiveRange));
         }
     }
 
-    SimpleObject toSimpleObject(ConceptReferenceRange range) {
+    SimpleObject toSimpleObject(BaseReferenceRange range) {
         SimpleObject rangeObject = new SimpleObject();
         rangeObject.add("hiNormal", range.getHiNormal());
         rangeObject.add("hiAbsolute", range.getHiAbsolute());

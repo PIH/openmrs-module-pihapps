@@ -3,10 +3,12 @@ package org.openmrs.module.pihapps.rest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.openmrs.BaseReferenceRange;
 import org.openmrs.Concept;
 import org.openmrs.ConceptReferenceRange;
 import org.openmrs.ConceptReferenceRangeContext;
 import org.openmrs.Obs;
+import org.openmrs.ObsReferenceRange;
 import org.openmrs.Patient;
 import org.openmrs.api.ConceptService;
 import org.openmrs.api.OrderService;
@@ -59,7 +61,26 @@ public class LabResultsRestControllerTest {
     }
 
     @Test
-    public void populateEffectiveReferenceRanges_shouldFillInFallbackWhenReferenceRangeMissing() {
+    public void populateEffectiveReferenceRanges_shouldMirrorDirectReferenceRangeWithoutCallingConceptService() {
+        ObsReferenceRange directRange = new ObsReferenceRange();
+        directRange.setLowNormal(2.0);
+        directRange.setHiNormal(8.0);
+        obs.setReferenceRange(directRange);
+
+        Map<String, Object> obsMap = new HashMap<>();
+        obsMap.put("referenceRange", new HashMap<>()); // representation already reflects the direct association
+        SimpleObject simpleResult = resultsWrapping(obsMap);
+
+        controller.populateEffectiveReferenceRanges(Collections.singletonList(obs), simpleResult);
+
+        Map<?, ?> effectiveRange = (Map<?, ?>) obsMap.get("effectiveReferenceRange");
+        assertThat(effectiveRange.get("lowNormal"), equalTo(2.0));
+        assertThat(effectiveRange.get("hiNormal"), equalTo(8.0));
+        verify(conceptService, never()).getConceptReferenceRange(any(ConceptReferenceRangeContext.class));
+    }
+
+    @Test
+    public void populateEffectiveReferenceRanges_shouldFallBackToConceptLevelRangeWhenObsHasNone() {
         Map<String, Object> obsMap = new HashMap<>();
         obsMap.put("referenceRange", null);
         SimpleObject simpleResult = resultsWrapping(obsMap);
@@ -71,9 +92,12 @@ public class LabResultsRestControllerTest {
 
         controller.populateEffectiveReferenceRanges(Collections.singletonList(obs), simpleResult);
 
-        Map<?, ?> referenceRange = (Map<?, ?>) obsMap.get("referenceRange");
-        assertThat(referenceRange.get("lowNormal"), equalTo(4.0));
-        assertThat(referenceRange.get("hiNormal"), equalTo(10.0));
+        // the raw, obs-associated property is untouched
+        assertThat(obsMap.get("referenceRange"), is(nullValue()));
+
+        Map<?, ?> effectiveRange = (Map<?, ?>) obsMap.get("effectiveReferenceRange");
+        assertThat(effectiveRange.get("lowNormal"), equalTo(4.0));
+        assertThat(effectiveRange.get("hiNormal"), equalTo(10.0));
 
         ArgumentCaptor<ConceptReferenceRangeContext> captor = ArgumentCaptor.forClass(ConceptReferenceRangeContext.class);
         verify(conceptService).getConceptReferenceRange(captor.capture());
@@ -82,32 +106,18 @@ public class LabResultsRestControllerTest {
     }
 
     @Test
-    public void populateEffectiveReferenceRanges_shouldNotOverwriteWhenReferenceRangeAlreadyPresent() {
-        Map<String, Object> existingRange = new HashMap<>();
-        existingRange.put("lowNormal", 1.0);
-        Map<String, Object> obsMap = new HashMap<>();
-        obsMap.put("referenceRange", existingRange);
-        SimpleObject simpleResult = resultsWrapping(obsMap);
-
-        controller.populateEffectiveReferenceRanges(Collections.singletonList(obs), simpleResult);
-
-        assertThat(obsMap.get("referenceRange"), is(existingRange));
-        verify(conceptService, never()).getConceptReferenceRange(any(ConceptReferenceRangeContext.class));
-    }
-
-    @Test
-    public void populateEffectiveReferenceRanges_shouldNotAddReferenceRangeWhenPropertyNotRequested() {
+    public void populateEffectiveReferenceRanges_shouldNotAddPropertyWhenReferenceRangeNotRequested() {
         Map<String, Object> obsMap = new HashMap<>();
         SimpleObject simpleResult = resultsWrapping(obsMap);
 
         controller.populateEffectiveReferenceRanges(Collections.singletonList(obs), simpleResult);
 
-        assertThat(obsMap.containsKey("referenceRange"), is(false));
+        assertThat(obsMap.containsKey("effectiveReferenceRange"), is(false));
         verify(conceptService, never()).getConceptReferenceRange(any(ConceptReferenceRangeContext.class));
     }
 
     @Test
-    public void populateEffectiveReferenceRanges_shouldLeaveReferenceRangeNullWhenNoFallbackAvailable() {
+    public void populateEffectiveReferenceRanges_shouldSetEffectiveReferenceRangeNullWhenNoFallbackAvailable() {
         Map<String, Object> obsMap = new HashMap<>();
         obsMap.put("referenceRange", null);
         SimpleObject simpleResult = resultsWrapping(obsMap);
@@ -116,12 +126,13 @@ public class LabResultsRestControllerTest {
 
         controller.populateEffectiveReferenceRanges(Collections.singletonList(obs), simpleResult);
 
-        assertThat(obsMap.get("referenceRange"), is(nullValue()));
+        assertThat(obsMap.containsKey("effectiveReferenceRange"), is(true));
+        assertThat(obsMap.get("effectiveReferenceRange"), is(nullValue()));
     }
 
     @Test
-    public void toSimpleObject_shouldMapAllRangeFields() {
-        ConceptReferenceRange range = new ConceptReferenceRange();
+    public void toSimpleObject_shouldMapAllRangeFieldsForConceptReferenceRange() {
+        BaseReferenceRange range = new ConceptReferenceRange();
         range.setLowNormal(1.0);
         range.setHiNormal(2.0);
         range.setLowAbsolute(3.0);
@@ -137,5 +148,17 @@ public class LabResultsRestControllerTest {
         assertThat(result.get("hiAbsolute"), equalTo(4.0));
         assertThat(result.get("lowCritical"), equalTo(5.0));
         assertThat(result.get("hiCritical"), equalTo(6.0));
+    }
+
+    @Test
+    public void toSimpleObject_shouldMapAllRangeFieldsForObsReferenceRange() {
+        BaseReferenceRange range = new ObsReferenceRange();
+        range.setLowNormal(1.0);
+        range.setHiNormal(2.0);
+
+        SimpleObject result = controller.toSimpleObject(range);
+
+        assertThat(result.get("lowNormal"), equalTo(1.0));
+        assertThat(result.get("hiNormal"), equalTo(2.0));
     }
 }
