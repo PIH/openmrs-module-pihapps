@@ -3,9 +3,7 @@ package org.openmrs.module.pihapps.rest;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.openmrs.BaseReferenceRange;
 import org.openmrs.Concept;
-import org.openmrs.ConceptReferenceRangeContext;
 import org.openmrs.Obs;
 import org.openmrs.Patient;
 import org.openmrs.api.ConceptService;
@@ -15,7 +13,7 @@ import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
-import org.openmrs.module.webservices.rest.SimpleObject;
+import org.openmrs.module.pihapps.rest.converter.EffectiveReferenceRangeObsConverter;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
@@ -37,7 +35,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Retrieves lab result observations
@@ -138,53 +135,9 @@ public class LabResultsRestController {
             hasMoreResults = recordsProcessed < result.getTotalCount();
         }
 
-        Converter<Obs> obsConverter = ConversionUtil.getConverter(Obs.class);
+        Converter<Obs> obsConverter = new EffectiveReferenceRangeObsConverter(ConversionUtil.getConverter(Obs.class), conceptService);
         AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
-        SimpleObject simpleResult = alreadyPaged.toSimpleObject(obsConverter);
-        populateEffectiveReferenceRanges(result.getObs(), simpleResult);
-        return simpleResult;
-    }
-
-    /**
-     * Adds an "effectiveReferenceRange" property to each obs in the response: the reference range directly
-     * associated with the obs if there is one, otherwise the reference range associated with its concept
-     * (evaluated as of the obs's own date, so that date-relative criteria like age-at-encounter are evaluated
-     * correctly for historical results, not as of today). This is distinct from "referenceRange", which continues
-     * to reflect only a direct obs-level association, so that a client can still tell the two apart.
-     */
-    @SuppressWarnings("unchecked")
-    void populateEffectiveReferenceRanges(List<Obs> obsList, SimpleObject simpleResult) {
-        Object resultsObject = simpleResult.get("results");
-        if (!(resultsObject instanceof List)) {
-            return;
-        }
-        List<Object> results = (List<Object>) resultsObject;
-        for (int i = 0; i < obsList.size() && i < results.size(); i++) {
-            if (!(results.get(i) instanceof Map)) {
-                continue;
-            }
-            Map<String, Object> obsMap = (Map<String, Object>) results.get(i);
-            if (!obsMap.containsKey("referenceRange")) {
-                continue;
-            }
-            Obs obs = obsList.get(i);
-            BaseReferenceRange effectiveRange = obs.getReferenceRange();
-            if (effectiveRange == null) {
-                effectiveRange = conceptService.getConceptReferenceRange(new ConceptReferenceRangeContext(obs));
-            }
-            obsMap.put("effectiveReferenceRange", effectiveRange == null ? null : toSimpleObject(effectiveRange));
-        }
-    }
-
-    SimpleObject toSimpleObject(BaseReferenceRange range) {
-        SimpleObject rangeObject = new SimpleObject();
-        rangeObject.add("hiNormal", range.getHiNormal());
-        rangeObject.add("hiAbsolute", range.getHiAbsolute());
-        rangeObject.add("hiCritical", range.getHiCritical());
-        rangeObject.add("lowNormal", range.getLowNormal());
-        rangeObject.add("lowAbsolute", range.getLowAbsolute());
-        rangeObject.add("lowCritical", range.getLowCritical());
-        return rangeObject;
+        return alreadyPaged.toSimpleObject(obsConverter);
     }
 
     List<Concept> getSetMembersRecursively(Concept concept) {
