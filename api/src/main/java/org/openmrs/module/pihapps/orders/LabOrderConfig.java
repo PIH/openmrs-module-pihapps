@@ -559,7 +559,7 @@ public class LabOrderConfig {
                     }
                 }
             } catch (Exception e) {
-                log.warn("Invalid testFieldDependencies configuration, expected a JSON array: " + configVal, e);
+                log.warn("Invalid testFieldDependencies configuration, expected a JSON array: " + configVal + " - " + e.getMessage());
             }
         }
         return ret;
