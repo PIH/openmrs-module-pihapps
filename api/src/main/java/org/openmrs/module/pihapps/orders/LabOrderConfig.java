@@ -525,17 +525,18 @@ public class LabOrderConfig {
         return ret;
     }
 
-    // Conditional show/hide/default rules between tests within a panel. See TestFieldDependencyRule
-    // for the JSON schema configured via the pihapps.labs.testFieldDependencies global property.
+    // Conditional show/hide/default rules between tests within a panel.
+    // Configured as a JSON array, e.g.:
+    // [{"triggerConcept":"<uuid>","answers":{"<answerUuid>":{"show":["<uuid>"],"defaults":{"<uuid>":839}}}}]
 
     public String getTestFieldDependenciesReference() {
         return ConfigUtil.getGlobalProperty("pihapps.labs.testFieldDependencies");
     }
 
     private String cachedTestFieldDependenciesRef = null;
-    private Map<String, Map<String, TestFieldDependencyRule.AnswerRule>> cachedTestFieldDependenciesByTrigger = null;
+    private Map<String, Map<String, Object>> cachedTestFieldDependenciesByTrigger = null;
 
-    public Map<String, TestFieldDependencyRule.AnswerRule> getFieldDependencyRule(String conceptUuid) {
+    public Map<String, Object> getFieldDependencyRule(String conceptUuid) {
         String configVal = getTestFieldDependenciesReference();
         if (cachedTestFieldDependenciesByTrigger == null
                 || !StringUtils.equals(configVal, cachedTestFieldDependenciesRef)) {
@@ -545,15 +546,18 @@ public class LabOrderConfig {
         return cachedTestFieldDependenciesByTrigger.get(conceptUuid);
     }
 
-    private Map<String, Map<String, TestFieldDependencyRule.AnswerRule>> parseTestFieldDependencies(String configVal) {
-        Map<String, Map<String, TestFieldDependencyRule.AnswerRule>> ret = new HashMap<>();
+    @SuppressWarnings("unchecked")
+    private Map<String, Map<String, Object>> parseTestFieldDependencies(String configVal) {
+        Map<String, Map<String, Object>> ret = new HashMap<>();
         if (StringUtils.isNotBlank(configVal)) {
             try {
-                List<TestFieldDependencyRule> rules = new ObjectMapper().readValue(
-                    configVal, new TypeReference<List<TestFieldDependencyRule>>() {});
-                for (TestFieldDependencyRule rule : rules) {
-                    if (StringUtils.isNotBlank(rule.getTriggerConcept()) && rule.getAnswers() != null) {
-                        ret.put(rule.getTriggerConcept(), rule.getAnswers());
+                List<Map<String, Object>> rules = new ObjectMapper().readValue(
+                    configVal, new TypeReference<List<Map<String, Object>>>() {});
+                for (Map<String, Object> rule : rules) {
+                    String triggerConcept = (String) rule.get("triggerConcept");
+                    Map<String, Object> answers = (Map<String, Object>) rule.get("answers");
+                    if (StringUtils.isNotBlank(triggerConcept) && answers != null) {
+                        ret.put(triggerConcept, answers);
                     } else {
                         log.warn("Invalid testFieldDependencies rule, missing triggerConcept or answers: " + rule);
                     }

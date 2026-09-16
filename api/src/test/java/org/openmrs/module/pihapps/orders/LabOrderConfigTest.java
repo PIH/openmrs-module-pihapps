@@ -73,7 +73,7 @@ public class LabOrderConfigTest extends BaseModuleContextSensitiveTest {
                 + "\"1302AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\":{\"show\":[\"53cb83ed-5d55-4b63-922f-d6b8fc67a5f8\"],\"defaults\":{\"53cb83ed-5d55-4b63-922f-d6b8fc67a5f8\":839}}"
                 + "}}]");
 
-        Map<String, TestFieldDependencyRule.AnswerRule> rule = labOrderConfig.getFieldDependencyRule("1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        Map<String, Object> rule = labOrderConfig.getFieldDependencyRule("1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
         assertThat(rule, notNullValue());
         assertThat(rule.keySet(), containsInAnyOrder(
@@ -81,6 +81,7 @@ public class LabOrderConfigTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void getFieldDependencyRule_shouldParseShowAndDefaultsForAnswer() {
         Context.getAdministrationService().setGlobalProperty("pihapps.labs.testFieldDependencies",
             "[{\"triggerConcept\":\"1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"answers\":{"
@@ -88,11 +89,11 @@ public class LabOrderConfigTest extends BaseModuleContextSensitiveTest {
                 + "\"1302AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\":{\"show\":[\"53cb83ed-5d55-4b63-922f-d6b8fc67a5f8\"],\"defaults\":{\"53cb83ed-5d55-4b63-922f-d6b8fc67a5f8\":839}}"
                 + "}}]");
 
-        Map<String, TestFieldDependencyRule.AnswerRule> rule = labOrderConfig.getFieldDependencyRule("1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        Map<String, Object> rule = labOrderConfig.getFieldDependencyRule("1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
-        TestFieldDependencyRule.AnswerRule notDetectedRule = rule.get("1302AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-        assertThat(notDetectedRule.getShow(), contains("53cb83ed-5d55-4b63-922f-d6b8fc67a5f8"));
-        assertThat(notDetectedRule.getDefaults(), hasEntry("53cb83ed-5d55-4b63-922f-d6b8fc67a5f8", 839));
+        Map<String, Object> notDetectedRule = (Map<String, Object>) rule.get("1302AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        assertThat((List<String>) notDetectedRule.get("show"), contains("53cb83ed-5d55-4b63-922f-d6b8fc67a5f8"));
+        assertThat((Map<String, Object>) notDetectedRule.get("defaults"), hasEntry("53cb83ed-5d55-4b63-922f-d6b8fc67a5f8", 839));
     }
 
     @Test
