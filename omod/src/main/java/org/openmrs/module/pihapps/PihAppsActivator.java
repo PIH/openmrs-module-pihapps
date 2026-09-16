@@ -19,6 +19,7 @@ import org.openmrs.api.context.Context;
 import org.openmrs.module.BaseModuleActivator;
 import org.openmrs.module.htmlformentry.HtmlFormEntryService;
 import org.openmrs.module.pihapps.htmlformentry.labs.LabOrderTagHandler;
+import org.openmrs.module.webservices.rest.web.ConversionUtil;
 
 public class PihAppsActivator extends BaseModuleActivator {
 
@@ -29,6 +30,9 @@ public class PihAppsActivator extends BaseModuleActivator {
         log.info("PIH Apps Module Started");
         LabOrderTagHandler labOrderTagHandler = Context.getRegisteredComponents(LabOrderTagHandler.class).get(0);
         Context.getService(HtmlFormEntryService.class).addHandler(LabOrderTagHandler.TAG_NAME, labOrderTagHandler);
+
+        // Clear stale converters that may have been cached before webservices.rest's resource scan had settled
+        ConversionUtil.clearCache();
     }
 
     @Override

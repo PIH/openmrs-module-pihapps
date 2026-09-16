@@ -13,10 +13,9 @@ import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
-import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.module.webservices.rest.web.RestUtil;
-import org.openmrs.module.webservices.rest.web.api.RestService;
 import org.openmrs.module.webservices.rest.web.representation.Representation;
 import org.openmrs.module.webservices.rest.web.resource.api.Converter;
 import org.openmrs.module.webservices.rest.web.resource.impl.AlreadyPaged;
@@ -52,15 +51,12 @@ public class LabResultsRestController {
 
     private final ConceptService conceptService;
 
-    private final RestService restService;
-
     @Autowired
-    public LabResultsRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig, OrderService orderService, ConceptService conceptService, RestService restService) {
+    public LabResultsRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig, OrderService orderService, ConceptService conceptService) {
         this.pihAppsService = pihAppsService;
         this.labOrderConfig = labOrderConfig;
         this.orderService = orderService;
         this.conceptService = conceptService;
-        this.restService = restService;
     }
 
     @RequestMapping(value = "/rest/v1/pihapps/labResults", method = RequestMethod.GET)
@@ -139,7 +135,7 @@ public class LabResultsRestController {
                 hasMoreResults = recordsProcessed < result.getTotalCount();
             }
 
-            Converter<Obs> obsConverter = getObsConverter();
+            Converter<Obs> obsConverter = ConversionUtil.getConverter(Obs.class);
             AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
             return alreadyPaged.toSimpleObject(obsConverter);
         }
@@ -147,19 +143,6 @@ public class LabResultsRestController {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
         }
-    }
-
-    /**
-     * Resolves the Obs resource by name via RestService, the same way core's own generic REST controller does
-     * (MainResourceController#retrieve), rather than via ConversionUtil.getConverter(Class). The latter has its
-     * own separate, indefinitely-memoized cache that isn't retried once populated - if it got the wrong resource
-     * on an early call (e.g. a race during server startup, before the resource scan had fully settled), it stays
-     * wrong until the next context refresh. Resolving by name uses RestService's resource-definition map, which
-     * retries the full scan on every call until it succeeds, so it self-corrects.
-     */
-    @SuppressWarnings("unchecked")
-    Converter<Obs> getObsConverter() {
-        return (Converter<Obs>) restService.getResourceByName(RestConstants.VERSION_1 + "/obs");
     }
 
     List<Concept> getSetMembersRecursively(Concept concept) {
