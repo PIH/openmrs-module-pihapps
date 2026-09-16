@@ -13,9 +13,10 @@ import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
-import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
+import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.module.webservices.rest.web.RestUtil;
+import org.openmrs.module.webservices.rest.web.api.RestService;
 import org.openmrs.module.webservices.rest.web.representation.Representation;
 import org.openmrs.module.webservices.rest.web.resource.api.Converter;
 import org.openmrs.module.webservices.rest.web.resource.impl.AlreadyPaged;
@@ -51,12 +52,15 @@ public class LabResultsRestController {
 
     private final ConceptService conceptService;
 
+    private final RestService restService;
+
     @Autowired
-    public LabResultsRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig, OrderService orderService, ConceptService conceptService) {
+    public LabResultsRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig, OrderService orderService, ConceptService conceptService, RestService restService) {
         this.pihAppsService = pihAppsService;
         this.labOrderConfig = labOrderConfig;
         this.orderService = orderService;
         this.conceptService = conceptService;
+        this.restService = restService;
     }
 
     @RequestMapping(value = "/rest/v1/pihapps/labResults", method = RequestMethod.GET)
@@ -70,73 +74,92 @@ public class LabResultsRestController {
                                 @RequestParam(value = "sortBy", required = false) List<String> sortBy
                                ) throws ResponseException {
 
-        RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
-        Integer startIndex = requestContext.getStartIndex() == null ? 0 : requestContext.getStartIndex();
-        Integer limit = requestContext.getLimit();
+        try {
+            RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
+            Integer startIndex = requestContext.getStartIndex() == null ? 0 : requestContext.getStartIndex();
+            Integer limit = requestContext.getLimit();
 
-        ObsSearchCriteria searchCriteria = new ObsSearchCriteria();
-        searchCriteria.setPatient(patient);
+            ObsSearchCriteria searchCriteria = new ObsSearchCriteria();
+            searchCriteria.setPatient(patient);
 
-        List<Concept> concepts = null;
-        if (labTest != null || category != null) {
-            if (labTest != null) {
-                concepts = getSetMembersRecursively(labTest);
-                if (concepts.isEmpty()) {
-                    concepts = Collections.singletonList(labTest);
-                }
-            }
-            if (category != null) {
-                List<Concept> categoryConcepts = getSetMembersRecursively(category);
-                if (concepts != null) {
-                    concepts.retainAll(categoryConcepts);
-                }
-                else {
-                    concepts = categoryConcepts;
-                }
-            }
-        }
-        else {
-            concepts = getSetMembersRecursively(labOrderConfig.getLabResultCategoriesConceptSet());
-        }
-
-        searchCriteria.setConcepts(concepts);
-        searchCriteria.setOnOrBefore(getDate(onOrBefore));
-        searchCriteria.setOnOrAfter(getDate(onOrAfter));
-        searchCriteria.setStartIndex(requestContext.getStartIndex());
-        searchCriteria.setLimit(requestContext.getLimit());
-
-        List<SortCriteria> sortCriteriaList = new ArrayList<>();
-        if (sortBy != null && !sortBy.isEmpty()) {
-            for (String sortByValue : sortBy) {
-                if (StringUtils.isNotBlank(sortByValue)) {
-                    String[] components = sortByValue.split("-", 2);
-                    String field = components[0];
-                    SortCriteria.Direction direction = SortCriteria.Direction.ASC;
-                    if (components.length > 1) {
-                        direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+            List<Concept> concepts = null;
+            if (labTest != null || category != null) {
+                if (labTest != null) {
+                    concepts = getSetMembersRecursively(labTest);
+                    if (concepts.isEmpty()) {
+                        concepts = Collections.singletonList(labTest);
                     }
-                    sortCriteriaList.add(new SortCriteria(field, direction));
+                }
+                if (category != null) {
+                    List<Concept> categoryConcepts = getSetMembersRecursively(category);
+                    if (concepts != null) {
+                        concepts.retainAll(categoryConcepts);
+                    }
+                    else {
+                        concepts = categoryConcepts;
+                    }
                 }
             }
-        }
-        if (sortCriteriaList.isEmpty()) {
-            sortCriteriaList.add(new SortCriteria("obsDatetime", SortCriteria.Direction.DESC));
-            sortCriteriaList.add(new SortCriteria("concept", SortCriteria.Direction.ASC));
-            sortCriteriaList.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
-        }
-        searchCriteria.setSortCriteria(sortCriteriaList);
+            else {
+                concepts = getSetMembersRecursively(labOrderConfig.getLabResultCategoriesConceptSet());
+            }
 
-        ObsSearchResult result = pihAppsService.getObs(searchCriteria);
+            searchCriteria.setConcepts(concepts);
+            searchCriteria.setOnOrBefore(getDate(onOrBefore));
+            searchCriteria.setOnOrAfter(getDate(onOrAfter));
+            searchCriteria.setStartIndex(requestContext.getStartIndex());
+            searchCriteria.setLimit(requestContext.getLimit());
 
-        boolean hasMoreResults = false;
-        if (limit != null) {
-            int recordsProcessed = startIndex + limit + 1;
-            hasMoreResults = recordsProcessed < result.getTotalCount();
+            List<SortCriteria> sortCriteriaList = new ArrayList<>();
+            if (sortBy != null && !sortBy.isEmpty()) {
+                for (String sortByValue : sortBy) {
+                    if (StringUtils.isNotBlank(sortByValue)) {
+                        String[] components = sortByValue.split("-", 2);
+                        String field = components[0];
+                        SortCriteria.Direction direction = SortCriteria.Direction.ASC;
+                        if (components.length > 1) {
+                            direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+                        }
+                        sortCriteriaList.add(new SortCriteria(field, direction));
+                    }
+                }
+            }
+            if (sortCriteriaList.isEmpty()) {
+                sortCriteriaList.add(new SortCriteria("obsDatetime", SortCriteria.Direction.DESC));
+                sortCriteriaList.add(new SortCriteria("concept", SortCriteria.Direction.ASC));
+                sortCriteriaList.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
+            }
+            searchCriteria.setSortCriteria(sortCriteriaList);
+
+            ObsSearchResult result = pihAppsService.getObs(searchCriteria);
+
+            boolean hasMoreResults = false;
+            if (limit != null) {
+                int recordsProcessed = startIndex + limit + 1;
+                hasMoreResults = recordsProcessed < result.getTotalCount();
+            }
+
+            Converter<Obs> obsConverter = getObsConverter();
+            AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
+            return alreadyPaged.toSimpleObject(obsConverter);
         }
+        catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
+        }
+    }
 
-        Converter<Obs> obsConverter = ConversionUtil.getConverter(Obs.class);
-        AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
-        return alreadyPaged.toSimpleObject(obsConverter);
+    /**
+     * Resolves the Obs resource by name via RestService, the same way core's own generic REST controller does
+     * (MainResourceController#retrieve), rather than via ConversionUtil.getConverter(Class). The latter has its
+     * own separate, indefinitely-memoized cache that isn't retried once populated - if it got the wrong resource
+     * on an early call (e.g. a race during server startup, before the resource scan had fully settled), it stays
+     * wrong until the next context refresh. Resolving by name uses RestService's resource-definition map, which
+     * retries the full scan on every call until it succeeds, so it self-corrects.
+     */
+    @SuppressWarnings("unchecked")
+    Converter<Obs> getObsConverter() {
+        return (Converter<Obs>) restService.getResourceByName(RestConstants.VERSION_1 + "/obs");
     }
 
     List<Concept> getSetMembersRecursively(Concept concept) {
