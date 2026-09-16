@@ -197,14 +197,14 @@
 
             // Add result widgets
             const resultSection = resultsEntrySection.find(".result-fields");
-            const baseConceptRep = "uuid,display,displayStringForLab,datatype:(uuid,name),allowDecimal,units,multipleAnswer";
+            const baseConceptRep = "uuid,display,displayStringForLab,datatype:(uuid,name),allowDecimal,units,multipleAnswer,fieldDependencyRule";
             const baseConceptRepWithAnswers = baseConceptRep + ",answers:(" + baseConceptRep + ")";
             const testRep = baseConceptRepWithAnswers + ",setMembers:(" + baseConceptRepWithAnswers + ")";
             jq.get(openmrsContextPath + "/ws/rest/v1/concept/" + order.concept.uuid + "?v=custom:(" + testRep + ")", function (orderable) {
                 const isPanel = orderable.setMembers.length > 0;
                 const tests = isPanel ? orderable.setMembers : [orderable];
                 tests.forEach((concept) => {
-                    const orderableRow = jq("<div>").addClass("form-field-section row result-row align-items-start");
+                    const orderableRow = jq("<div>").addClass("form-field-section row result-row align-items-start").attr("data-concept-uuid", concept.uuid);
                     resultSection.append(orderableRow);
                     const testNameSection = jq("<span>").addClass("test-name col-3").append(concept.displayStringForLab);
                     orderableRow.append(testNameSection);
@@ -354,6 +354,8 @@
                         widgetInfoSection.append(jq("<p>").append(referenceRangeSection));
                     }
                 });
+
+                formHelper.wireFieldDependencyRules(resultSection, tests);
 
                 const cancelButton = parentElement.find(".action-button.cancel");
                 cancelButton.off("click");
