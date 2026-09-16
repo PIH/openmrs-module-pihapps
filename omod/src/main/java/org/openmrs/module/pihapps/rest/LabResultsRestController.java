@@ -13,9 +13,9 @@ import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
-import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
+import org.openmrs.module.webservices.rest.web.api.RestService;
 import org.openmrs.module.webservices.rest.web.representation.Representation;
 import org.openmrs.module.webservices.rest.web.resource.api.Converter;
 import org.openmrs.module.webservices.rest.web.resource.impl.AlreadyPaged;
@@ -51,12 +51,15 @@ public class LabResultsRestController {
 
     private final ConceptService conceptService;
 
+    private final RestService restService;
+
     @Autowired
-    public LabResultsRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig, OrderService orderService, ConceptService conceptService) {
+    public LabResultsRestController(PihAppsService pihAppsService, LabOrderConfig labOrderConfig, OrderService orderService, ConceptService conceptService, RestService restService) {
         this.pihAppsService = pihAppsService;
         this.labOrderConfig = labOrderConfig;
         this.orderService = orderService;
         this.conceptService = conceptService;
+        this.restService = restService;
     }
 
     @RequestMapping(value = "/rest/v1/pihapps/labResults", method = RequestMethod.GET)
@@ -135,7 +138,7 @@ public class LabResultsRestController {
                 hasMoreResults = recordsProcessed < result.getTotalCount();
             }
 
-            Converter<Obs> obsConverter = ConversionUtil.getConverter(Obs.class);
+            Converter<Obs> obsConverter = (Converter<Obs>) restService.getResourceBySupportedClass(Obs.class);
             AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
             return alreadyPaged.toSimpleObject(obsConverter);
         }
