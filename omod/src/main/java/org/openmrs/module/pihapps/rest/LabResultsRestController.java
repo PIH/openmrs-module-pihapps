@@ -14,6 +14,7 @@ import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.module.webservices.rest.web.RequestContext;
+import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.module.webservices.rest.web.RestUtil;
 import org.openmrs.module.webservices.rest.web.api.RestService;
 import org.openmrs.module.webservices.rest.web.representation.Representation;
@@ -138,7 +139,7 @@ public class LabResultsRestController {
                 hasMoreResults = recordsProcessed < result.getTotalCount();
             }
 
-            Converter<Obs> obsConverter = (Converter<Obs>) restService.getResourceBySupportedClass(Obs.class);
+            Converter<Obs> obsConverter = (Converter<Obs>) restService.getResourceByName(RestConstants.VERSION_1 + "/obs");
             AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
             return alreadyPaged.toSimpleObject(obsConverter);
         }
