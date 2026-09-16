@@ -13,7 +13,6 @@ import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
-import org.openmrs.module.pihapps.rest.converter.EffectiveReferenceRangeObsConverter;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
@@ -135,7 +134,7 @@ public class LabResultsRestController {
             hasMoreResults = recordsProcessed < result.getTotalCount();
         }
 
-        Converter<Obs> obsConverter = new EffectiveReferenceRangeObsConverter(ConversionUtil.getConverter(Obs.class), conceptService);
+        Converter<Obs> obsConverter = ConversionUtil.getConverter(Obs.class);
         AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
         return alreadyPaged.toSimpleObject(obsConverter);
     }
