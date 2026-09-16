@@ -22,6 +22,7 @@ import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
 import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RequestContext;
+import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.module.webservices.rest.web.RestUtil;
 import org.openmrs.module.webservices.rest.web.api.RestService;
 import org.openmrs.module.webservices.rest.web.representation.Representation;
@@ -134,7 +135,7 @@ public class LabOrderRestController {
             Map<Order, Encounter> fulfillerEncounters = pihAppsService.getFulfillerEncountersForOrders(result.getOrders());
             OrderWithFulfillerDetailsResource.primeFulfillerEncounterCache(fulfillerEncounters);
 
-            Converter<Order> orderConverter = (Converter<Order>) restService.getResourceBySupportedClass(Order.class);
+            Converter<Order> orderConverter = (Converter<Order>) restService.getResourceByName(RestConstants.VERSION_1 + "/order");
             AlreadyPaged<Order> alreadyPaged = new AlreadyPaged<>(requestContext, result.getOrders(), hasMoreResults, result.getTotalCount());
             return alreadyPaged.toSimpleObject(orderConverter);
         }
