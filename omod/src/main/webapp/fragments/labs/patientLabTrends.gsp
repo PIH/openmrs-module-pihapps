@@ -30,7 +30,7 @@
         // Populate data table and construct chart from data after loaded, if appropriate
         const conceptRep = "id,uuid,datatype:(name),allowDecimal,units,display,displayStringForLab,multipleAnswer";
         const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-        const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",referenceRange"
+        const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",effectiveReferenceRange"
         const labTrendsTable = new PagingDataTable(jq);
         labTrendsTable.initialize({
             tableSelector: "#lab-result-trends-table",
@@ -41,7 +41,7 @@
             columnTransformFunctions: [
                 (obs) => { return dateUtils.formatDateWithTimeIfPresent(obs.obsDatetime) },
                 (obs) => { return patientUtils.formatObsValue(obs, dateUtils) },
-                (obs) => { return patientUtils.formatReferenceRange(obs.referenceRange, obs.concept.units) }
+                (obs) => { return patientUtils.formatReferenceRange(obs.effectiveReferenceRange, obs.concept.units) }
             ],
             datatableOptions: {
                 oLanguage: {
