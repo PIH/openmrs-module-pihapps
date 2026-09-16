@@ -210,6 +210,8 @@ class FormHelper {
      * Wires up conditional show/hide/default behavior between tests in a panel, driven by each
      * test's `fieldDependencyRule` (a map of answerConceptUuid -> { show: [conceptUuid,...], defaults: {conceptUuid: value} }).
      * `container` must contain one `.result-row[data-concept-uuid="..."]` per test, each with a `.result-value-field` widget.
+     * A controlled field that already has a value is never hidden or cleared, even if the rule wouldn't
+     * otherwise show it - pre-existing data (e.g. entered before this rule existed) is always left visible.
      */
     wireFieldDependencyRules(container, tests) {
         const jq = this.jq;
@@ -231,7 +233,9 @@ class FormHelper {
                 controlledConcepts.forEach((conceptUuid) => {
                     const row = container.find('.result-row[data-concept-uuid="' + conceptUuid + '"]');
                     const field = row.find('.result-value-field');
-                    if (toShow.has(conceptUuid)) {
+                    // Never hide (or clear) a field that already has a value - it may be pre-existing
+                    // data that doesn't conform to this rule, and we never want to silently lose it.
+                    if (toShow.has(conceptUuid) || field.val()) {
                         row.show();
                         const defaultValue = answerRule?.defaults?.[conceptUuid];
                         if (defaultValue != null && !field.val()) {
@@ -239,7 +243,6 @@ class FormHelper {
                         }
                     } else {
                         row.hide();
-                        field.val('');
                     }
                 });
             };
