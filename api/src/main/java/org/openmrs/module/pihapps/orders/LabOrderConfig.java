@@ -1,5 +1,7 @@
 package org.openmrs.module.pihapps.orders;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Setter;
 import org.apache.commons.lang.StringUtils;
 import org.openmrs.CareSetting;
@@ -520,6 +522,46 @@ public class LabOrderConfig {
         }
         cachedMultipleAnswerConceptsRef = configVal;
         cachedMultipleAnswerConcepts = ret;
+        return ret;
+    }
+
+    // Conditional show/hide/default rules between tests within a panel. See TestFieldDependencyRule
+    // for the JSON schema configured via the pihapps.labs.testFieldDependencies global property.
+
+    public String getTestFieldDependenciesReference() {
+        return ConfigUtil.getGlobalProperty("pihapps.labs.testFieldDependencies");
+    }
+
+    private String cachedTestFieldDependenciesRef = null;
+    private Map<String, Map<String, TestFieldDependencyRule.AnswerRule>> cachedTestFieldDependenciesByTrigger = null;
+
+    public Map<String, TestFieldDependencyRule.AnswerRule> getFieldDependencyRule(String conceptUuid) {
+        String configVal = getTestFieldDependenciesReference();
+        if (cachedTestFieldDependenciesByTrigger == null
+                || !StringUtils.equals(configVal, cachedTestFieldDependenciesRef)) {
+            cachedTestFieldDependenciesByTrigger = parseTestFieldDependencies(configVal);
+            cachedTestFieldDependenciesRef = configVal;
+        }
+        return cachedTestFieldDependenciesByTrigger.get(conceptUuid);
+    }
+
+    private Map<String, Map<String, TestFieldDependencyRule.AnswerRule>> parseTestFieldDependencies(String configVal) {
+        Map<String, Map<String, TestFieldDependencyRule.AnswerRule>> ret = new HashMap<>();
+        if (StringUtils.isNotBlank(configVal)) {
+            try {
+                List<TestFieldDependencyRule> rules = new ObjectMapper().readValue(
+                    configVal, new TypeReference<List<TestFieldDependencyRule>>() {});
+                for (TestFieldDependencyRule rule : rules) {
+                    if (StringUtils.isNotBlank(rule.getTriggerConcept()) && rule.getAnswers() != null) {
+                        ret.put(rule.getTriggerConcept(), rule.getAnswers());
+                    } else {
+                        log.warn("Invalid testFieldDependencies rule, missing triggerConcept or answers: " + rule);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Invalid testFieldDependencies configuration, expected a JSON array: " + configVal, e);
+            }
+        }
         return ret;
     }
 

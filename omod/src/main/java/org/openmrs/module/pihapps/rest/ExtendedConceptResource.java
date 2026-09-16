@@ -4,10 +4,13 @@ import org.openmrs.Concept;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.pihapps.PihAppsUtils;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.TestFieldDependencyRule;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.module.webservices.rest.web.annotation.PropertyGetter;
 import org.openmrs.module.webservices.rest.web.annotation.Resource;
 import org.openmrs.module.webservices.rest.web.v1_0.resource.openmrs2_0.ConceptResource2_0;
+
+import java.util.Map;
 
 @Resource(name = RestConstants.VERSION_1 + "/concept", supportedClass = Concept.class, supportedOpenmrsVersions = "*", order = 0)
 public class ExtendedConceptResource extends ConceptResource2_0 {
@@ -20,5 +23,10 @@ public class ExtendedConceptResource extends ConceptResource2_0 {
     @PropertyGetter("multipleAnswer")
     public boolean isMultipleAnswer(Concept concept) {
         return Context.getRegisteredComponents(LabOrderConfig.class).get(0).getMultipleAnswerConcepts().contains(concept);
+    }
+
+    @PropertyGetter("fieldDependencyRule")
+    public Map<String, TestFieldDependencyRule.AnswerRule> getFieldDependencyRule(Concept concept) {
+        return Context.getRegisteredComponents(LabOrderConfig.class).get(0).getFieldDependencyRule(concept.getUuid());
     }
 }

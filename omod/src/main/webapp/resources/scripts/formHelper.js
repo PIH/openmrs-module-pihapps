@@ -206,6 +206,49 @@ class FormHelper {
         return widget;
     }
 
+    /**
+     * Wires up conditional show/hide/default behavior between tests in a panel, driven by each
+     * test's `fieldDependencyRule` (a map of answerConceptUuid -> { show: [conceptUuid,...], defaults: {conceptUuid: value} }).
+     * `container` must contain one `.result-row[data-concept-uuid="..."]` per test, each with a `.result-value-field` widget.
+     */
+    wireFieldDependencyRules(container, tests) {
+        const jq = this.jq;
+        tests.forEach((test) => {
+            const rule = test.fieldDependencyRule;
+            if (!rule) {
+                return;
+            }
+            const controlledConcepts = new Set();
+            Object.values(rule).forEach((answerRule) => {
+                (answerRule.show ?? []).forEach((conceptUuid) => controlledConcepts.add(conceptUuid));
+            });
+
+            const triggerField = container.find('.result-row[data-concept-uuid="' + test.uuid + '"] .result-value-field');
+
+            const applyRule = () => {
+                const answerRule = rule[triggerField.val()];
+                const toShow = new Set(answerRule?.show ?? []);
+                controlledConcepts.forEach((conceptUuid) => {
+                    const row = container.find('.result-row[data-concept-uuid="' + conceptUuid + '"]');
+                    const field = row.find('.result-value-field');
+                    if (toShow.has(conceptUuid)) {
+                        row.show();
+                        const defaultValue = answerRule?.defaults?.[conceptUuid];
+                        if (defaultValue != null && !field.val()) {
+                            field.val(defaultValue);
+                        }
+                    } else {
+                        row.hide();
+                        field.val('');
+                    }
+                });
+            };
+
+            triggerField.on('change', applyRule);
+            applyRule();
+        });
+    }
+
     // Methods to create standard form widgets
 
     /**

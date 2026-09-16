@@ -7,6 +7,7 @@ import org.openmrs.test.jupiter.BaseModuleContextSensitiveTest;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -49,5 +50,54 @@ public class LabOrderConfigTest extends BaseModuleContextSensitiveTest {
             "laboratorymanagement.multipleAnswerConceptIds", "");
         List<Concept> result = labOrderConfig.getMultipleAnswerConcepts();
         assertThat(result, empty());
+    }
+
+    @Test
+    public void getFieldDependencyRule_shouldReturnNullWhenNotConfigured() {
+        Context.getAdministrationService().setGlobalProperty("pihapps.labs.testFieldDependencies", "");
+        assertThat(labOrderConfig.getFieldDependencyRule("1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), nullValue());
+    }
+
+    @Test
+    public void getFieldDependencyRule_shouldReturnNullForConceptNotConfiguredAsTrigger() {
+        Context.getAdministrationService().setGlobalProperty("pihapps.labs.testFieldDependencies",
+            "[{\"triggerConcept\":\"1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"answers\":{}}]");
+        assertThat(labOrderConfig.getFieldDependencyRule("some-other-concept-uuid"), nullValue());
+    }
+
+    @Test
+    public void getFieldDependencyRule_shouldReturnAnswersMapForConfiguredTriggerConcept() {
+        Context.getAdministrationService().setGlobalProperty("pihapps.labs.testFieldDependencies",
+            "[{\"triggerConcept\":\"1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"answers\":{"
+                + "\"1301AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\":{\"show\":[\"3cd4a882-26fe-102b-80cb-0017a47871b2\"]},"
+                + "\"1302AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\":{\"show\":[\"53cb83ed-5d55-4b63-922f-d6b8fc67a5f8\"],\"defaults\":{\"53cb83ed-5d55-4b63-922f-d6b8fc67a5f8\":839}}"
+                + "}}]");
+
+        Map<String, TestFieldDependencyRule.AnswerRule> rule = labOrderConfig.getFieldDependencyRule("1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+
+        assertThat(rule, notNullValue());
+        assertThat(rule.keySet(), containsInAnyOrder(
+            "1301AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "1302AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
+    }
+
+    @Test
+    public void getFieldDependencyRule_shouldParseShowAndDefaultsForAnswer() {
+        Context.getAdministrationService().setGlobalProperty("pihapps.labs.testFieldDependencies",
+            "[{\"triggerConcept\":\"1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"answers\":{"
+                + "\"1301AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\":{\"show\":[\"3cd4a882-26fe-102b-80cb-0017a47871b2\"]},"
+                + "\"1302AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\":{\"show\":[\"53cb83ed-5d55-4b63-922f-d6b8fc67a5f8\"],\"defaults\":{\"53cb83ed-5d55-4b63-922f-d6b8fc67a5f8\":839}}"
+                + "}}]");
+
+        Map<String, TestFieldDependencyRule.AnswerRule> rule = labOrderConfig.getFieldDependencyRule("1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+
+        TestFieldDependencyRule.AnswerRule notDetectedRule = rule.get("1302AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        assertThat(notDetectedRule.getShow(), contains("53cb83ed-5d55-4b63-922f-d6b8fc67a5f8"));
+        assertThat(notDetectedRule.getDefaults(), hasEntry("53cb83ed-5d55-4b63-922f-d6b8fc67a5f8", 839));
+    }
+
+    @Test
+    public void getFieldDependencyRule_shouldReturnNullOnInvalidJson() {
+        Context.getAdministrationService().setGlobalProperty("pihapps.labs.testFieldDependencies", "not valid json");
+        assertThat(labOrderConfig.getFieldDependencyRule("1305AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), nullValue());
     }
 }
