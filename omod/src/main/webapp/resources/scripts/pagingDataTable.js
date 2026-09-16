@@ -48,6 +48,23 @@ class PagingDataTable {
         this.tableUpdateCallback = options.tableUpdateCallback ?? (() => {});
         this.beforeRecreateTableCallback = options.beforeRecreateTableCallback ?? (() => {});
 
+        // Set up a dedicated, always-present error banner. Errors are NOT shown via DataTables' own
+        // ".dataTables_empty" placeholder, since that element only exists if/when DataTables redraws its
+        // "no data" state, and writing to it otherwise is a silent no-op - which is how a failed request could
+        // previously result in an empty-looking table with no visible indication anything had gone wrong.
+        // Styled inline (not via a CSS class) so it looks the same regardless of which stylesheets the page
+        // hosting this table happens to load.
+        this.errorElement = jq("<div>").addClass("errors-section paging-data-table-error").hide().css({
+            "background-color": "#f8d7da",
+            "border": "1px solid #f5c6cb",
+            "border-radius": "4px",
+            "color": "#721c24",
+            "font-weight": "bold",
+            "margin-bottom": "10px",
+            "padding": "10px 15px"
+        });
+        this.errorElement.insertBefore(this.getTableElement());
+
         // Set up the event handlers for navigating between pages
         this.getTableInfoElement().hide();
         this.getTableInfoElement().find(".first").click(() => this.goToFirstPage());
@@ -118,6 +135,23 @@ class PagingDataTable {
         this.tableUpdateCallback = tableUpdateCallback;
     }
 
+    showError(message) {
+        this.errorElement.text(message).show();
+    }
+
+    clearError() {
+        this.errorElement.hide().empty();
+    }
+
+    /**
+     * Extracts a human-readable message from an error response body: the standard webservices.rest error shape
+     * ({error: {message: ...}}), falling back to a top-level "message" property for endpoints that don't wrap
+     * errors that way.
+     */
+    extractErrorMessage(data) {
+        return data?.error?.message ?? data?.message ?? "An unexpected error occurred.";
+    }
+
     getDefaultDataTableOptions() {
         return {
             bFilter: false,
@@ -152,6 +186,7 @@ class PagingDataTable {
         const representationParameters = table.representation ? { "v": table.representation } : {};
         const requestParameters = { ...table.parameters, ...pagingParameters, ...representationParameters};
 
+        table.clearError();
         table.getTableInfoElement().hide();
         table.pagedTable.fnClearTable();
 
@@ -224,8 +259,8 @@ class PagingDataTable {
             table.setTotalCount(0);
             table.pageNumber = 0;
             table.getTableInfoElement().hide();
-            table.getTableElement().find(".dataTables_empty").html(response.responseJSON?.error?.message ?? "Error");
-            console.log(response);
+            table.showError(table.extractErrorMessage(response.responseJSON));
+            console.error(response);
         });
     }
 

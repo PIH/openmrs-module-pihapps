@@ -70,73 +70,79 @@ public class LabResultsRestController {
                                 @RequestParam(value = "sortBy", required = false) List<String> sortBy
                                ) throws ResponseException {
 
-        RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
-        Integer startIndex = requestContext.getStartIndex() == null ? 0 : requestContext.getStartIndex();
-        Integer limit = requestContext.getLimit();
+        try {
+            RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
+            Integer startIndex = requestContext.getStartIndex() == null ? 0 : requestContext.getStartIndex();
+            Integer limit = requestContext.getLimit();
 
-        ObsSearchCriteria searchCriteria = new ObsSearchCriteria();
-        searchCriteria.setPatient(patient);
+            ObsSearchCriteria searchCriteria = new ObsSearchCriteria();
+            searchCriteria.setPatient(patient);
 
-        List<Concept> concepts = null;
-        if (labTest != null || category != null) {
-            if (labTest != null) {
-                concepts = getSetMembersRecursively(labTest);
-                if (concepts.isEmpty()) {
-                    concepts = Collections.singletonList(labTest);
-                }
-            }
-            if (category != null) {
-                List<Concept> categoryConcepts = getSetMembersRecursively(category);
-                if (concepts != null) {
-                    concepts.retainAll(categoryConcepts);
-                }
-                else {
-                    concepts = categoryConcepts;
-                }
-            }
-        }
-        else {
-            concepts = getSetMembersRecursively(labOrderConfig.getLabResultCategoriesConceptSet());
-        }
-
-        searchCriteria.setConcepts(concepts);
-        searchCriteria.setOnOrBefore(getDate(onOrBefore));
-        searchCriteria.setOnOrAfter(getDate(onOrAfter));
-        searchCriteria.setStartIndex(requestContext.getStartIndex());
-        searchCriteria.setLimit(requestContext.getLimit());
-
-        List<SortCriteria> sortCriteriaList = new ArrayList<>();
-        if (sortBy != null && !sortBy.isEmpty()) {
-            for (String sortByValue : sortBy) {
-                if (StringUtils.isNotBlank(sortByValue)) {
-                    String[] components = sortByValue.split("-", 2);
-                    String field = components[0];
-                    SortCriteria.Direction direction = SortCriteria.Direction.ASC;
-                    if (components.length > 1) {
-                        direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+            List<Concept> concepts = null;
+            if (labTest != null || category != null) {
+                if (labTest != null) {
+                    concepts = getSetMembersRecursively(labTest);
+                    if (concepts.isEmpty()) {
+                        concepts = Collections.singletonList(labTest);
                     }
-                    sortCriteriaList.add(new SortCriteria(field, direction));
+                }
+                if (category != null) {
+                    List<Concept> categoryConcepts = getSetMembersRecursively(category);
+                    if (concepts != null) {
+                        concepts.retainAll(categoryConcepts);
+                    }
+                    else {
+                        concepts = categoryConcepts;
+                    }
                 }
             }
-        }
-        if (sortCriteriaList.isEmpty()) {
-            sortCriteriaList.add(new SortCriteria("obsDatetime", SortCriteria.Direction.DESC));
-            sortCriteriaList.add(new SortCriteria("concept", SortCriteria.Direction.ASC));
-            sortCriteriaList.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
-        }
-        searchCriteria.setSortCriteria(sortCriteriaList);
+            else {
+                concepts = getSetMembersRecursively(labOrderConfig.getLabResultCategoriesConceptSet());
+            }
 
-        ObsSearchResult result = pihAppsService.getObs(searchCriteria);
+            searchCriteria.setConcepts(concepts);
+            searchCriteria.setOnOrBefore(getDate(onOrBefore));
+            searchCriteria.setOnOrAfter(getDate(onOrAfter));
+            searchCriteria.setStartIndex(requestContext.getStartIndex());
+            searchCriteria.setLimit(requestContext.getLimit());
 
-        boolean hasMoreResults = false;
-        if (limit != null) {
-            int recordsProcessed = startIndex + limit + 1;
-            hasMoreResults = recordsProcessed < result.getTotalCount();
+            List<SortCriteria> sortCriteriaList = new ArrayList<>();
+            if (sortBy != null && !sortBy.isEmpty()) {
+                for (String sortByValue : sortBy) {
+                    if (StringUtils.isNotBlank(sortByValue)) {
+                        String[] components = sortByValue.split("-", 2);
+                        String field = components[0];
+                        SortCriteria.Direction direction = SortCriteria.Direction.ASC;
+                        if (components.length > 1) {
+                            direction = SortCriteria.Direction.valueOf(components[1].toUpperCase());
+                        }
+                        sortCriteriaList.add(new SortCriteria(field, direction));
+                    }
+                }
+            }
+            if (sortCriteriaList.isEmpty()) {
+                sortCriteriaList.add(new SortCriteria("obsDatetime", SortCriteria.Direction.DESC));
+                sortCriteriaList.add(new SortCriteria("concept", SortCriteria.Direction.ASC));
+                sortCriteriaList.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
+            }
+            searchCriteria.setSortCriteria(sortCriteriaList);
+
+            ObsSearchResult result = pihAppsService.getObs(searchCriteria);
+
+            boolean hasMoreResults = false;
+            if (limit != null) {
+                int recordsProcessed = startIndex + limit + 1;
+                hasMoreResults = recordsProcessed < result.getTotalCount();
+            }
+
+            Converter<Obs> obsConverter = ConversionUtil.getConverter(Obs.class);
+            AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
+            return alreadyPaged.toSimpleObject(obsConverter);
         }
-
-        Converter<Obs> obsConverter = ConversionUtil.getConverter(Obs.class);
-        AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
-        return alreadyPaged.toSimpleObject(obsConverter);
+        catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
+        }
     }
 
     List<Concept> getSetMembersRecursively(Concept concept) {
