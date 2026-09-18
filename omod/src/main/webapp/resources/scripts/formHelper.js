@@ -210,9 +210,10 @@ class FormHelper {
      * Wires up conditional show/hide/default behavior between tests in a panel, driven by each
      * test's `fieldDependencyRule` (a map of answerConceptUuid -> { show: [conceptUuid,...], defaults: {conceptUuid: value} }).
      * `container` must contain one `.result-row[data-concept-uuid="..."]` per test, each with a `.result-value-field` widget.
-     * A controlled field backed by a pre-existing saved obs (data-obs-uuid) is never hidden or cleared, even if
-     * the rule wouldn't otherwise show it - we never want to silently hide/lose real saved data. A field with
-     * no saved obs (e.g. a default just applied this session) is cleared and hidden like any other.
+     * On initial page load, a controlled field backed by a pre-existing saved obs (data-obs-uuid) is never hidden
+     * or cleared, even if the rule wouldn't otherwise show it - existing data is always visible when the page is
+     * first opened. Once the trigger's answer is actually changed by the user, the same show/hide/clear behavior
+     * as on create applies to every controlled field, including ones with saved obs.
      */
     wireFieldDependencyRules(container, tests) {
         const jq = this.jq;
@@ -228,15 +229,13 @@ class FormHelper {
 
             const triggerField = container.find('.result-row[data-concept-uuid="' + test.uuid + '"] .result-value-field');
 
-            const applyRule = () => {
+            const applyRule = (isInitialLoad) => {
                 const answerRule = rule[triggerField.val()];
                 const toShow = new Set(answerRule?.show ?? []);
                 controlledConcepts.forEach((conceptUuid) => {
                     const row = container.find('.result-row[data-concept-uuid="' + conceptUuid + '"]');
                     const field = row.find('.result-value-field');
-                    // Never hide (or clear) a field backed by a pre-existing saved obs, even if the
-                    // rule wouldn't otherwise show it - we never want to silently lose real saved data.
-                    if (toShow.has(conceptUuid) || field.data('obsUuid')) {
+                    if (toShow.has(conceptUuid) || (isInitialLoad && field.data('obsUuid'))) {
                         row.show();
                         const defaultValue = answerRule?.defaults?.[conceptUuid];
                         if (defaultValue != null && !field.val()) {
@@ -249,8 +248,8 @@ class FormHelper {
                 });
             };
 
-            triggerField.on('change', applyRule);
-            applyRule();
+            triggerField.on('change', () => applyRule(false));
+            applyRule(true);
         });
     }
 
