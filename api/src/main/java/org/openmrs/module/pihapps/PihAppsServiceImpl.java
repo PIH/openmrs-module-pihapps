@@ -21,15 +21,22 @@ import org.apache.commons.logging.LogFactory;
 import org.hibernate.Criteria;
 import org.hibernate.FlushMode;
 import org.hibernate.criterion.Criterion;
+import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Subqueries;
 import org.openmrs.Concept;
 import org.openmrs.Encounter;
+import org.openmrs.EncounterProvider;
+import org.openmrs.EncounterType;
 import org.openmrs.Location;
 import org.openmrs.LocationTag;
 import org.openmrs.Obs;
 import org.openmrs.Order;
 import org.openmrs.Patient;
+import org.openmrs.Provider;
+import org.openmrs.User;
 import org.openmrs.annotation.Authorized;
+import org.openmrs.api.APIException;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.LocationService;
 import org.openmrs.api.ObsService;
@@ -37,6 +44,8 @@ import org.openmrs.api.OrderService;
 import org.openmrs.api.db.hibernate.DbSessionFactory;
 import org.openmrs.api.impl.BaseOpenmrsService;
 import org.openmrs.module.emrapi.EmrApiConstants;
+import org.openmrs.module.pihapps.encounter.EncounterSearchCriteria;
+import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
@@ -576,6 +585,20 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 	}
 
+	/**
+	 * Unlike the obsDatetime bounds, these are applied exactly as given rather than widened to whole
+	 * days: the caller has already said which moment it means, and an audit range is often asked to
+	 * the second.
+	 */
+	private void addAuditDateBounds(Criteria c, String property, ObsSearchCriteria searchCriteria) {
+		if (searchCriteria.getAuditOnOrAfter() != null) {
+			c.add(ge(property, searchCriteria.getAuditOnOrAfter()));
+		}
+		if (searchCriteria.getAuditOnOrBefore() != null) {
+			c.add(le(property, searchCriteria.getAuditOnOrBefore()));
+		}
+	}
+
 	@Override
 	@Transactional(readOnly = true)
 	@Authorized(PrivilegeConstants.GET_PATIENTS)
@@ -605,7 +628,21 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@SuppressWarnings({ "deprecation" })
 	private Criteria createHibernateObsSearchCriteria(ObsSearchCriteria searchCriteria, boolean applySortCriteria) {
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
-		c.add(eq("voided", false));
+		// An audit search leaves off the voided filter every other obs search applies: a voidedBy
+		// search would otherwise return nothing, and an auditor looking at what a user created wants
+		// to see the rows that have since been deleted just as much as the surviving ones. Callers
+		// can tell them apart by each observation's voided flag.
+		if (searchCriteria.getCreatedBy() == null && searchCriteria.getVoidedBy() == null) {
+			c.add(eq("voided", false));
+		}
+		if (searchCriteria.getCreatedBy() != null) {
+			c.add(eq("creator", searchCriteria.getCreatedBy()));
+			addAuditDateBounds(c, "dateCreated", searchCriteria);
+		}
+		if (searchCriteria.getVoidedBy() != null) {
+			c.add(eq("voidedBy", searchCriteria.getVoidedBy()));
+			addAuditDateBounds(c, "dateVoided", searchCriteria);
+		}
 		if (searchCriteria.getPatient() != null) {
 			c.add(eq("person", searchCriteria.getPatient()));
 		}
@@ -634,4 +671,169 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		return c;
 	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_OBS)
+	public ObsSearchResult getObsByAuditUser(ObsSearchCriteria searchCriteria) {
+		if (searchCriteria.getCreatedBy() == null && searchCriteria.getVoidedBy() == null) {
+			throw new APIException("An observation audit search needs at least one of createdBy or voidedBy");
+		}
+		// An audit has an order of its own, so fill it in unless the caller asked for another.
+		if (searchCriteria.getSortCriteria() == null || searchCriteria.getSortCriteria().isEmpty()) {
+			searchCriteria.setSortCriteria(auditSortCriteria(searchCriteria));
+		}
+		return getObs(searchCriteria);
+	}
+
+	/**
+	 * "Most recent first" means the most recent audit action: when the row was created for a
+	 * createdBy search, when it was voided for a voidedBy search. Ordering by the observation's own
+	 * datetime would bury an obs backdated to last year but entered this morning, which is the
+	 * opposite of what an audit needs. The obs id breaks ties so that paging cannot repeat or skip
+	 * a row when several share a timestamp.
+	 */
+	private List<SortCriteria> auditSortCriteria(ObsSearchCriteria searchCriteria) {
+		String actionDate = searchCriteria.getVoidedBy() != null ? "dateVoided" : "dateCreated";
+		List<SortCriteria> sortCriteria = new ArrayList<>();
+		sortCriteria.add(new SortCriteria(actionDate, SortCriteria.Direction.DESC));
+		sortCriteria.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
+		return sortCriteria;
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
+	@SuppressWarnings({ "unchecked" })
+	public EncounterSearchResult getEncountersByAuditUser(EncounterSearchCriteria searchCriteria) {
+		if (searchCriteria.getCreatedBy() == null && searchCriteria.getChangedBy() == null
+				&& searchCriteria.getVoidedBy() == null && searchCriteria.getProvider() == null) {
+			throw new APIException(
+					"An encounter audit search needs at least one of createdBy, changedBy, voidedBy or provider");
+		}
+		// An audit has an order of its own, so fill it in unless the caller asked for another.
+		if (searchCriteria.getSortCriteria() == null || searchCriteria.getSortCriteria().isEmpty()) {
+			searchCriteria.setSortCriteria(encounterAuditSortCriteria(searchCriteria));
+		}
+
+		EncounterSearchResult result = new EncounterSearchResult();
+		// First query to get total count
+		Criteria c = createHibernateEncounterSearchCriteria(searchCriteria, false);
+		c.setProjection(Projections.rowCount());
+		Long totalCount = (Long) c.list().get(0);
+		result.setTotalCount(totalCount);
+		// Then query to get page of results
+		c = createHibernateEncounterSearchCriteria(searchCriteria, true);
+		c.setProjection(null);
+		Integer startIndex = searchCriteria.getStartIndex();
+		Integer limit = searchCriteria.getLimit();
+		if (limit != null) {
+			startIndex = startIndex == null ? 0 : startIndex;
+			c.setFirstResult(startIndex);
+			c.setMaxResults(limit);
+		}
+		result.setEncounters(c.list());
+		return result;
+	}
+
+	/**
+	 * Orders by the most recent of the audit actions the search named, so that "most recent first"
+	 * means the most recent thing the search is about, and matches whichever column the date bounds
+	 * were applied to. A provider search names no action, so it orders by the encounter's own
+	 * datetime. The encounter id breaks ties so that paging cannot repeat or skip a row when
+	 * several share a timestamp.
+	 */
+	private List<SortCriteria> encounterAuditSortCriteria(EncounterSearchCriteria searchCriteria) {
+		List<SortCriteria> sortCriteria = new ArrayList<>();
+		sortCriteria.add(new SortCriteria(encounterAuditSortProperty(searchCriteria), SortCriteria.Direction.DESC));
+		sortCriteria.add(new SortCriteria("encounterId", SortCriteria.Direction.DESC));
+		return sortCriteria;
+	}
+
+	/**
+	 * The column the results are ordered by: the named audit action, taking the most recent kind of
+	 * action when a search named several, or the encounter's own datetime when only a provider was
+	 * named.
+	 */
+	private String encounterAuditSortProperty(EncounterSearchCriteria searchCriteria) {
+		if (searchCriteria.getVoidedBy() != null) {
+			return "dateVoided";
+		}
+		if (searchCriteria.getChangedBy() != null) {
+			return "dateChanged";
+		}
+		if (searchCriteria.getCreatedBy() != null) {
+			return "dateCreated";
+		}
+		return "encounterDatetime";
+	}
+
+	/**
+	 * Unlike the obsDatetime bounds on an obs search, these are applied exactly as given rather than
+	 * widened to whole days: the caller has already said which moment it means.
+	 */
+	private void addEncounterAuditDateBounds(Criteria c, String property, EncounterSearchCriteria searchCriteria) {
+		if (searchCriteria.getAuditOnOrAfter() != null) {
+			c.add(ge(property, searchCriteria.getAuditOnOrAfter()));
+		}
+		if (searchCriteria.getAuditOnOrBefore() != null) {
+			c.add(le(property, searchCriteria.getAuditOnOrBefore()));
+		}
+	}
+
+	/**
+	 * Voided encounters are deliberately left in, for the same reason voided observations are: a
+	 * search for who voided something would otherwise return nothing, and an auditor looking at
+	 * what a user entered wants to see what has since been deleted. Callers can tell them apart by
+	 * each encounter's voided flag.
+	 */
+	@SuppressWarnings({ "deprecation" })
+	private Criteria createHibernateEncounterSearchCriteria(EncounterSearchCriteria searchCriteria,
+			boolean applySortCriteria) {
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Encounter.class);
+		if (searchCriteria.getEncounterType() != null) {
+			c.add(eq("encounterType", searchCriteria.getEncounterType()));
+		}
+		if (searchCriteria.getCreatedBy() != null) {
+			c.add(eq("creator", searchCriteria.getCreatedBy()));
+			addEncounterAuditDateBounds(c, "dateCreated", searchCriteria);
+		}
+		if (searchCriteria.getChangedBy() != null) {
+			c.add(eq("changedBy", searchCriteria.getChangedBy()));
+			addEncounterAuditDateBounds(c, "dateChanged", searchCriteria);
+		}
+		if (searchCriteria.getVoidedBy() != null) {
+			c.add(eq("voidedBy", searchCriteria.getVoidedBy()));
+			addEncounterAuditDateBounds(c, "dateVoided", searchCriteria);
+		}
+		if (searchCriteria.getProvider() != null) {
+			// A subquery rather than a join, so that an encounter naming the provider more than
+			// once is still returned once — a join would need a distinct, and an in-memory distinct
+			// would be applied after paging had already counted the duplicate rows.
+			DetachedCriteria encountersNamingProvider = DetachedCriteria.forClass(EncounterProvider.class, "ep")
+					.createAlias("ep.encounter", "providerEncounter")
+					.setProjection(Projections.property("providerEncounter.encounterId"))
+					.add(eq("ep.provider", searchCriteria.getProvider()))
+					.add(eq("ep.voided", false));
+			c.add(Subqueries.propertyIn("encounterId", encountersNamingProvider));
+			// A provider search names no audit action, so on its own it takes the range against the
+			// encounter's own datetime. Alongside a user filter the range has already been applied
+			// to that user's action, which is the more specific thing to ask about.
+			if (searchCriteria.getCreatedBy() == null && searchCriteria.getChangedBy() == null
+					&& searchCriteria.getVoidedBy() == null) {
+				addEncounterAuditDateBounds(c, "encounterDatetime", searchCriteria);
+			}
+		}
+		if (applySortCriteria && searchCriteria.getSortCriteria() != null) {
+			for (SortCriteria sortCriteria : searchCriteria.getSortCriteria()) {
+				if (sortCriteria.getDirection() == SortCriteria.Direction.DESC) {
+					c.addOrder(desc(sortCriteria.getField()));
+				} else {
+					c.addOrder(asc(sortCriteria.getField()));
+				}
+			}
+		}
+		return c;
+	}
+
 }
