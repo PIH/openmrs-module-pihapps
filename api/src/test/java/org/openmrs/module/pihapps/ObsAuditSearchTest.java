@@ -4,12 +4,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openmrs.Obs;
 import org.openmrs.User;
-import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
+import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.test.jupiter.BaseModuleContextSensitiveTest;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -17,8 +18,9 @@ import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Covers searching observations by the user who created or voided them. The fixture's creation and
@@ -56,9 +58,24 @@ public class ObsAuditSearchTest extends BaseModuleContextSensitiveTest {
         searchCriteria.setVoidedBy(voidedBy);
         searchCriteria.setAuditOnOrAfter(fromDate);
         searchCriteria.setAuditOnOrBefore(toDate);
+        searchCriteria.setIncludeVoided(true);
+        searchCriteria.setSortCriteria(auditSortCriteria(voidedBy));
         searchCriteria.setStartIndex(startIndex);
         searchCriteria.setLimit(limit);
-        return service.getObsByAuditUser(searchCriteria);
+        return service.getObs(searchCriteria);
+    }
+
+    /**
+     * The ordering an audit asks for, which the endpoint sets rather than the service: the audit
+     * action the search named, most recent first, with the obs id breaking ties. These tests assert
+     * on order, so they have to ask for the same one the endpoint does.
+     */
+    private List<SortCriteria> auditSortCriteria(User voidedBy) {
+        List<SortCriteria> sortCriteria = new ArrayList<>();
+        String actionDate = voidedBy != null ? "dateVoided" : "dateCreated";
+        sortCriteria.add(new SortCriteria(actionDate, SortCriteria.Direction.DESC));
+        sortCriteria.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
+        return sortCriteria;
     }
 
     private List<Obs> obs(User createdBy, User voidedBy, Date fromDate, Date toDate, Integer startIndex,
@@ -184,10 +201,31 @@ public class ObsAuditSearchTest extends BaseModuleContextSensitiveTest {
         assertThat(count(bruno, null, september(20, 0), september(21, 0)), is(0L));
     }
 
+    /**
+     * The audit endpoint asks for voided observations, so the helper above does too. Every other
+     * caller gets them left out, which is what this pins down.
+     */
     @Test
-    public void shouldRefuseAnUnfilteredSearch() {
-        assertThrows(APIException.class, () -> obs(null, null, null, null, null, null));
-        assertThrows(APIException.class, () -> count(null, null, null, null));
+    public void shouldLeaveOutVoidedObsUnlessAskedFor() {
+        // 2004 and 2005 are this fixture's voided observations, both voided by butch
+        ObsSearchCriteria searchCriteria = new ObsSearchCriteria();
+        searchCriteria.setVoidedBy(butch);
+
+        assertThat(service.getObs(searchCriteria).getObs(), is(java.util.Collections.emptyList()));
+
+        searchCriteria.setIncludeVoided(true);
+        assertThat(obsIds(service.getObs(searchCriteria).getObs()), containsInAnyOrder(2004, 2005));
+    }
+
+    @Test
+    public void shouldSearchWithoutAnyAuditFilter() {
+        // The service places no audit-specific requirement on the criteria, so a search naming none
+        // of them is a plain obs search. The audit endpoint asks for at least one itself.
+        ObsSearchCriteria searchCriteria = new ObsSearchCriteria();
+        searchCriteria.setIncludeVoided(true);
+
+        assertThat(obsIds(service.getObs(searchCriteria).getObs()),
+                hasItems(2001, 2002, 2003, 2004, 2005));
     }
 }
 

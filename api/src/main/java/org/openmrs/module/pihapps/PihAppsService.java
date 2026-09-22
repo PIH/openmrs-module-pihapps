@@ -55,36 +55,47 @@ public interface PihAppsService extends OpenmrsService {
 
 	void revertOrdersToOrdered(List<Order> orders);
 
-	ObsSearchResult getObs(ObsSearchCriteria searchCriteria);
-
 	/**
-	 * Observations whose audit trail names the given user, most recent action first. Voided
-	 * observations are included, since they are the whole point of a voidedBy search and are what
-	 * an auditor most wants to see in a createdBy one.
+	 * Searches observations by whatever {@link ObsSearchCriteria} names: the patient, the concepts,
+	 * the users in their audit trail, and a date range over either the observation's own datetime or
+	 * the audit action. Every filter narrows, and a criteria naming none of them matches every
+	 * observation, so a caller that means to search rather than to list is responsible for
+	 * narrowing it.
 	 *
-	 * <p>The search is described by {@code createdBy}, {@code voidedBy} and the audit date bounds
-	 * on {@link ObsSearchCriteria}; ordering defaults to the audit action the search named. At
-	 * least one of the two users is required.
+	 * <p>Voided observations are left out unless the criteria ask for them. An audit does ask: they
+	 * are the whole point of a voidedBy search, and what an auditor looking at what a user created
+	 * most wants to see.
+	 *
+	 * <p>Ordering is the caller's to set, and paging without one is not deterministic. An audit
+	 * wants the most recent audit action first, which means ordering by the column belonging to the
+	 * action it named rather than by the observation's own datetime, with the obs id breaking ties
+	 * so that paging cannot repeat or skip a row.
 	 *
 	 * @param searchCriteria what to search for, how to page it and how to sort it
 	 * @return the matching observations and how many there are in total
-	 * @throws org.openmrs.api.APIException if neither user is given
 	 */
 	@Authorized(PrivilegeConstants.GET_OBS)
-	ObsSearchResult getObsByAuditUser(ObsSearchCriteria searchCriteria);
+	ObsSearchResult getObs(ObsSearchCriteria searchCriteria);
 
 	/**
-	 * Encounters whose audit trail names the given user, or that name the given provider, most
-	 * recent action first. Voided encounters are included, for the same reason voided observations
-	 * are in {@link #getObsByAuditUser(ObsSearchCriteria)}.
+	 * Searches encounters by whatever {@link EncounterSearchCriteria} names: the users in their
+	 * audit trail, the provider recorded on them, their type, and a date range. Every filter
+	 * narrows, and a criteria naming none of them matches every encounter, so a caller that means
+	 * to search rather than to list is responsible for narrowing it.
 	 *
-	 * <p>The search is described by {@link EncounterSearchCriteria}; ordering defaults to the audit
-	 * action the search named. At least one user or provider is required.
+	 * <p>Voided encounters are left out unless the criteria ask for them. An audit does ask: they
+	 * are the whole point of a voidedBy search, and what an auditor looking at what a user entered
+	 * most wants to see.
+	 *
+	 * <p>Ordering is the caller's to set, as it is on {@link #getObs(ObsSearchCriteria)},
+	 * and paging without one is not deterministic. An audit wants the most recent audit action
+	 * first, which means ordering by the column belonging to the action it named — or by the
+	 * encounter's own datetime where only a provider was named — with the encounter id breaking
+	 * ties so that paging cannot repeat or skip a row.
 	 *
 	 * @param searchCriteria what to search for, how to page it and how to sort it
 	 * @return the matching encounters and how many there are in total
-	 * @throws org.openmrs.api.APIException if no user and no provider is given
 	 */
 	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
-	EncounterSearchResult getEncountersByAuditUser(EncounterSearchCriteria searchCriteria);
+	EncounterSearchResult getEncounters(EncounterSearchCriteria searchCriteria);
 }

@@ -6,12 +6,13 @@ import org.openmrs.Encounter;
 import org.openmrs.EncounterType;
 import org.openmrs.Provider;
 import org.openmrs.User;
-import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.encounter.EncounterSearchCriteria;
 import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
 import org.openmrs.test.jupiter.BaseModuleContextSensitiveTest;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
@@ -20,8 +21,11 @@ import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Covers searching encounters by the users in their audit trail, by the provider recorded on them,
@@ -65,9 +69,33 @@ public class EncounterAuditSearchTest extends BaseModuleContextSensitiveTest {
         searchCriteria.setEncounterType(encounterType);
         searchCriteria.setAuditOnOrAfter(fromDate);
         searchCriteria.setAuditOnOrBefore(toDate);
+        searchCriteria.setIncludeVoided(true);
+        searchCriteria.setSortCriteria(auditSortCriteria(createdBy, changedBy, voidedBy));
         searchCriteria.setStartIndex(startIndex);
         searchCriteria.setLimit(limit);
-        return service.getEncountersByAuditUser(searchCriteria);
+        return service.getEncounters(searchCriteria);
+    }
+
+    /**
+     * The ordering an audit asks for, which the endpoint sets rather than the service: the audit
+     * action the search named, most recent first, with the encounter id breaking ties. These tests
+     * assert on order, so they have to ask for the same one the endpoint does.
+     */
+    private List<SortCriteria> auditSortCriteria(User createdBy, User changedBy, User voidedBy) {
+        String actionDate = "encounterDatetime";
+        if (voidedBy != null) {
+            actionDate = "dateVoided";
+        }
+        else if (changedBy != null) {
+            actionDate = "dateChanged";
+        }
+        else if (createdBy != null) {
+            actionDate = "dateCreated";
+        }
+        List<SortCriteria> sortCriteria = new ArrayList<>();
+        sortCriteria.add(new SortCriteria(actionDate, SortCriteria.Direction.DESC));
+        sortCriteria.add(new SortCriteria("encounterId", SortCriteria.Direction.DESC));
+        return sortCriteria;
     }
 
     /** The search under test, with the paging arguments left off. */
@@ -164,11 +192,6 @@ public class EncounterAuditSearchTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
-    public void shouldRefuseATypeOnlySearch() {
-        assertThrows(APIException.class, () -> search(null, null, null, null, typeOne, null, null));
-    }
-
-    @Test
     public void shouldBoundEachNamedActionByItsOwnDateColumn() {
         // bruno created 3001 on 1 Sep and 3002 on 25 Aug
         assertThat(auditedIds(search(bruno, null, null, null, null, september(1), null)), contains(3001));
@@ -233,9 +256,37 @@ public class EncounterAuditSearchTest extends BaseModuleContextSensitiveTest {
             contains(3003));
     }
 
+    /**
+     * The audit endpoint asks for voided encounters, so the helper above does too. Every other
+     * caller gets them left out, which is what this pins down.
+     */
     @Test
-    public void shouldRefuseASearchThatNamesNeitherUserNorProvider() {
-        assertThrows(APIException.class, () -> search(null, null, null, null, null, september(1), null));
-        assertThrows(APIException.class, () -> count(null, null, null, null, null, null, null));
+    public void shouldLeaveOutVoidedEncountersUnlessAskedFor() {
+        // 3003 is this fixture's voided encounter, voided by butch on 5 Sep
+        EncounterSearchCriteria searchCriteria = new EncounterSearchCriteria();
+        searchCriteria.setEncounterType(typeOne);
+
+        assertThat(auditedIds(service.getEncounters(searchCriteria).getEncounters()), not(hasItem(3003)));
+
+        searchCriteria.setIncludeVoided(true);
+        assertThat(auditedIds(service.getEncounters(searchCriteria).getEncounters()), hasItem(3003));
+    }
+
+    @Test
+    public void shouldSearchWithoutAnyAuditFilter() {
+        // The service places no audit-specific requirement on the criteria, so a search naming none
+        // of them is a plain encounter search. The audit endpoint asks for at least one itself.
+        List<Encounter> unfiltered = search(null, null, null, null, null, null, null);
+
+        assertThat(auditedIds(unfiltered), hasItems(3001, 3002, 3003, 3004, 3005));
+        assertThat(count(null, null, null, null, null, null, null), is((long) unfiltered.size()));
+    }
+
+    @Test
+    public void shouldNarrowAnUnfilteredSearchByEncounterTypeAlone() {
+        List<Encounter> byType = search(null, null, null, null, typeOne, null, null);
+
+        assertThat(byType.stream().allMatch(e -> e.getEncounterType().equals(typeOne)), is(true));
+        assertThat(byType.size(), lessThan(search(null, null, null, null, null, null, null).size()));
     }
 }

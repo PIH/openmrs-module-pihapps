@@ -10,37 +10,39 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Describes an encounter search over the audit trail. Core's own
- * {@link org.openmrs.parameter.EncounterSearchCriteria} carries a providers field that no search
- * handler exposes, and has no creator, changedBy or voidedBy field at all, which is why this exists
- * rather than the module reusing it.
+ * Describes an encounter search. Core's own {@link org.openmrs.parameter.EncounterSearchCriteria}
+ * carries a providers field that no search handler exposes, and has no creator, changedBy or
+ * voidedBy field at all, which is why this exists rather than the module reusing it.
  *
- * <p>Every filter narrows, so naming several asks for the encounters satisfying all of them.
+ * <p>Every filter narrows, so naming several asks for the encounters satisfying all of them, and
+ * naming none matches every encounter.
  */
 @Data
 public class EncounterSearchCriteria {
 
     /**
-     * Restrict to encounters this user created. Naming any of {@link #createdBy}, {@link #changedBy},
-     * {@link #voidedBy} or {@link #provider} makes the search an audit, which also means voided
-     * encounters are included: they are the whole point of a voidedBy search, and what an auditor
-     * most wants to see in the others.
+     * Whether voided encounters are returned alongside the surviving ones. Off by default, since a
+     * search is normally asking what a record says now, and callers can tell the two apart by each
+     * encounter's voided flag.
+     *
+     * <p>An audit search turns this on: voided encounters are the whole point of a
+     * {@link #voidedBy} search, and what an auditor most wants to see in the others.
      */
+    private boolean includeVoided = false;
+
+    /** Restrict to encounters this user created. */
     private User createdBy;
 
-    /** Restrict to encounters this user changed. See {@link #createdBy}. */
+    /** Restrict to encounters this user changed. */
     private User changedBy;
 
-    /** Restrict to encounters this user voided. See {@link #createdBy}. */
+    /** Restrict to encounters this user voided. */
     private User voidedBy;
 
-    /** Restrict to encounters this provider is recorded on. See {@link #createdBy}. */
+    /** Restrict to encounters this provider is recorded on. */
     private Provider provider;
 
-    /**
-     * Restrict to encounters of this type. This narrows an audit but is not an audit of anything on
-     * its own, so it does not satisfy the requirement that one of the four above is given.
-     */
+    /** Restrict to encounters of this type. */
     private EncounterType encounterType;
 
     /**

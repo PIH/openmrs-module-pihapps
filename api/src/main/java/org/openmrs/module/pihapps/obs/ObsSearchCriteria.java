@@ -17,10 +17,16 @@ public class ObsSearchCriteria {
     private Date onOrAfter;
 
     /**
-     * Restrict to observations this user created. Naming either this or {@link #voidedBy} makes the
-     * search an audit, which also means voided observations are included: they are the whole point
-     * of a voidedBy search, and what an auditor most wants to see in a createdBy one.
+     * Whether voided observations are returned alongside the surviving ones. Off by default, since
+     * a search is normally asking what a record says now, and callers can tell the two apart by
+     * each observation's voided flag.
+     *
+     * <p>An audit search turns this on: voided observations are the whole point of a
+     * {@link #voidedBy} search, and what an auditor most wants to see in a {@link #createdBy} one.
      */
+    private boolean includeVoided = false;
+
+    /** Restrict to observations this user created. */
     private User createdBy;
 
     /** Restrict to observations this user voided. See {@link #createdBy}. */

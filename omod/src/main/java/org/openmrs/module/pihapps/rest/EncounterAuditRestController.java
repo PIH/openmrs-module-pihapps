@@ -9,6 +9,7 @@ import org.openmrs.User;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.pihapps.PihAppsService;
+import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.encounter.EncounterSearchCriteria;
 import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
 import org.openmrs.module.webservices.rest.SimpleObject;
@@ -32,7 +33,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Searches encounters by the user who created, changed or voided them, and by the provider recorded
@@ -45,10 +48,10 @@ import java.util.Date;
  * whatever it needs with `v`:
  *
  * <pre>
- * GET /openmrs/ws/rest/v1/pihapps/encounteraudit?createdBy=&lt;uuid&gt;&amp;limit=20&amp;totalCount=true
- * GET /openmrs/ws/rest/v1/pihapps/encounteraudit?changedBy=&lt;uuid&gt;&amp;startDate=2026-09-01&amp;endDate=2026-09-30
- * GET /openmrs/ws/rest/v1/pihapps/encounteraudit?provider=&lt;uuid&gt;&amp;v=custom:(uuid,encounterDatetime,auditInfo)
- * GET /openmrs/ws/rest/v1/pihapps/encounteraudit?provider=&lt;uuid&gt;&amp;encounterType=&lt;uuid&gt;
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?createdBy=&lt;uuid&gt;&amp;limit=20&amp;totalCount=true
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?changedBy=&lt;uuid&gt;&amp;startDate=2026-09-01&amp;endDate=2026-09-30
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;v=custom:(uuid,encounterDatetime,auditInfo)
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;encounterType=&lt;uuid&gt;
  * </pre>
  *
  * <p>`createdBy`, `changedBy`, `voidedBy` and `provider` are bound by core's property editors, so
@@ -86,7 +89,7 @@ public class EncounterAuditRestController {
     @Autowired
     private PihAppsService pihAppsService;
 
-    @RequestMapping(value = "/rest/v1/pihapps/encounteraudit", method = RequestMethod.GET)
+    @RequestMapping(value = "/rest/v1/pihapps/encounter", method = RequestMethod.GET)
     @ResponseBody
     public Object searchEncounters(HttpServletRequest request, HttpServletResponse response,
                                    @RequestParam(value = "createdBy", required = false) User createdBy,
@@ -139,12 +142,17 @@ public class EncounterAuditRestController {
             searchCriteria.setVoidedBy(voidedBy);
             searchCriteria.setProvider(provider);
             searchCriteria.setEncounterType(type);
+            // A voidedBy search would return nothing with the voided rows filtered out, and an
+            // auditor looking at what a user entered wants to see what has since been deleted just
+            // as much as what survives, so an audit always asks for them.
+            searchCriteria.setIncludeVoided(true);
             searchCriteria.setAuditOnOrAfter(fromDate);
             searchCriteria.setAuditOnOrBefore(toDate);
+            searchCriteria.setSortCriteria(auditSortCriteria(createdBy, changedBy, voidedBy));
             searchCriteria.setStartIndex(context.getStartIndex());
             searchCriteria.setLimit(context.getLimit());
 
-            EncounterSearchResult result = pihAppsService.getEncountersByAuditUser(searchCriteria);
+            EncounterSearchResult result = pihAppsService.getEncounters(searchCriteria);
             Long totalCount = result.getTotalCount();
             boolean hasMore = totalCount > context.getStartIndex() + context.getLimit();
 
@@ -159,6 +167,35 @@ public class EncounterAuditRestController {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return RestUtil.wrapErrorResponse(e, "Failed to search encounters by audit user");
         }
+    }
+
+    /**
+     * Orders by the most recent of the audit actions the search named, so that "most recent first"
+     * means the most recent thing the search is about, and matches whichever column the date bounds
+     * were applied to. A provider search names no action, so it orders by the encounter's own
+     * datetime. The encounter id breaks ties so that paging cannot repeat or skip a row when
+     * several share a timestamp.
+     */
+    private List<SortCriteria> auditSortCriteria(User createdBy, User changedBy, User voidedBy) {
+        List<SortCriteria> sortCriteria = new ArrayList<>();
+        sortCriteria.add(new SortCriteria(auditSortProperty(createdBy, changedBy, voidedBy),
+                SortCriteria.Direction.DESC));
+        sortCriteria.add(new SortCriteria("encounterId", SortCriteria.Direction.DESC));
+        return sortCriteria;
+    }
+
+    /** The named audit action, taking the most recent kind of action when a search named several. */
+    private String auditSortProperty(User createdBy, User changedBy, User voidedBy) {
+        if (voidedBy != null) {
+            return "dateVoided";
+        }
+        if (changedBy != null) {
+            return "dateChanged";
+        }
+        if (createdBy != null) {
+            return "dateCreated";
+        }
+        return "encounterDatetime";
     }
 
     /**

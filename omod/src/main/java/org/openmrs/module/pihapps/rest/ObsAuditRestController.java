@@ -5,6 +5,7 @@ import org.apache.commons.logging.LogFactory;
 import org.openmrs.User;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.pihapps.PihAppsService;
+import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.webservices.rest.SimpleObject;
@@ -28,7 +29,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Searches observations by the user who created them or the user who voided them, which the core
@@ -40,9 +43,9 @@ import java.util.Date;
  * standard obs representation, so a client can ask for whatever it needs with `v`:
  *
  * <pre>
- * GET /openmrs/ws/rest/v1/pihapps/obsaudit?createdBy=&lt;uuid&gt;&amp;limit=20&amp;totalCount=true
- * GET /openmrs/ws/rest/v1/pihapps/obsaudit?voidedBy=cd8a4b8e-...&amp;v=custom:(uuid,concept:(display),auditInfo)
- * GET /openmrs/ws/rest/v1/pihapps/obsaudit?createdBy=&lt;uuid&gt;&amp;startDate=2026-09-01&amp;endDate=2026-09-30
+ * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;limit=20&amp;totalCount=true
+ * GET /openmrs/ws/rest/v1/pihapps/obs?voidedBy=cd8a4b8e-...&amp;v=custom:(uuid,concept:(display),auditInfo)
+ * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;startDate=2026-09-01&amp;endDate=2026-09-30
  * </pre>
  *
  * <p>`createdBy` and `voidedBy` are bound by core's property editors, so each takes a uuid or a
@@ -73,7 +76,7 @@ public class ObsAuditRestController {
     @Autowired
     private PihAppsService pihAppsService;
 
-    @RequestMapping(value = "/rest/v1/pihapps/obsaudit", method = RequestMethod.GET)
+    @RequestMapping(value = "/rest/v1/pihapps/obs", method = RequestMethod.GET)
     @ResponseBody
     public Object searchObs(HttpServletRequest request, HttpServletResponse response,
                             @RequestParam(value = "createdBy", required = false) User createdBy,
@@ -113,10 +116,15 @@ public class ObsAuditRestController {
             searchCriteria.setVoidedBy(voidedBy);
             searchCriteria.setAuditOnOrAfter(fromDate);
             searchCriteria.setAuditOnOrBefore(toDate);
+            // A voidedBy search would return nothing with the voided rows filtered out, and an
+            // auditor looking at what a user created wants to see what has since been deleted just
+            // as much as what survives, so an audit always asks for them.
+            searchCriteria.setIncludeVoided(true);
+            searchCriteria.setSortCriteria(auditSortCriteria(voidedBy));
             searchCriteria.setStartIndex(context.getStartIndex());
             searchCriteria.setLimit(context.getLimit());
 
-            ObsSearchResult result = pihAppsService.getObsByAuditUser(searchCriteria);
+            ObsSearchResult result = pihAppsService.getObs(searchCriteria);
             Long totalCount = result.getTotalCount();
             boolean hasMore = totalCount > context.getStartIndex() + context.getLimit();
 
@@ -133,6 +141,21 @@ public class ObsAuditRestController {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return RestUtil.wrapErrorResponse(e, "Failed to search observations by audit user");
         }
+    }
+
+    /**
+     * "Most recent first" means the most recent audit action: when the row was created for a
+     * createdBy search, when it was voided for a voidedBy search. Ordering by the observation's own
+     * datetime would bury an obs backdated to last year but entered this morning, which is the
+     * opposite of what an audit needs. The obs id breaks ties so that paging cannot repeat or skip
+     * a row when several share a timestamp.
+     */
+    private List<SortCriteria> auditSortCriteria(User voidedBy) {
+        List<SortCriteria> sortCriteria = new ArrayList<>();
+        String actionDate = voidedBy != null ? "dateVoided" : "dateCreated";
+        sortCriteria.add(new SortCriteria(actionDate, SortCriteria.Direction.DESC));
+        sortCriteria.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
+        return sortCriteria;
     }
 
     /**
