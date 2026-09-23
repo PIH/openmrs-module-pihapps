@@ -23,9 +23,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.is;
 
 /**
  * Covers searching encounters by the users in their audit trail, by the provider recorded on them,
@@ -33,7 +33,7 @@ import static org.hamcrest.Matchers.is;
  * encounter datetimes, so an implementation that bounded or ordered by the wrong column would fail
  * here rather than look plausible.
  */
-public class EncounterAuditSearchTest extends BaseModuleContextSensitiveTest {
+public class PihAppsEncounterSearchTest extends BaseModuleContextSensitiveTest {
 
     private PihAppsService service;
 

@@ -9,7 +9,6 @@ import org.openmrs.User;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.pihapps.PihAppsService;
-import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.encounter.EncounterSearchCriteria;
 import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
 import org.openmrs.module.webservices.rest.SimpleObject;
@@ -33,7 +32,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -43,28 +41,42 @@ import java.util.List;
  * providers field but no search handler exposes it, and it has no creator, changedBy or voidedBy
  * field at all, so those columns can be read off an encounter but not searched on.
  *
- * <p>Results are paged and ordered by the most recent of the audit actions the search named, and
- * each encounter is rendered in the standard encounter representation, so a client can ask for
- * whatever it needs with `v`:
+ * <p>Results are paged and ordered as `sortBy` asks, and each encounter is rendered in the standard
+ * encounter representation, so a client can ask for whatever it needs with `v`:
  *
  * <pre>
  * GET /openmrs/ws/rest/v1/pihapps/encounter?createdBy=&lt;uuid&gt;&amp;limit=20&amp;totalCount=true
- * GET /openmrs/ws/rest/v1/pihapps/encounter?changedBy=&lt;uuid&gt;&amp;startDate=2026-09-01&amp;endDate=2026-09-30
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?changedBy=&lt;uuid&gt;&amp;auditOnOrAfter=2026-09-01&amp;auditOnOrBefore=2026-09-30
  * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;v=custom:(uuid,encounterDatetime,auditInfo)
  * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;encounterType=&lt;uuid&gt;
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?voidedBy=&lt;uuid&gt;&amp;includeVoided=true
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;sortBy=encounterDatetime-desc&amp;sortBy=encounterId-desc
  * </pre>
  *
  * <p>`createdBy`, `changedBy`, `voidedBy` and `provider` are bound by core's property editors, so
  * each takes a uuid or a primary key. `encounterType` takes a uuid or its name.
  *
- * <p>Every filter narrows, so naming several asks for the encounters satisfying all of them. At
- * least one user or provider is required; `encounterType` narrows an audit but is not an audit of
- * anything on its own. `startDate` and `endDate` bound when the audit action
- * happened rather than the encounter's own datetime, which is what core's encounter search already
- * covers; they run inclusively, and a bare date names the whole of that day.
+ * <p>`includeVoided` decides whether voided encounters come back alongside the surviving ones, and
+ * is off unless asked for. An audit normally wants them on: a `voidedBy` search returns nothing
+ * without them, and an auditor looking at what a user entered wants to see what has since been
+ * deleted just as much as what survives. Callers tell the two apart by each encounter's voided
+ * flag.
+ *
+ * <p>`sortBy` takes `field-direction`, or just `field` for ascending, and may be given several
+ * times to order by more than one. Nothing is sorted unless asked, and a page without an ordering
+ * is not deterministic, so a client that pages should name one ending in something unique such as
+ * `encounterId`. An audit wants the action it searched on first — `createdBy` with
+ * `sortBy=dateCreated-desc`, a provider search with `sortBy=encounterDatetime-desc` — since
+ * ordering by anything else would bury an encounter backdated to last year but entered this
+ * morning.
+ *
+ * <p>Every filter narrows, so naming several asks for the encounters satisfying all of them, and
+ * naming none matches every encounter. `auditOnOrAfter` and `auditOnOrBefore` bound whichever
+ * column the search is about: the named audit action, or the encounter's own datetime where only a
+ * provider was named. They run inclusively, and a bare date names the whole of that day.
  */
 @Controller
-public class EncounterAuditRestController {
+public class PihAppsEncounterRestController {
 
     protected Log log = LogFactory.getLog(getClass());
 
@@ -97,8 +109,11 @@ public class EncounterAuditRestController {
                                    @RequestParam(value = "voidedBy", required = false) User voidedBy,
                                    @RequestParam(value = "provider", required = false) Provider provider,
                                    @RequestParam(value = "encounterType", required = false) String encounterType,
-                                   @RequestParam(value = "startDate", required = false) String startDate,
-                                   @RequestParam(value = "endDate", required = false) String endDate)
+                                   @RequestParam(value = "auditOnOrAfter", required = false) String auditOnOrAfter,
+                                   @RequestParam(value = "auditOnOrBefore", required = false) String auditOnOrBefore,
+                                   @RequestParam(value = "includeVoided", required = false,
+                                           defaultValue = "false") boolean includeVoided,
+                                   @RequestParam(value = "sortBy", required = false) List<String> sortBy)
             throws ResponseException {
 
         if (!Context.hasPrivilege(REQUIRED_PRIVILEGE)) {
@@ -106,11 +121,6 @@ public class EncounterAuditRestController {
         }
 
         try {
-            if (createdBy == null && changedBy == null && voidedBy == null && provider == null) {
-                throw new InvalidSearchException(
-                        "Please specify at least one of createdBy, changedBy, voidedBy or provider.");
-            }
-
             EncounterType type = null;
             if (StringUtils.isNotBlank(encounterType)) {
                 type = getEncounterType(encounterType);
@@ -122,15 +132,15 @@ public class EncounterAuditRestController {
             Date fromDate;
             Date toDate;
             try {
-                fromDate = AuditRestSupport.parseBound(startDate, false);
-                toDate = AuditRestSupport.parseBound(endDate, true);
+                fromDate = PihAppsRestSupport.parseBound(auditOnOrAfter, false);
+                toDate = PihAppsRestSupport.parseBound(auditOnOrBefore, true);
             }
             catch (Exception e) {
-                throw new InvalidSearchException(AuditRestSupport.dateFormatMessage(), e);
+                throw new InvalidSearchException(PihAppsRestSupport.dateFormatMessage("auditOnOrAfter", "auditOnOrBefore"), e);
             }
 
             if (fromDate != null && toDate != null && fromDate.after(toDate)) {
-                throw new InvalidSearchException("startDate must not be after endDate.");
+                throw new InvalidSearchException("auditOnOrAfter must not be after auditOnOrBefore.");
             }
 
             RequestContext context = RestUtil.getRequestContext(request, response,
@@ -142,13 +152,10 @@ public class EncounterAuditRestController {
             searchCriteria.setVoidedBy(voidedBy);
             searchCriteria.setProvider(provider);
             searchCriteria.setEncounterType(type);
-            // A voidedBy search would return nothing with the voided rows filtered out, and an
-            // auditor looking at what a user entered wants to see what has since been deleted just
-            // as much as what survives, so an audit always asks for them.
-            searchCriteria.setIncludeVoided(true);
+            searchCriteria.setIncludeVoided(includeVoided);
             searchCriteria.setAuditOnOrAfter(fromDate);
             searchCriteria.setAuditOnOrBefore(toDate);
-            searchCriteria.setSortCriteria(auditSortCriteria(createdBy, changedBy, voidedBy));
+            searchCriteria.setSortCriteria(PihAppsRestSupport.parseSortCriteria(sortBy));
             searchCriteria.setStartIndex(context.getStartIndex());
             searchCriteria.setLimit(context.getLimit());
 
@@ -160,42 +167,13 @@ public class EncounterAuditRestController {
         }
         catch (InvalidSearchException e) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return RestUtil.wrapErrorResponse(e, AuditRestSupport.INVALID_SEARCH_REASON);
+            return RestUtil.wrapErrorResponse(e, PihAppsRestSupport.INVALID_SEARCH_REASON);
         }
         catch (Exception e) {
             log.error("Failed to search encounters by audit user", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return RestUtil.wrapErrorResponse(e, "Failed to search encounters by audit user");
         }
-    }
-
-    /**
-     * Orders by the most recent of the audit actions the search named, so that "most recent first"
-     * means the most recent thing the search is about, and matches whichever column the date bounds
-     * were applied to. A provider search names no action, so it orders by the encounter's own
-     * datetime. The encounter id breaks ties so that paging cannot repeat or skip a row when
-     * several share a timestamp.
-     */
-    private List<SortCriteria> auditSortCriteria(User createdBy, User changedBy, User voidedBy) {
-        List<SortCriteria> sortCriteria = new ArrayList<>();
-        sortCriteria.add(new SortCriteria(auditSortProperty(createdBy, changedBy, voidedBy),
-                SortCriteria.Direction.DESC));
-        sortCriteria.add(new SortCriteria("encounterId", SortCriteria.Direction.DESC));
-        return sortCriteria;
-    }
-
-    /** The named audit action, taking the most recent kind of action when a search named several. */
-    private String auditSortProperty(User createdBy, User changedBy, User voidedBy) {
-        if (voidedBy != null) {
-            return "dateVoided";
-        }
-        if (changedBy != null) {
-            return "dateChanged";
-        }
-        if (createdBy != null) {
-            return "dateCreated";
-        }
-        return "encounterDatetime";
     }
 
     /**
@@ -206,7 +184,7 @@ public class EncounterAuditRestController {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ResponseBody
     public SimpleObject handleUnresolvedParameter(MethodArgumentTypeMismatchException e) {
-        return AuditRestSupport.unresolvedParameterResponse(e);
+        return PihAppsRestSupport.unresolvedParameterResponse(e);
     }
 
     /**

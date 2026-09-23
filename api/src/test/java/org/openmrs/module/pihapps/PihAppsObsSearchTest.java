@@ -27,7 +27,7 @@ import static org.hamcrest.Matchers.is;
  * voiding dates run in a different order from the observation datetimes, so an implementation that
  * ordered by the wrong column would fail here rather than look plausible.
  */
-public class ObsAuditSearchTest extends BaseModuleContextSensitiveTest {
+public class PihAppsObsSearchTest extends BaseModuleContextSensitiveTest {
 
     private PihAppsService service;
 
