@@ -10,7 +10,6 @@ import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
-import org.openmrs.module.webservices.rest.web.representation.CustomRepresentation;
 import org.openmrs.module.webservices.rest.web.resource.impl.AlreadyPaged;
 import org.openmrs.module.webservices.rest.web.response.InvalidSearchException;
 import org.openmrs.module.webservices.rest.web.response.ResponseException;
@@ -37,11 +36,14 @@ import java.util.List;
  * {@link org.openmrs.parameter.ObsSearchCriteria} has a creator or voidedBy field, so those columns
  * can be read off an observation but not searched on.
  *
- * <p>Results are paged and ordered as `sortBy` asks, and each observation is rendered in the
- * standard obs representation, so a client can ask for whatever it needs with `v`:
+ * <p>Results are paged and ordered as `sortBy` asks, and each observation is rendered by the
+ * standard obs resource, so `v` behaves as it does anywhere else in the REST API and defaults to
+ * the same thing. An audit wants `auditInfo` — the creator and the voiding user with their
+ * timestamps — which the default representation leaves out, so it asks for it:
  *
  * <pre>
  * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;limit=20&amp;totalCount=true
+ * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;v=custom:(uuid,display,auditInfo)
  * GET /openmrs/ws/rest/v1/pihapps/obs?voidedBy=cd8a4b8e-...&amp;v=custom:(uuid,concept:(display),auditInfo)
  * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;startDate=2026-09-01&amp;endDate=2026-09-30
  * GET /openmrs/ws/rest/v1/pihapps/obs?voidedBy=&lt;uuid&gt;&amp;includeVoided=true
@@ -79,14 +81,6 @@ public class PihAppsObsRestController {
      */
     private static final String REQUIRED_PRIVILEGE = "App: coreapps.systemAdministration";
 
-    /**
-     * Enough to say what was recorded and who touched it. `auditInfo` is what makes this an audit
-     * result: it carries the creator and the voiding user with their timestamps.
-     */
-    private static final String DEFAULT_REPRESENTATION =
-            "(uuid,display,obsDatetime,voided,concept:(uuid,display),person:(uuid,display)," +
-                    "encounter:(uuid),value:ref,comment,auditInfo)";
-
     @Autowired
     private PihAppsService pihAppsService;
 
@@ -121,8 +115,7 @@ public class PihAppsObsRestController {
                 throw new InvalidSearchException("startDate must not be after endDate.");
             }
 
-            RequestContext context = RestUtil.getRequestContext(request, response,
-                    new CustomRepresentation(DEFAULT_REPRESENTATION));
+            RequestContext context = RestUtil.getRequestContext(request, response);
 
             ObsSearchCriteria searchCriteria = new ObsSearchCriteria();
             searchCriteria.setCreatedBy(createdBy);

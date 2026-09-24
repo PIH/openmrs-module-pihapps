@@ -14,7 +14,6 @@ import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
 import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.RequestContext;
 import org.openmrs.module.webservices.rest.web.RestUtil;
-import org.openmrs.module.webservices.rest.web.representation.CustomRepresentation;
 import org.openmrs.module.webservices.rest.web.resource.impl.AlreadyPaged;
 import org.openmrs.module.webservices.rest.web.response.InvalidSearchException;
 import org.openmrs.module.webservices.rest.web.response.ResponseException;
@@ -41,11 +40,14 @@ import java.util.List;
  * providers field but no search handler exposes it, and it has no creator, changedBy or voidedBy
  * field at all, so those columns can be read off an encounter but not searched on.
  *
- * <p>Results are paged and ordered as `sortBy` asks, and each encounter is rendered in the standard
- * encounter representation, so a client can ask for whatever it needs with `v`:
+ * <p>Results are paged and ordered as `sortBy` asks, and each encounter is rendered by the standard
+ * encounter resource, so `v` behaves as it does anywhere else in the REST API and defaults to the
+ * same thing. An audit wants `auditInfo` — the creating, changing and voiding users with their
+ * timestamps — which the default representation leaves out, so it asks for it:
  *
  * <pre>
  * GET /openmrs/ws/rest/v1/pihapps/encounter?createdBy=&lt;uuid&gt;&amp;limit=20&amp;totalCount=true
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?createdBy=&lt;uuid&gt;&amp;v=custom:(uuid,display,auditInfo)
  * GET /openmrs/ws/rest/v1/pihapps/encounter?changedBy=&lt;uuid&gt;&amp;auditOnOrAfter=2026-09-01&amp;auditOnOrBefore=2026-09-30
  * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;v=custom:(uuid,encounterDatetime,auditInfo)
  * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;encounterType=&lt;uuid&gt;
@@ -85,15 +87,6 @@ public class PihAppsEncounterRestController {
      * across every patient's record, so it is not something a clinical role should be able to run.
      */
     private static final String REQUIRED_PRIVILEGE = "App: coreapps.systemAdministration";
-
-    /**
-     * Enough to say what the encounter was and who touched it. `auditInfo` is what makes this an
-     * audit result: it carries the creating, changing and voiding users with their timestamps.
-     */
-    private static final String DEFAULT_REPRESENTATION =
-            "(uuid,display,encounterDatetime,voided,encounterType:(uuid,display),form:(uuid,display)," +
-                    "location:(uuid,display),patient:(uuid,display)," +
-                    "encounterProviders:(uuid,voided,provider:(uuid,display),encounterRole:(uuid,display)),auditInfo)";
 
     @Autowired
     private EncounterService encounterService;
@@ -143,8 +136,7 @@ public class PihAppsEncounterRestController {
                 throw new InvalidSearchException("auditOnOrAfter must not be after auditOnOrBefore.");
             }
 
-            RequestContext context = RestUtil.getRequestContext(request, response,
-                    new CustomRepresentation(DEFAULT_REPRESENTATION));
+            RequestContext context = RestUtil.getRequestContext(request, response);
 
             EncounterSearchCriteria searchCriteria = new EncounterSearchCriteria();
             searchCriteria.setCreatedBy(createdBy);

@@ -120,6 +120,13 @@ public class PihAppsEncounterSearchTest extends BaseModuleContextSensitiveTest {
         return encounterIds(encounters).stream().filter(id -> id >= 3000).collect(Collectors.toList());
     }
 
+    private Date day(int month, int dayOfMonth, int hourOfDay, int year) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.clear();
+        calendar.set(year, month, dayOfMonth, hourOfDay, 0, 0);
+        return calendar.getTime();
+    }
+
     private Date day(int month, int dayOfMonth, int hourOfDay) {
         Calendar calendar = Calendar.getInstance();
         calendar.clear();
@@ -218,6 +225,34 @@ public class PihAppsEncounterSearchTest extends BaseModuleContextSensitiveTest {
         assertThat(auditedIds(search(null, null, null, provider, null, day(Calendar.AUGUST, 1, 0), null)),
             contains(3004));
         assertThat(search(null, null, null, provider, null, september(1), null), is(Collections.emptyList()));
+    }
+
+    /**
+     * A search naming no audit action has no action column to bound, so the range falls back to the
+     * encounter's own datetime. Only a provider search used to reach that fallback, which meant a
+     * type-only or unfiltered search silently ignored the range it was given.
+     */
+    @Test
+    public void shouldBoundASearchThatNamesNoAuditActionByTheEncounterDatetime() {
+        // every encounter in the fixture happened in 2026, so a 2099 range must exclude them all
+        Date from = day(Calendar.JANUARY, 1, 0, 2099);
+        Date to = day(Calendar.JANUARY, 2, 0, 2099);
+
+        assertThat(auditedIds(search(null, null, null, null, typeOne, from, to)), is(Collections.emptyList()));
+        assertThat(auditedIds(search(null, null, null, null, null, from, to)), is(Collections.emptyList()));
+        assertThat(auditedIds(search(null, null, null, provider, null, from, to)), is(Collections.emptyList()));
+    }
+
+    /**
+     * Each user filter bounds its own action's column, so a range alongside one must not also be
+     * applied to the encounter datetime — that would demand the encounter itself fall in the window
+     * as well, which is stricter than what was asked.
+     */
+    @Test
+    public void shouldNotAlsoBoundTheEncounterDatetimeWhenAnActionIsNamed() {
+        // 3001 was entered on 1 Sep but happened on 1 Aug, so a September range finds it by creation
+        assertThat(auditedIds(search(bruno, null, null, null, null, day(Calendar.SEPTEMBER, 1, 0),
+            day(Calendar.SEPTEMBER, 1, 23))), contains(3001));
     }
 
     @Test

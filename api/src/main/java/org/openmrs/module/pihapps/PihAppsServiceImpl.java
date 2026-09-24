@@ -732,13 +732,14 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					.add(eq("ep.provider", searchCriteria.getProvider()))
 					.add(eq("ep.voided", false));
 			c.add(Subqueries.propertyIn("encounterId", encountersNamingProvider));
-			// A provider search names no audit action, so on its own it takes the range against the
-			// encounter's own datetime. Alongside a user filter the range has already been applied
-			// to that user's action, which is the more specific thing to ask about.
-			if (searchCriteria.getCreatedBy() == null && searchCriteria.getChangedBy() == null
-					&& searchCriteria.getVoidedBy() == null) {
-				addEncounterAuditDateBounds(c, "encounterDatetime", searchCriteria);
-			}
+		}
+		// Each user filter above has already bounded the column belonging to its own action, which
+		// is the more specific thing to ask about. A search naming no action has nothing bounded
+		// yet, so the range falls back to the encounter's own datetime — otherwise a provider,
+		// encounterType or unfiltered search would quietly ignore the range it was given.
+		if (searchCriteria.getCreatedBy() == null && searchCriteria.getChangedBy() == null
+				&& searchCriteria.getVoidedBy() == null) {
+			addEncounterAuditDateBounds(c, "encounterDatetime", searchCriteria);
 		}
 		if (applySortCriteria && searchCriteria.getSortCriteria() != null) {
 			for (SortCriteria sortCriteria : searchCriteria.getSortCriteria()) {
