@@ -46,20 +46,40 @@ public class EncounterSearchCriteria {
     private EncounterType encounterType;
 
     /**
-     * Bound whatever the search is about. Where an audit action is named these bound that action's
-     * column — an encounter backdated to last year but entered this morning was entered this
-     * morning, and core's own encounter search already covers encounterDatetime for the cases it
-     * can reach. A provider search names no action, so there they bound the encounter's own
-     * datetime, which is both what a provider's caseload is asked about and something core cannot
-     * filter by provider.
+     * Bound when the encounter was created. Each of the four ranges below names the column it
+     * applies to, and each is independent of the filters: `createdOnOrAfter` narrows by creation
+     * date whether or not `createdBy` is also given, and naming several asks for all of them.
      *
-     * <p>Both ends run inclusively and are applied as given, so a caller that means a whole day
-     * passes that day's last moment.
+     * <p>Which range a search wants is the caller's to decide. An audit of what a user entered
+     * wants the range against that user's action — an encounter backdated to last year but entered
+     * this morning was entered this morning — while a provider's caseload is asked about by
+     * {@link #encounterDatetimeOnOrAfter}, when the encounters actually happened.
+     *
+     * <p>Both ends of every range run inclusively and are applied as given, so a caller that means
+     * a whole day passes that day's last moment.
      */
-    private Date auditOnOrAfter;
+    private Date createdOnOrAfter;
 
-    /** @see #auditOnOrAfter */
-    private Date auditOnOrBefore;
+    /** @see #createdOnOrAfter */
+    private Date createdOnOrBefore;
+
+    /** Bound when the encounter was last changed. @see #createdOnOrAfter */
+    private Date changedOnOrAfter;
+
+    /** @see #createdOnOrAfter */
+    private Date changedOnOrBefore;
+
+    /** Bound when the encounter was voided. @see #createdOnOrAfter */
+    private Date voidedOnOrAfter;
+
+    /** @see #createdOnOrAfter */
+    private Date voidedOnOrBefore;
+
+    /** Bound the encounter's own datetime — when it happened. @see #createdOnOrAfter */
+    private Date encounterDatetimeOnOrAfter;
+
+    /** @see #createdOnOrAfter */
+    private Date encounterDatetimeOnOrBefore;
 
     private List<SortCriteria> sortCriteria;
     private Integer startIndex;

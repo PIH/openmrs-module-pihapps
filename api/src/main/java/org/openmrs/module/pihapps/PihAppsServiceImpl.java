@@ -585,12 +585,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	private void addAuditDateBounds(Criteria c, String property, ObsSearchCriteria searchCriteria) {
-		if (searchCriteria.getAuditOnOrAfter() != null) {
-			c.add(ge(property, searchCriteria.getAuditOnOrAfter()));
-		}
-		if (searchCriteria.getAuditOnOrBefore() != null) {
-			c.add(le(property, searchCriteria.getAuditOnOrBefore()));
-		}
+		addDateBounds(c, property, searchCriteria.getAuditOnOrAfter(), searchCriteria.getAuditOnOrBefore());
 	}
 
 	@Override
@@ -688,15 +683,17 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	/**
-	 * Unlike the obsDatetime bounds on an obs search, these are applied exactly as given rather than
-	 * widened to whole days: the caller has already said which moment it means.
+	 * Both ends run inclusively. The upper end is widened to the end of its day when it carries no
+	 * time, so that a range named in days covers the whole of the last one.
 	 */
-	private void addEncounterAuditDateBounds(Criteria c, String property, EncounterSearchCriteria searchCriteria) {
-		if (searchCriteria.getAuditOnOrAfter() != null) {
-			c.add(ge(property, searchCriteria.getAuditOnOrAfter()));
+	private void addDateBounds(Criteria c, String property, Date onOrAfter, Date onOrBefore) {
+		if (onOrAfter != null) {
+			// No adjustment: midnight is already the first moment of its day.
+			c.add(ge(property, onOrAfter));
 		}
-		if (searchCriteria.getAuditOnOrBefore() != null) {
-			c.add(le(property, searchCriteria.getAuditOnOrBefore()));
+		Date upperBound = PihAppsUtils.getEndOfDayIfTimeExcluded(onOrBefore);
+		if (upperBound != null) {
+			c.add(le(property, upperBound));
 		}
 	}
 
@@ -712,16 +709,19 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		if (searchCriteria.getCreatedBy() != null) {
 			c.add(eq("creator", searchCriteria.getCreatedBy()));
-			addEncounterAuditDateBounds(c, "dateCreated", searchCriteria);
 		}
 		if (searchCriteria.getChangedBy() != null) {
 			c.add(eq("changedBy", searchCriteria.getChangedBy()));
-			addEncounterAuditDateBounds(c, "dateChanged", searchCriteria);
 		}
 		if (searchCriteria.getVoidedBy() != null) {
 			c.add(eq("voidedBy", searchCriteria.getVoidedBy()));
-			addEncounterAuditDateBounds(c, "dateVoided", searchCriteria);
 		}
+		// Each range names the column it bounds, so none of this depends on which filters are set.
+		addDateBounds(c, "dateCreated", searchCriteria.getCreatedOnOrAfter(), searchCriteria.getCreatedOnOrBefore());
+		addDateBounds(c, "dateChanged", searchCriteria.getChangedOnOrAfter(), searchCriteria.getChangedOnOrBefore());
+		addDateBounds(c, "dateVoided", searchCriteria.getVoidedOnOrAfter(), searchCriteria.getVoidedOnOrBefore());
+		addDateBounds(c, "encounterDatetime", searchCriteria.getEncounterDatetimeOnOrAfter(),
+			searchCriteria.getEncounterDatetimeOnOrBefore());
 		if (searchCriteria.getProvider() != null) {
 			// A subquery rather than a join, so that an encounter naming the provider more than
 			// once is still returned once — a join would need a distinct, and an in-memory distinct
@@ -732,14 +732,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					.add(eq("ep.provider", searchCriteria.getProvider()))
 					.add(eq("ep.voided", false));
 			c.add(Subqueries.propertyIn("encounterId", encountersNamingProvider));
-		}
-		// Each user filter above has already bounded the column belonging to its own action, which
-		// is the more specific thing to ask about. A search naming no action has nothing bounded
-		// yet, so the range falls back to the encounter's own datetime — otherwise a provider,
-		// encounterType or unfiltered search would quietly ignore the range it was given.
-		if (searchCriteria.getCreatedBy() == null && searchCriteria.getChangedBy() == null
-				&& searchCriteria.getVoidedBy() == null) {
-			addEncounterAuditDateBounds(c, "encounterDatetime", searchCriteria);
 		}
 		if (applySortCriteria && searchCriteria.getSortCriteria() != null) {
 			for (SortCriteria sortCriteria : searchCriteria.getSortCriteria()) {

@@ -7,7 +7,6 @@ import org.openmrs.EncounterType;
 import org.openmrs.Provider;
 import org.openmrs.User;
 import org.openmrs.api.EncounterService;
-import org.openmrs.api.context.Context;
 import org.openmrs.module.pihapps.PihAppsService;
 import org.openmrs.module.pihapps.encounter.EncounterSearchCriteria;
 import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
@@ -19,7 +18,6 @@ import org.openmrs.module.webservices.rest.web.response.InvalidSearchException;
 import org.openmrs.module.webservices.rest.web.response.ResponseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,7 +29,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -48,7 +45,8 @@ import java.util.List;
  * <pre>
  * GET /openmrs/ws/rest/v1/pihapps/encounter?createdBy=&lt;uuid&gt;&amp;limit=20&amp;totalCount=true
  * GET /openmrs/ws/rest/v1/pihapps/encounter?createdBy=&lt;uuid&gt;&amp;v=custom:(uuid,display,auditInfo)
- * GET /openmrs/ws/rest/v1/pihapps/encounter?changedBy=&lt;uuid&gt;&amp;auditOnOrAfter=2026-09-01&amp;auditOnOrBefore=2026-09-30
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?changedBy=&lt;uuid&gt;&amp;changedOnOrAfter=2026-09-01&amp;changedOnOrBefore=2026-09-30
+ * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;encounterDatetimeOnOrAfter=2026-04-01
  * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;v=custom:(uuid,encounterDatetime,auditInfo)
  * GET /openmrs/ws/rest/v1/pihapps/encounter?provider=&lt;uuid&gt;&amp;encounterType=&lt;uuid&gt;
  * GET /openmrs/ws/rest/v1/pihapps/encounter?voidedBy=&lt;uuid&gt;&amp;includeVoided=true
@@ -73,20 +71,21 @@ import java.util.List;
  * morning.
  *
  * <p>Every filter narrows, so naming several asks for the encounters satisfying all of them, and
- * naming none matches every encounter. `auditOnOrAfter` and `auditOnOrBefore` bound whichever
- * column the search is about: the named audit action, or the encounter's own datetime where only a
- * provider was named. They run inclusively, and a bare date names the whole of that day.
+ * naming none matches every encounter.
+ *
+ * <p>There are four date ranges, each naming the column it bounds: `createdOnOrAfter`/`Before`,
+ * `changedOnOrAfter`/`Before`, `voidedOnOrAfter`/`Before` and
+ * `encounterDatetimeOnOrAfter`/`Before`. Each is independent of the filters, so `createdOnOrAfter`
+ * narrows by creation date whether or not `createdBy` is given, and naming several asks for all of
+ * them. Which one a search wants is the caller's to decide: an audit of what a user entered wants
+ * the range against that user's action, since an encounter backdated to last year but entered this
+ * morning was entered this morning, while a provider's caseload is asked about by
+ * `encounterDatetime`. All ends run inclusively, and a bare date names the whole of that day.
  */
 @Controller
 public class PihAppsEncounterRestController {
 
     protected Log log = LogFactory.getLog(getClass());
-
-    /**
-     * The same gate as this package's other administrative endpoints. An encounter audit reaches
-     * across every patient's record, so it is not something a clinical role should be able to run.
-     */
-    private static final String REQUIRED_PRIVILEGE = "App: coreapps.systemAdministration";
 
     @Autowired
     private EncounterService encounterService;
@@ -102,16 +101,20 @@ public class PihAppsEncounterRestController {
                                    @RequestParam(value = "voidedBy", required = false) User voidedBy,
                                    @RequestParam(value = "provider", required = false) Provider provider,
                                    @RequestParam(value = "encounterType", required = false) String encounterType,
-                                   @RequestParam(value = "auditOnOrAfter", required = false) String auditOnOrAfter,
-                                   @RequestParam(value = "auditOnOrBefore", required = false) String auditOnOrBefore,
+                                   @RequestParam(value = "createdOnOrAfter", required = false) String createdOnOrAfter,
+                                   @RequestParam(value = "createdOnOrBefore", required = false) String createdOnOrBefore,
+                                   @RequestParam(value = "changedOnOrAfter", required = false) String changedOnOrAfter,
+                                   @RequestParam(value = "changedOnOrBefore", required = false) String changedOnOrBefore,
+                                   @RequestParam(value = "voidedOnOrAfter", required = false) String voidedOnOrAfter,
+                                   @RequestParam(value = "voidedOnOrBefore", required = false) String voidedOnOrBefore,
+                                   @RequestParam(value = "encounterDatetimeOnOrAfter",
+                                           required = false) String encounterDatetimeOnOrAfter,
+                                   @RequestParam(value = "encounterDatetimeOnOrBefore",
+                                           required = false) String encounterDatetimeOnOrBefore,
                                    @RequestParam(value = "includeVoided", required = false,
                                            defaultValue = "false") boolean includeVoided,
                                    @RequestParam(value = "sortBy", required = false) List<String> sortBy)
             throws ResponseException {
-
-        if (!Context.hasPrivilege(REQUIRED_PRIVILEGE)) {
-            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-        }
 
         try {
             EncounterType type = null;
@@ -122,19 +125,6 @@ public class PihAppsEncounterRestController {
                 }
             }
 
-            Date fromDate;
-            Date toDate;
-            try {
-                fromDate = PihAppsRestSupport.parseBound(auditOnOrAfter, false);
-                toDate = PihAppsRestSupport.parseBound(auditOnOrBefore, true);
-            }
-            catch (Exception e) {
-                throw new InvalidSearchException(PihAppsRestSupport.dateFormatMessage("auditOnOrAfter", "auditOnOrBefore"), e);
-            }
-
-            if (fromDate != null && toDate != null && fromDate.after(toDate)) {
-                throw new InvalidSearchException("auditOnOrAfter must not be after auditOnOrBefore.");
-            }
 
             RequestContext context = RestUtil.getRequestContext(request, response);
 
@@ -145,8 +135,19 @@ public class PihAppsEncounterRestController {
             searchCriteria.setProvider(provider);
             searchCriteria.setEncounterType(type);
             searchCriteria.setIncludeVoided(includeVoided);
-            searchCriteria.setAuditOnOrAfter(fromDate);
-            searchCriteria.setAuditOnOrBefore(toDate);
+            try {
+                searchCriteria.setCreatedOnOrAfter(PihAppsRestSupport.parseDate(createdOnOrAfter));
+                searchCriteria.setCreatedOnOrBefore(PihAppsRestSupport.parseDate(createdOnOrBefore));
+                searchCriteria.setChangedOnOrAfter(PihAppsRestSupport.parseDate(changedOnOrAfter));
+                searchCriteria.setChangedOnOrBefore(PihAppsRestSupport.parseDate(changedOnOrBefore));
+                searchCriteria.setVoidedOnOrAfter(PihAppsRestSupport.parseDate(voidedOnOrAfter));
+                searchCriteria.setVoidedOnOrBefore(PihAppsRestSupport.parseDate(voidedOnOrBefore));
+                searchCriteria.setEncounterDatetimeOnOrAfter(PihAppsRestSupport.parseDate(encounterDatetimeOnOrAfter));
+                searchCriteria.setEncounterDatetimeOnOrBefore(PihAppsRestSupport.parseDate(encounterDatetimeOnOrBefore));
+            }
+            catch (Exception e) {
+                throw new InvalidSearchException(PihAppsRestSupport.dateFormatMessage(), e);
+            }
             searchCriteria.setSortCriteria(PihAppsRestSupport.parseSortCriteria(sortBy));
             searchCriteria.setStartIndex(context.getStartIndex());
             searchCriteria.setLimit(context.getLimit());

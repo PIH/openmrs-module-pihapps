@@ -7,7 +7,6 @@ import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.ConversionUtil;
 import org.openmrs.module.webservices.rest.web.RestUtil;
 import org.openmrs.module.webservices.rest.web.response.InvalidSearchException;
-import org.openmrs.util.OpenmrsUtil;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.ArrayList;
@@ -32,36 +31,22 @@ final class PihAppsRestSupport {
     }
 
     /**
-     * Reads one end of a date range, in any of the formats the REST API accepts elsewhere.
+     * Reads a date parameter with no bound semantics, for an endpoint that decides what an end of a
+     * range means further down. Blank means the parameter was not given.
      *
-     * <p>A bare date names the whole of that day: an upper bound of `2026-09-30` means through the end of the
-     * 30th, not its first instant, since a range given in dates is asking about days. Give a time
-     * to bound the range to the second instead.
-     *
-     * @param value the parameter as it arrived, or null or blank for no bound
-     * @param isUpperBound whether a date without a time should be stretched to the end of the day
-     * @return the bound, or null if none was given
+     * @param value the parameter as it arrived, or null or blank for no date
+     * @return the date, or null if none was given
      */
-    static Date parseBound(String value, boolean isUpperBound) {
+    static Date parseDate(String value) {
         if (StringUtils.isBlank(value)) {
             return null;
         }
-
-        String trimmed = value.trim();
-        Date date = (Date) ConversionUtil.convert(trimmed, Date.class);
-        return isUpperBound && isDateOnly(trimmed) ? OpenmrsUtil.getLastMomentOfDay(date) : date;
+        return (Date) ConversionUtil.convert(value.trim(), Date.class);
     }
 
-    private static boolean isDateOnly(String value) {
-        return value.matches("\\d{4}-\\d{2}-\\d{2}");
-    }
-
-    /**
-     * @param fromParam what the endpoint calls its lower bound
-     * @param toParam what the endpoint calls its upper bound
-     */
-    static String dateFormatMessage(String fromParam, String toParam) {
-        return fromParam + " and " + toParam + " must be ISO 8601, e.g. 2026-09-01 or 2026-09-01T13:45:00.000+0000";
+    /** The format message for an endpoint with more date parameters than are worth listing. */
+    static String dateFormatMessage() {
+        return "Date parameters must be ISO 8601, e.g. 2026-09-01 or 2026-09-01T13:45:00.000+0000";
     }
 
     /**

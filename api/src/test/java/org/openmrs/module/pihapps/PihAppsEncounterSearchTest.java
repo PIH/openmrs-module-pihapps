@@ -67,8 +67,24 @@ public class PihAppsEncounterSearchTest extends BaseModuleContextSensitiveTest {
         searchCriteria.setVoidedBy(voidedBy);
         searchCriteria.setProvider(byProvider);
         searchCriteria.setEncounterType(encounterType);
-        searchCriteria.setAuditOnOrAfter(fromDate);
-        searchCriteria.setAuditOnOrBefore(toDate);
+        // The criteria name the column each range bounds, so the test picks the one the case is
+        // about — the same choice a client makes. Each case names at most one action.
+        if (voidedBy != null) {
+            searchCriteria.setVoidedOnOrAfter(fromDate);
+            searchCriteria.setVoidedOnOrBefore(toDate);
+        }
+        else if (changedBy != null) {
+            searchCriteria.setChangedOnOrAfter(fromDate);
+            searchCriteria.setChangedOnOrBefore(toDate);
+        }
+        else if (createdBy != null) {
+            searchCriteria.setCreatedOnOrAfter(fromDate);
+            searchCriteria.setCreatedOnOrBefore(toDate);
+        }
+        else {
+            searchCriteria.setEncounterDatetimeOnOrAfter(fromDate);
+            searchCriteria.setEncounterDatetimeOnOrBefore(toDate);
+        }
         searchCriteria.setIncludeVoided(true);
         searchCriteria.setSortCriteria(auditSortCriteria(createdBy, changedBy, voidedBy));
         searchCriteria.setStartIndex(startIndex);
@@ -253,6 +269,29 @@ public class PihAppsEncounterSearchTest extends BaseModuleContextSensitiveTest {
         // 3001 was entered on 1 Sep but happened on 1 Aug, so a September range finds it by creation
         assertThat(auditedIds(search(bruno, null, null, null, null, day(Calendar.SEPTEMBER, 1, 0),
             day(Calendar.SEPTEMBER, 1, 23))), contains(3001));
+    }
+
+    /**
+     * Each range names its own column, so they combine rather than one displacing another and none
+     * of them depends on a matching user filter being given.
+     */
+    @Test
+    public void shouldApplyEachRangeToItsOwnColumnIndependently() {
+        EncounterSearchCriteria byCreationAndHappening = new EncounterSearchCriteria();
+        byCreationAndHappening.setIncludeVoided(true);
+        // 3001 happened on 1 Aug and was entered on 1 Sep; 3002 happened on 1 Jul, entered 25 Aug
+        byCreationAndHappening.setCreatedOnOrAfter(day(Calendar.SEPTEMBER, 1, 0));
+        byCreationAndHappening.setEncounterDatetimeOnOrBefore(day(Calendar.AUGUST, 15, 0));
+
+        assertThat(auditedIds(service.getEncounters(byCreationAndHappening).getEncounters()), contains(3001));
+
+        // a creation range with no createdBy filter still narrows, which the old single range could
+        // not express
+        EncounterSearchCriteria creationOnly = new EncounterSearchCriteria();
+        creationOnly.setIncludeVoided(true);
+        creationOnly.setCreatedOnOrAfter(day(Calendar.JANUARY, 1, 0, 2099));
+
+        assertThat(auditedIds(service.getEncounters(creationOnly).getEncounters()), is(Collections.emptyList()));
     }
 
     @Test

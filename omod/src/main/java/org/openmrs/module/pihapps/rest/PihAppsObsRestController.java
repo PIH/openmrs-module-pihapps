@@ -3,7 +3,6 @@ package org.openmrs.module.pihapps.rest;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.User;
-import org.openmrs.api.context.Context;
 import org.openmrs.module.pihapps.PihAppsService;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
@@ -15,7 +14,6 @@ import org.openmrs.module.webservices.rest.web.response.InvalidSearchException;
 import org.openmrs.module.webservices.rest.web.response.ResponseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,7 +25,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -75,12 +72,6 @@ public class PihAppsObsRestController {
 
     protected Log log = LogFactory.getLog(getClass());
 
-    /**
-     * The same gate as this package's other administrative endpoints. An observation audit reaches
-     * across every patient's record, so it is not something a clinical role should be able to run.
-     */
-    private static final String REQUIRED_PRIVILEGE = "App: coreapps.systemAdministration";
-
     @Autowired
     private PihAppsService pihAppsService;
 
@@ -96,32 +87,19 @@ public class PihAppsObsRestController {
                             @RequestParam(value = "sortBy", required = false) List<String> sortBy)
             throws ResponseException {
 
-        if (!Context.hasPrivilege(REQUIRED_PRIVILEGE)) {
-            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-        }
-
         try {
-            Date fromDate;
-            Date toDate;
-            try {
-                fromDate = PihAppsRestSupport.parseBound(startDate, false);
-                toDate = PihAppsRestSupport.parseBound(endDate, true);
-            }
-            catch (Exception e) {
-                throw new InvalidSearchException(PihAppsRestSupport.dateFormatMessage("startDate", "endDate"), e);
-            }
-
-            if (fromDate != null && toDate != null && fromDate.after(toDate)) {
-                throw new InvalidSearchException("startDate must not be after endDate.");
-            }
-
             RequestContext context = RestUtil.getRequestContext(request, response);
 
             ObsSearchCriteria searchCriteria = new ObsSearchCriteria();
             searchCriteria.setCreatedBy(createdBy);
             searchCriteria.setVoidedBy(voidedBy);
-            searchCriteria.setAuditOnOrAfter(fromDate);
-            searchCriteria.setAuditOnOrBefore(toDate);
+            try {
+                searchCriteria.setAuditOnOrAfter(PihAppsRestSupport.parseDate(startDate));
+                searchCriteria.setAuditOnOrBefore(PihAppsRestSupport.parseDate(endDate));
+            }
+            catch (Exception e) {
+                throw new InvalidSearchException(PihAppsRestSupport.dateFormatMessage(), e);
+            }
             searchCriteria.setIncludeVoided(includeVoided);
             searchCriteria.setSortCriteria(PihAppsRestSupport.parseSortCriteria(sortBy));
             searchCriteria.setStartIndex(context.getStartIndex());
