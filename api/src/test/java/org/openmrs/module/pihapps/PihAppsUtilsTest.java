@@ -4,12 +4,16 @@ import org.junit.jupiter.api.Test;
 import org.openmrs.Concept;
 
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -86,6 +90,37 @@ public class PihAppsUtilsTest {
         Set<String> result = uuids(PihAppsUtils.getConceptHierarchy(a));
 
         assertEquals(new HashSet<>(Arrays.asList("A", "B")), result);
+    }
+
+    private static Date moment(int hour, int minute, int second, int millisecond) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.clear();
+        calendar.set(2026, Calendar.SEPTEMBER, 30, hour, minute, second);
+        calendar.set(Calendar.MILLISECOND, millisecond);
+        return calendar.getTime();
+    }
+
+    @Test
+    public void getEndOfDayIfTimeExcluded_shouldWidenADateWithNoTimeToTheEndOfItsDay() {
+        assertEquals(moment(23, 59, 59, 999), PihAppsUtils.getEndOfDayIfTimeExcluded(moment(0, 0, 0, 0)));
+    }
+
+    @Test
+    public void getEndOfDayIfTimeExcluded_shouldLeaveADateCarryingATimeAlone() {
+        Date withTime = moment(13, 45, 0, 0);
+        assertSame(withTime, PihAppsUtils.getEndOfDayIfTimeExcluded(withTime));
+    }
+
+    /** A single millisecond past midnight is a time of day, so the bound stands as given. */
+    @Test
+    public void getEndOfDayIfTimeExcluded_shouldLeaveAMomentJustPastMidnightAlone() {
+        Date justPast = moment(0, 0, 0, 1);
+        assertSame(justPast, PihAppsUtils.getEndOfDayIfTimeExcluded(justPast));
+    }
+
+    @Test
+    public void getEndOfDayIfTimeExcluded_shouldReturnNullForNoBound() {
+        assertNull(PihAppsUtils.getEndOfDayIfTimeExcluded(null));
     }
 
     private static Concept conceptWithId(int id, String uuid) {

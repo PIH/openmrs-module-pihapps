@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayDeque;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Locale;
@@ -101,6 +103,39 @@ public class PihAppsUtils {
      * @param root
      * @return a set of Concepts that are recursive set members of root
      */
+    /**
+     * The last moment of a date's day if that date carries no time of day, and the date itself
+     * otherwise. Modelled on the reporting module's {@code DateUtil.getEndOfDayIfTimeExcluded}.
+     *
+     * <p>This is for the upper end of an inclusive range. Someone who names a day means the whole
+     * of it, so a bound of `2026-09-30` has to reach 23:59:59.999 or everything recorded after
+     * midnight on the 30th falls outside a range that plainly includes the 30th. A lower bound
+     * needs no such adjustment: midnight is already the first moment of its day.
+     *
+     * <p>A time of exactly midnight is read as no time of day, since a Date cannot say whether the
+     * caller wrote `2026-09-30` or `2026-09-30T00:00:00`. A caller that means that first instant
+     * and nothing more should bound the range a moment earlier.
+     *
+     * @param date the upper bound as given, or null for no bound
+     * @return the bound to search on, or null if none was given
+     */
+    public static Date getEndOfDayIfTimeExcluded(Date date) {
+        if (date == null) {
+            return null;
+        }
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+        if (calendar.get(Calendar.HOUR_OF_DAY) != 0 || calendar.get(Calendar.MINUTE) != 0
+                || calendar.get(Calendar.SECOND) != 0 || calendar.get(Calendar.MILLISECOND) != 0) {
+            return date;
+        }
+        calendar.set(Calendar.HOUR_OF_DAY, 23);
+        calendar.set(Calendar.MINUTE, 59);
+        calendar.set(Calendar.SECOND, 59);
+        calendar.set(Calendar.MILLISECOND, 999);
+        return calendar.getTime();
+    }
+
     public static Set<Concept> getConceptHierarchy(Concept root) {
         Set<Concept> result = new HashSet<>();
         Set<Integer> visited = new HashSet<>();

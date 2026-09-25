@@ -21,14 +21,20 @@ import org.apache.commons.logging.LogFactory;
 import org.hibernate.Criteria;
 import org.hibernate.FlushMode;
 import org.hibernate.criterion.Criterion;
+import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Subqueries;
 import org.openmrs.Concept;
 import org.openmrs.Encounter;
+import org.openmrs.EncounterProvider;
+import org.openmrs.EncounterType;
 import org.openmrs.Location;
 import org.openmrs.LocationTag;
 import org.openmrs.Obs;
 import org.openmrs.Order;
 import org.openmrs.Patient;
+import org.openmrs.Provider;
+import org.openmrs.User;
 import org.openmrs.annotation.Authorized;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.LocationService;
@@ -37,6 +43,8 @@ import org.openmrs.api.OrderService;
 import org.openmrs.api.db.hibernate.DbSessionFactory;
 import org.openmrs.api.impl.BaseOpenmrsService;
 import org.openmrs.module.emrapi.EmrApiConstants;
+import org.openmrs.module.pihapps.encounter.EncounterSearchCriteria;
+import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
@@ -576,9 +584,10 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 	}
 
+
 	@Override
 	@Transactional(readOnly = true)
-	@Authorized(PrivilegeConstants.GET_PATIENTS)
+	@Authorized(PrivilegeConstants.GET_OBS)
 	@SuppressWarnings({ "unchecked" })
 	public ObsSearchResult getObs(ObsSearchCriteria searchCriteria) {
 		ObsSearchResult result = new ObsSearchResult();
@@ -605,7 +614,18 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@SuppressWarnings({ "deprecation" })
 	private Criteria createHibernateObsSearchCriteria(ObsSearchCriteria searchCriteria, boolean applySortCriteria) {
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
-		c.add(eq("voided", false));
+		if (!searchCriteria.isIncludeVoided()) {
+			c.add(eq("voided", false));
+		}
+		if (searchCriteria.getCreatedBy() != null) {
+			c.add(eq("creator", searchCriteria.getCreatedBy()));
+		}
+		if (searchCriteria.getVoidedBy() != null) {
+			c.add(eq("voidedBy", searchCriteria.getVoidedBy()));
+		}
+		// Each range names the column it bounds, so none of this depends on which filters are set.
+		addDateBounds(c, "dateCreated", searchCriteria.getCreatedOnOrAfter(), searchCriteria.getCreatedOnOrBefore());
+		addDateBounds(c, "dateVoided", searchCriteria.getVoidedOnOrAfter(), searchCriteria.getVoidedOnOrBefore());
 		if (searchCriteria.getPatient() != null) {
 			c.add(eq("person", searchCriteria.getPatient()));
 		}
@@ -634,4 +654,93 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		return c;
 	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_ENCOUNTERS)
+	@SuppressWarnings({ "unchecked" })
+	public EncounterSearchResult getEncounters(EncounterSearchCriteria searchCriteria) {
+		EncounterSearchResult result = new EncounterSearchResult();
+		// First query to get total count
+		Criteria c = createHibernateEncounterSearchCriteria(searchCriteria, false);
+		c.setProjection(Projections.rowCount());
+		Long totalCount = (Long) c.list().get(0);
+		result.setTotalCount(totalCount);
+		// Then query to get page of results
+		c = createHibernateEncounterSearchCriteria(searchCriteria, true);
+		c.setProjection(null);
+		Integer startIndex = searchCriteria.getStartIndex();
+		Integer limit = searchCriteria.getLimit();
+		if (limit != null) {
+			startIndex = startIndex == null ? 0 : startIndex;
+			c.setFirstResult(startIndex);
+			c.setMaxResults(limit);
+		}
+		result.setEncounters(c.list());
+		return result;
+	}
+
+	/**
+	 * Both ends run inclusively. The upper end is widened to the end of its day when it carries no
+	 * time, so that a range named in days covers the whole of the last one.
+	 */
+	private void addDateBounds(Criteria c, String property, Date onOrAfter, Date onOrBefore) {
+		if (onOrAfter != null) {
+			// No adjustment: midnight is already the first moment of its day.
+			c.add(ge(property, onOrAfter));
+		}
+		Date upperBound = PihAppsUtils.getEndOfDayIfTimeExcluded(onOrBefore);
+		if (upperBound != null) {
+			c.add(le(property, upperBound));
+		}
+	}
+
+	@SuppressWarnings({ "deprecation" })
+	private Criteria createHibernateEncounterSearchCriteria(EncounterSearchCriteria searchCriteria,
+			boolean applySortCriteria) {
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Encounter.class);
+		if (!searchCriteria.isIncludeVoided()) {
+			c.add(eq("voided", false));
+		}
+		if (searchCriteria.getEncounterType() != null) {
+			c.add(eq("encounterType", searchCriteria.getEncounterType()));
+		}
+		if (searchCriteria.getCreatedBy() != null) {
+			c.add(eq("creator", searchCriteria.getCreatedBy()));
+		}
+		if (searchCriteria.getChangedBy() != null) {
+			c.add(eq("changedBy", searchCriteria.getChangedBy()));
+		}
+		if (searchCriteria.getVoidedBy() != null) {
+			c.add(eq("voidedBy", searchCriteria.getVoidedBy()));
+		}
+		// Each range names the column it bounds, so none of this depends on which filters are set.
+		addDateBounds(c, "dateCreated", searchCriteria.getCreatedOnOrAfter(), searchCriteria.getCreatedOnOrBefore());
+		addDateBounds(c, "dateChanged", searchCriteria.getChangedOnOrAfter(), searchCriteria.getChangedOnOrBefore());
+		addDateBounds(c, "dateVoided", searchCriteria.getVoidedOnOrAfter(), searchCriteria.getVoidedOnOrBefore());
+		addDateBounds(c, "encounterDatetime", searchCriteria.getEncounterDatetimeOnOrAfter(),
+			searchCriteria.getEncounterDatetimeOnOrBefore());
+		if (searchCriteria.getProvider() != null) {
+			// A subquery rather than a join, so that an encounter naming the provider more than
+			// once is still returned once — a join would need a distinct, and an in-memory distinct
+			// would be applied after paging had already counted the duplicate rows.
+			DetachedCriteria encountersNamingProvider = DetachedCriteria.forClass(EncounterProvider.class, "ep")
+					.createAlias("ep.encounter", "providerEncounter")
+					.setProjection(Projections.property("providerEncounter.encounterId"))
+					.add(eq("ep.provider", searchCriteria.getProvider()))
+					.add(eq("ep.voided", false));
+			c.add(Subqueries.propertyIn("encounterId", encountersNamingProvider));
+		}
+		if (applySortCriteria && searchCriteria.getSortCriteria() != null) {
+			for (SortCriteria sortCriteria : searchCriteria.getSortCriteria()) {
+				if (sortCriteria.getDirection() == SortCriteria.Direction.DESC) {
+					c.addOrder(desc(sortCriteria.getField()));
+				} else {
+					c.addOrder(asc(sortCriteria.getField()));
+				}
+			}
+		}
+		return c;
+	}
+
 }
