@@ -42,7 +42,8 @@ import java.util.List;
  * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;limit=20&amp;totalCount=true
  * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;v=custom:(uuid,display,auditInfo)
  * GET /openmrs/ws/rest/v1/pihapps/obs?voidedBy=cd8a4b8e-...&amp;v=custom:(uuid,concept:(display),auditInfo)
- * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;startDate=2026-09-01&amp;endDate=2026-09-30
+ * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;createdOnOrAfter=2026-09-01&amp;createdOnOrBefore=2026-09-30
+ * GET /openmrs/ws/rest/v1/pihapps/obs?voidedBy=&lt;uuid&gt;&amp;voidedOnOrAfter=2026-09-01
  * GET /openmrs/ws/rest/v1/pihapps/obs?voidedBy=&lt;uuid&gt;&amp;includeVoided=true
  * GET /openmrs/ws/rest/v1/pihapps/obs?createdBy=&lt;uuid&gt;&amp;sortBy=dateCreated-desc&amp;sortBy=obsId-desc
  * </pre>
@@ -63,9 +64,14 @@ import java.util.List;
  * `sortBy=dateCreated-desc`, `voidedBy` with `sortBy=dateVoided-desc` — since ordering by the
  * observation's own datetime would bury an obs backdated to last year but entered this morning.
  *
- * <p>Every filter narrows, and naming none matches every observation. `startDate` and `endDate`
- * bound when the audit action happened rather than the observation's own datetime, and run
- * inclusively.
+ * <p>Every filter narrows, and naming none matches every observation.
+ *
+ * <p>There are two date ranges, each naming the column it bounds: `createdOnOrAfter`/`Before` and
+ * `voidedOnOrAfter`/`Before`. Each is independent of the filters, so `createdOnOrAfter` narrows by
+ * creation date whether or not `createdBy` is given, and naming both asks for both. They bound when
+ * the audit action happened rather than the observation's own datetime, since an observation
+ * backdated to last year but entered this morning was entered this morning. Both ends run
+ * inclusively, and an upper end with no time of day names the whole of that day.
  */
 @Controller
 public class PihAppsObsRestController {
@@ -80,8 +86,10 @@ public class PihAppsObsRestController {
     public Object searchObs(HttpServletRequest request, HttpServletResponse response,
                             @RequestParam(value = "createdBy", required = false) User createdBy,
                             @RequestParam(value = "voidedBy", required = false) User voidedBy,
-                            @RequestParam(value = "startDate", required = false) String startDate,
-                            @RequestParam(value = "endDate", required = false) String endDate,
+                            @RequestParam(value = "createdOnOrAfter", required = false) String createdOnOrAfter,
+                            @RequestParam(value = "createdOnOrBefore", required = false) String createdOnOrBefore,
+                            @RequestParam(value = "voidedOnOrAfter", required = false) String voidedOnOrAfter,
+                            @RequestParam(value = "voidedOnOrBefore", required = false) String voidedOnOrBefore,
                             @RequestParam(value = "includeVoided", required = false,
                                     defaultValue = "false") boolean includeVoided,
                             @RequestParam(value = "sortBy", required = false) List<String> sortBy)
@@ -94,8 +102,10 @@ public class PihAppsObsRestController {
             searchCriteria.setCreatedBy(createdBy);
             searchCriteria.setVoidedBy(voidedBy);
             try {
-                searchCriteria.setAuditOnOrAfter(PihAppsRestSupport.parseDate(startDate));
-                searchCriteria.setAuditOnOrBefore(PihAppsRestSupport.parseDate(endDate));
+                searchCriteria.setCreatedOnOrAfter(PihAppsRestSupport.parseDate(createdOnOrAfter));
+                searchCriteria.setCreatedOnOrBefore(PihAppsRestSupport.parseDate(createdOnOrBefore));
+                searchCriteria.setVoidedOnOrAfter(PihAppsRestSupport.parseDate(voidedOnOrAfter));
+                searchCriteria.setVoidedOnOrBefore(PihAppsRestSupport.parseDate(voidedOnOrBefore));
             }
             catch (Exception e) {
                 throw new InvalidSearchException(PihAppsRestSupport.dateFormatMessage(), e);

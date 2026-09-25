@@ -56,8 +56,16 @@ public class PihAppsObsSearchTest extends BaseModuleContextSensitiveTest {
         ObsSearchCriteria searchCriteria = new ObsSearchCriteria();
         searchCriteria.setCreatedBy(createdBy);
         searchCriteria.setVoidedBy(voidedBy);
-        searchCriteria.setAuditOnOrAfter(fromDate);
-        searchCriteria.setAuditOnOrBefore(toDate);
+        // The criteria name the column each range bounds, so the test picks the one the case is
+        // about — the same choice a client makes. Each case names at most one action.
+        if (voidedBy != null) {
+            searchCriteria.setVoidedOnOrAfter(fromDate);
+            searchCriteria.setVoidedOnOrBefore(toDate);
+        }
+        else {
+            searchCriteria.setCreatedOnOrAfter(fromDate);
+            searchCriteria.setCreatedOnOrBefore(toDate);
+        }
         searchCriteria.setIncludeVoided(true);
         searchCriteria.setSortCriteria(auditSortCriteria(voidedBy));
         searchCriteria.setStartIndex(startIndex);
@@ -88,6 +96,13 @@ public class PihAppsObsSearchTest extends BaseModuleContextSensitiveTest {
     }
 
     /** A moment on a September 2026 day, matching the fixture's audit dates. */
+    private Date august(int dayOfMonth, int hourOfDay) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.clear();
+        calendar.set(2026, Calendar.AUGUST, dayOfMonth, hourOfDay, 0, 0);
+        return calendar.getTime();
+    }
+
     private Date september(int dayOfMonth, int hourOfDay) {
         Calendar calendar = Calendar.getInstance();
         calendar.clear();
@@ -215,6 +230,30 @@ public class PihAppsObsSearchTest extends BaseModuleContextSensitiveTest {
 
         searchCriteria.setIncludeVoided(true);
         assertThat(obsIds(service.getObs(searchCriteria).getObs()), containsInAnyOrder(2004, 2005));
+    }
+
+    /**
+     * Each range names its own column, so they combine rather than one displacing another and none
+     * of them depends on a matching user filter being given.
+     */
+    @Test
+    public void shouldApplyEachRangeToItsOwnColumnIndependently() {
+        // a creation range with no createdBy filter still narrows, which the old single range could
+        // not express — it was silently ignored
+        ObsSearchCriteria creationOnly = new ObsSearchCriteria();
+        creationOnly.setIncludeVoided(true);
+        creationOnly.setCreatedOnOrAfter(september(20, 0));
+
+        assertThat(service.getObs(creationOnly).getObs(), is(java.util.Collections.emptyList()));
+
+        // 2004 was created 28 Aug and voided 4 Sep; 2005 was voided 5 Sep but created back on 20
+        // Aug, so only the creation range tells them apart — the two bound different columns
+        ObsSearchCriteria both = new ObsSearchCriteria();
+        both.setIncludeVoided(true);
+        both.setCreatedOnOrAfter(august(25, 0));
+        both.setVoidedOnOrAfter(september(1, 0));
+
+        assertThat(obsIds(service.getObs(both).getObs()), contains(2004));
     }
 
     @Test

@@ -584,9 +584,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 	}
 
-	private void addAuditDateBounds(Criteria c, String property, ObsSearchCriteria searchCriteria) {
-		addDateBounds(c, property, searchCriteria.getAuditOnOrAfter(), searchCriteria.getAuditOnOrBefore());
-	}
 
 	@Override
 	@Transactional(readOnly = true)
@@ -622,12 +619,13 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		if (searchCriteria.getCreatedBy() != null) {
 			c.add(eq("creator", searchCriteria.getCreatedBy()));
-			addAuditDateBounds(c, "dateCreated", searchCriteria);
 		}
 		if (searchCriteria.getVoidedBy() != null) {
 			c.add(eq("voidedBy", searchCriteria.getVoidedBy()));
-			addAuditDateBounds(c, "dateVoided", searchCriteria);
 		}
+		// Each range names the column it bounds, so none of this depends on which filters are set.
+		addDateBounds(c, "dateCreated", searchCriteria.getCreatedOnOrAfter(), searchCriteria.getCreatedOnOrBefore());
+		addDateBounds(c, "dateVoided", searchCriteria.getVoidedOnOrAfter(), searchCriteria.getVoidedOnOrBefore());
 		if (searchCriteria.getPatient() != null) {
 			c.add(eq("person", searchCriteria.getPatient()));
 		}

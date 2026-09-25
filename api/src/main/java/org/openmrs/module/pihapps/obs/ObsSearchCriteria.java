@@ -33,19 +33,28 @@ public class ObsSearchCriteria {
     private User voidedBy;
 
     /**
-     * Bound the audit action rather than the observation's own datetime, which {@link #onOrAfter}
-     * and {@link #onOrBefore} cover. An observation backdated to last year but entered this morning
-     * was modified this morning, which is what a search over a timeframe is asking about.
+     * Bound when the observation was created. Each of the ranges below names the column it applies
+     * to, and each is independent of the filters: `createdOnOrAfter` narrows by creation date
+     * whether or not {@link #createdBy} is also given, and naming several asks for all of them.
      *
-     * <p>Each user filter is bounded by the column belonging to its action, so naming both users
-     * and a range asks for observations that one user created and the other voided, each within the
-     * window. Both ends run inclusively and are applied as given, so a caller that means a whole
-     * day passes that day's last moment.
+     * <p>Which range a search wants is the caller's to decide. An audit bounds the action it is
+     * about rather than the observation's own datetime — an observation backdated to last year but
+     * entered this morning was entered this morning — while {@link #onOrAfter} and
+     * {@link #onOrBefore} bound obsDatetime, when the observation says it was taken.
+     *
+     * <p>Both ends of every range run inclusively. An upper end carrying no time of day is read as
+     * the whole of that day.
      */
-    private Date auditOnOrAfter;
+    private Date createdOnOrAfter;
 
-    /** @see #auditOnOrAfter */
-    private Date auditOnOrBefore;
+    /** @see #createdOnOrAfter */
+    private Date createdOnOrBefore;
+
+    /** Bound when the observation was voided. @see #createdOnOrAfter */
+    private Date voidedOnOrAfter;
+
+    /** @see #createdOnOrAfter */
+    private Date voidedOnOrBefore;
 
     private List<SortCriteria> sortCriteria;
     private Integer startIndex;
