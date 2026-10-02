@@ -33,16 +33,20 @@ import java.util.Map;
  * <pre>
  * GET /openmrs/ws/rest/v1/pihapps/encounterTypeCount
  * GET /openmrs/ws/rest/v1/pihapps/encounterTypeCount?includeVoided=true
+ * GET /openmrs/ws/rest/v1/pihapps/encounterTypeCount?includeVoided=true&amp;onlyUsed=true
  * GET /openmrs/ws/rest/v1/pihapps/encounterTypeCount?v=custom:(uuid,display,retired)
  * </pre>
  *
  * <p>`includeVoided` decides whether voided encounters count towards their type, and is off unless
  * asked for. An audit wants it on, so that a type whose encounters have all been deleted is still
- * offered.
+ * offered. Which encounters are counted decides which types `onlyUsed` keeps: without
+ * `includeVoided`, a type whose encounters have all been voided is left out.
  *
  * <p>The response is a `results` list ordered by type name, each entry holding the type, rendered
  * in the representation `v` asks for and the ref representation otherwise, and its `count`. A type
- * with no encounters is listed with a count of zero rather than left out.
+ * with no encounters is listed with a count of zero rather than left out, unless `onlyUsed` is
+ * given, which leaves out every type whose count is zero. A client that only wants the types to
+ * offer as choices asks for that rather than filtering a list of every type itself.
  *
  * <p>The counts are of the whole encounter table, so this is not paged and takes no filters.
  */
@@ -58,12 +62,15 @@ public class PihAppsEncounterTypeCountRestController {
     @ResponseBody
     public Object getEncounterTypeCounts(HttpServletRequest request, HttpServletResponse response,
                                          @RequestParam(value = "includeVoided", required = false,
-                                                 defaultValue = "false") boolean includeVoided)
+                                                 defaultValue = "false") boolean includeVoided,
+                                         @RequestParam(value = "onlyUsed", required = false,
+                                                 defaultValue = "false") boolean onlyUsed)
             throws ResponseException {
         try {
             RequestContext context = RestUtil.getRequestContext(request, response, Representation.REF);
             List<SimpleObject> results = new ArrayList<>();
-            for (Map.Entry<EncounterType, Long> entry : pihAppsService.getEncounterTypeCounts(includeVoided).entrySet()) {
+            Map<EncounterType, Long> counts = pihAppsService.getEncounterTypeCounts(includeVoided, onlyUsed);
+            for (Map.Entry<EncounterType, Long> entry : counts.entrySet()) {
                 SimpleObject result = new SimpleObject();
                 result.add("encounterType",
                         ConversionUtil.convertToRepresentation(entry.getKey(), context.getRepresentation()));

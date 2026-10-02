@@ -47,7 +47,7 @@ public class PihAppsEncounterTypeCountTest extends BaseModuleContextSensitiveTes
 
     @Test
     public void shouldCountNonVoidedEncountersOfEachType() {
-        Map<EncounterType, Long> counts = service.getEncounterTypeCounts(false);
+        Map<EncounterType, Long> counts = service.getEncounterTypeCounts(false, false);
 
         for (Map.Entry<EncounterType, Long> entry : counts.entrySet()) {
             assertThat(entry.getKey().getName(), entry.getValue(), is(encounterCount(entry.getKey(), false)));
@@ -56,7 +56,7 @@ public class PihAppsEncounterTypeCountTest extends BaseModuleContextSensitiveTes
 
     @Test
     public void shouldCountEveryEncounterOfEachTypeWhenAskedToIncludeVoided() {
-        Map<EncounterType, Long> counts = service.getEncounterTypeCounts(true);
+        Map<EncounterType, Long> counts = service.getEncounterTypeCounts(true, false);
 
         for (Map.Entry<EncounterType, Long> entry : counts.entrySet()) {
             assertThat(entry.getKey().getName(), entry.getValue(), is(encounterCount(entry.getKey(), true)));
@@ -69,8 +69,8 @@ public class PihAppsEncounterTypeCountTest extends BaseModuleContextSensitiveTes
         long withVoided = encounterCount(typeOne, true);
 
         // the fixture voids encounter 3003, of type 1
-        assertThat(service.getEncounterTypeCounts(false).get(typeOne), is(withVoided - 1));
-        assertThat(service.getEncounterTypeCounts(true).get(typeOne), is(withVoided));
+        assertThat(service.getEncounterTypeCounts(false, false).get(typeOne), is(withVoided - 1));
+        assertThat(service.getEncounterTypeCounts(true, false).get(typeOne), is(withVoided));
     }
 
     @Test
@@ -81,13 +81,13 @@ public class PihAppsEncounterTypeCountTest extends BaseModuleContextSensitiveTes
         encounter.setEncounterType(deletedOnly);
         encounterService.saveEncounter(encounter);
 
-        assertThat(service.getEncounterTypeCounts(false).get(deletedOnly), is(0L));
-        assertThat(service.getEncounterTypeCounts(true).get(deletedOnly), is(1L));
+        assertThat(service.getEncounterTypeCounts(false, false).get(deletedOnly), is(0L));
+        assertThat(service.getEncounterTypeCounts(true, false).get(deletedOnly), is(1L));
     }
 
     @Test
     public void shouldListEveryTypeIncludingRetiredAndUnusedOnes() {
-        Map<EncounterType, Long> counts = service.getEncounterTypeCounts(true);
+        Map<EncounterType, Long> counts = service.getEncounterTypeCounts(true, false);
 
         assertThat(new ArrayList<>(counts.keySet()),
                 containsInAnyOrder(encounterService.getAllEncounterTypes(true).toArray()));
@@ -98,12 +98,39 @@ public class PihAppsEncounterTypeCountTest extends BaseModuleContextSensitiveTes
         EncounterType unused = new EncounterType("Unused type", "Nothing is recorded against this");
         encounterService.saveEncounterType(unused);
 
-        assertThat(service.getEncounterTypeCounts(true).get(unused), is(0L));
+        assertThat(service.getEncounterTypeCounts(true, false).get(unused), is(0L));
+    }
+
+    @Test
+    public void shouldLeaveOutTypesWithNoEncountersWhenAskedForOnlyUsedOnes() {
+        EncounterType unused = new EncounterType("Unused type", "Nothing is recorded against this");
+        encounterService.saveEncounterType(unused);
+
+        Map<EncounterType, Long> counts = service.getEncounterTypeCounts(true, true);
+
+        assertThat(counts.containsKey(unused), is(false));
+        assertThat(counts.values().stream().allMatch(count -> count > 0), is(true));
+        // and every type that is used is still there, with the same count
+        Map<EncounterType, Long> allCounts = service.getEncounterTypeCounts(true, false);
+        allCounts.values().removeIf(count -> count == 0);
+        assertThat(counts, is(allCounts));
+    }
+
+    @Test
+    public void shouldDecideWhichTypesAreUsedByWhichEncountersAreCounted() {
+        EncounterType deletedOnly = new EncounterType("Deleted only", "Every encounter of this type is voided");
+        encounterService.saveEncounterType(deletedOnly);
+        Encounter encounter = encounterService.getEncounter(3003);
+        encounter.setEncounterType(deletedOnly);
+        encounterService.saveEncounter(encounter);
+
+        assertThat(service.getEncounterTypeCounts(false, true).containsKey(deletedOnly), is(false));
+        assertThat(service.getEncounterTypeCounts(true, true).get(deletedOnly), is(1L));
     }
 
     @Test
     public void shouldOrderTypesByName() {
-        List<String> names = service.getEncounterTypeCounts(true).keySet().stream()
+        List<String> names = service.getEncounterTypeCounts(true, false).keySet().stream()
                 .map(EncounterType::getName)
                 .collect(Collectors.toList());
         List<String> sorted = new ArrayList<>(names);

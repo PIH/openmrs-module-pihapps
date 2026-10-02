@@ -684,7 +684,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Transactional(readOnly = true)
 	@Authorized({ PrivilegeConstants.GET_ENCOUNTER_TYPES, PrivilegeConstants.GET_ENCOUNTERS })
 	@SuppressWarnings({ "unchecked" })
-	public Map<EncounterType, Long> getEncounterTypeCounts(boolean includeVoided) {
+	public Map<EncounterType, Long> getEncounterTypeCounts(boolean includeVoided, boolean onlyUsed) {
 		// One grouped query over the encounter table rather than one count per type: the encounter
 		// type column is indexed, and an implementation can have a great many types.
 		List<Object[]> rows = sessionFactory.getCurrentSession()
@@ -701,6 +701,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		encounterTypes.sort((a, b) -> OpenmrsUtil.compareWithNullAsGreatest(a.getName(), b.getName()));
 		for (EncounterType encounterType : encounterTypes) {
 			Long count = countsById.get(encounterType.getEncounterTypeId());
+			if (count == null && onlyUsed) {
+				continue;
+			}
 			counts.put(encounterType, count == null ? 0L : count);
 		}
 		return counts;

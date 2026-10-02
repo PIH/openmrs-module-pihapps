@@ -103,8 +103,8 @@ public interface PihAppsService extends OpenmrsService {
 	/**
 	 * Every encounter type in the system, retired ones included, with how many encounters of that
 	 * type the database holds. A type nothing has been recorded against comes
-	 * back with a count of zero rather than being left out, so a caller can tell an unused type from
-	 * one it has never heard of.
+	 * back with a count of zero rather than being left out, unless asked to leave such types out,
+	 * so a caller can tell an unused type from one it has never heard of.
 	 *
 	 * <p>Which types an implementation actually uses varies a great deal by country, and a filter
 	 * listing every type in the system is mostly noise, so this is what a client narrows its type
@@ -115,8 +115,9 @@ public interface PihAppsService extends OpenmrsService {
 	 * whose encounters have all been deleted still has a trail worth looking at.
 	 *
 	 * @param includeVoided whether voided encounters count towards their type
+	 * @param onlyUsed whether to leave out the types whose count is zero
 	 * @return each encounter type, ordered by name, mapped to its count of encounters
 	 */
 	@Authorized({ PrivilegeConstants.GET_ENCOUNTER_TYPES, PrivilegeConstants.GET_ENCOUNTERS })
-	Map<EncounterType, Long> getEncounterTypeCounts(boolean includeVoided);
+	Map<EncounterType, Long> getEncounterTypeCounts(boolean includeVoided, boolean onlyUsed);
 }
