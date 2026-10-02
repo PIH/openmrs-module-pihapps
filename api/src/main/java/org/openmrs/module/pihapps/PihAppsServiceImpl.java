@@ -680,6 +680,35 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		return result;
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized({ PrivilegeConstants.GET_ENCOUNTER_TYPES, PrivilegeConstants.GET_ENCOUNTERS })
+	@SuppressWarnings({ "unchecked" })
+	public Map<EncounterType, Long> getEncounterTypeCounts(boolean includeVoided, boolean onlyUsed) {
+		// One grouped query over the encounter table rather than one count per type: the encounter
+		// type column is indexed, and an implementation can have a great many types.
+		List<Object[]> rows = sessionFactory.getCurrentSession()
+				.createQuery("select e.encounterType.encounterTypeId, count(e) from Encounter e "
+						+ (includeVoided ? "" : "where e.voided = false ")
+						+ "group by e.encounterType.encounterTypeId")
+				.list();
+		Map<Integer, Long> countsById = new HashMap<>();
+		for (Object[] row : rows) {
+			countsById.put((Integer) row[0], (Long) row[1]);
+		}
+		Map<EncounterType, Long> counts = new LinkedHashMap<>();
+		List<EncounterType> encounterTypes = new ArrayList<>(encounterService.getAllEncounterTypes(true));
+		encounterTypes.sort((a, b) -> OpenmrsUtil.compareWithNullAsGreatest(a.getName(), b.getName()));
+		for (EncounterType encounterType : encounterTypes) {
+			Long count = countsById.get(encounterType.getEncounterTypeId());
+			if (count == null && onlyUsed) {
+				continue;
+			}
+			counts.put(encounterType, count == null ? 0L : count);
+		}
+		return counts;
+	}
+
 	/**
 	 * Both ends run inclusively. The upper end is widened to the end of its day when it carries no
 	 * time, so that a range named in days covers the whole of the last one.
