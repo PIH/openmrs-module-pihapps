@@ -131,6 +131,46 @@ public class LoginLocationPageControllerTest {
         assertThat(controller.isValidReturnUrl("/pihapps/loginLocation.page"), is(false));
     }
 
+    @Test
+    public void isValidReturnUrl_shouldRejectEncodedDotSegments() {
+        assertThat(controller.isValidReturnUrl("/%2e%2e/manager/html"), is(false));
+        assertThat(controller.isValidReturnUrl("/%2E%2E/manager/html"), is(false));
+        assertThat(controller.isValidReturnUrl("/coreapps/%2e%2e/%2e%2e/manager/html"), is(false));
+        assertThat(controller.isValidReturnUrl("/coreapps/..;x=1/../manager/html"), is(false));
+    }
+
+    @Test
+    public void isValidReturnUrl_shouldAcceptDotSegmentsThatStayWithinApplication() {
+        assertThat(controller.isValidReturnUrl("/coreapps/../reportingui/reportsapp/home.page"), is(true));
+    }
+
+    @Test
+    public void isValidReturnUrl_shouldRejectLogoutUrls() {
+        assertThat(controller.isValidReturnUrl("/appui/header/logout.action?successUrl=openmrs"), is(false));
+        assertThat(controller.isValidReturnUrl("/Logout.htm"), is(false));
+        assertThat(controller.isValidReturnUrl("/appui/header/%6Cogout.action"), is(false));
+    }
+
+    @Test
+    public void isValidReturnUrl_shouldRejectEncodedOrParameterizedLoginLocationPage() {
+        assertThat(controller.isValidReturnUrl("/pihapps/%6CoginLocation.page"), is(false));
+        assertThat(controller.isValidReturnUrl("/pihapps/loginLocation.page;jsessionid=ABC"), is(false));
+        assertThat(controller.isValidReturnUrl("/pihapps/LoginLocation.page?returnUrl=%2F"), is(false));
+    }
+
+    @Test
+    public void post_shouldEncodeBracesInReturnUrl() {
+        String returnUrl = "%2Freportingui%2Freportsapp%2Fhome.page%3Ff%3D%7B%22a%22%3A1%7D";
+        String result = controller.post(sessionContext, response, loginLocation1, returnUrl);
+        assertThat(result, equalTo("redirect:/reportingui/reportsapp/home.page?f=%7B\"a\":1%7D"));
+    }
+
+    @Test
+    public void get_shouldRedirectToRootIfOnlyOneLoginLocationAndLogoutReturnUrl() {
+        setupLoginLocations(Collections.singletonList(loginLocation1));
+        assertThat(get("/appui/header/logout.action?successUrl=openmrs"), equalTo("redirect:/"));
+    }
+
     private void setupLoginLocations(List<Location> loginLocations) {
         Map<Location, List<Location>> visitAndLoginLocations = new LinkedHashMap<>();
         visitAndLoginLocations.put(visitLocation, loginLocations);

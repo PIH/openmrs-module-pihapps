@@ -43,7 +43,9 @@ public class RequireLoginLocationFilter implements Filter {
 
 	private static final Logger log = Logger.getLogger(RequireLoginLocationFilter.class);
 
-	public static final String LOGIN_LOCATION_PAGE = "/" + WebConstants.CONTEXT_PATH + "/pihapps/loginLocation.page";
+	public static final String LOGIN_LOCATION_PATH = "/pihapps/loginLocation.page";
+
+	public static final String LOGIN_LOCATION_PAGE = "/" + WebConstants.CONTEXT_PATH + LOGIN_LOCATION_PATH;
 
 	public static final List<String> WHITELIST = Arrays.asList(
 			"*.js", "*.css", "*.gif", "*.jpg", "*.jpeg", "*.png", "*.ttf", "*.woff", "*.action", "/csrfguard",
