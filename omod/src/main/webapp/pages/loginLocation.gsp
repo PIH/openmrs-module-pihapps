@@ -125,7 +125,7 @@
 
 <% } else { %>
 
-    <form id="login-location-form" method="post">
+    <form id="login-location-form" method="post" action="${ ui.pageLink("pihapps", "loginLocation") }">
         <!-- only show visit location selector if there are multiple locations to choose from -->
         <% if (visitLocations.size() > 1) { %>
             <div class="clear" id="visit-location-section">
