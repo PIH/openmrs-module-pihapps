@@ -13,6 +13,7 @@
  */
 package org.openmrs.module.pihapps.filter;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.openmrs.User;
 import org.openmrs.api.context.Context;
@@ -31,6 +32,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.List;
 
@@ -67,8 +69,9 @@ public class RequireLoginLocationFilter implements Filter {
 				if (currentUser != null) {
 					if (!isExcluded(httpRequest)) {
 						if (LocationTagWebConfig.getLoginLocation(session) == null) {
-							log.debug("Redirecting " + currentUser + " from " + httpRequest.getRequestURI() + " to " + LOGIN_LOCATION_PAGE);
-							httpResponse.sendRedirect(LOGIN_LOCATION_PAGE);
+							String redirectUrl = getLoginLocationPageUrl(httpRequest);
+							log.debug("Redirecting " + currentUser + " from " + httpRequest.getRequestURI() + " to " + redirectUrl);
+							httpResponse.sendRedirect(redirectUrl);
 							return;
 						}
 					}
@@ -84,6 +87,48 @@ public class RequireLoginLocationFilter implements Filter {
 			return true;
 		}
 		return UrlPathMatcher.urlMatchesAnyPattern(httpRequest, WHITELIST);
+	}
+
+	/**
+	 * @return the login location page url, with a returnUrl to the requested page if this is a page the user loaded in
+	 * the browser, so that they are returned to it once they choose a login location (eg. a page requested before login)
+	 */
+	public String getLoginLocationPageUrl(HttpServletRequest request) {
+		if (!"GET".equalsIgnoreCase(request.getMethod()) || !isPageNavigation(request)) {
+			return LOGIN_LOCATION_PAGE;
+		}
+		String returnUrl = request.getRequestURI();
+		if (returnUrl.startsWith(request.getContextPath())) {
+			returnUrl = returnUrl.substring(request.getContextPath().length());
+		}
+		if (StringUtils.isBlank(returnUrl) || returnUrl.equals("/")) {
+			return LOGIN_LOCATION_PAGE;
+		}
+		if (StringUtils.isNotBlank(request.getQueryString())) {
+			returnUrl = returnUrl + "?" + request.getQueryString();
+		}
+		try {
+			return LOGIN_LOCATION_PAGE + "?returnUrl=" + URLEncoder.encode(returnUrl, "UTF-8");
+		}
+		catch (Exception e) {
+			return LOGIN_LOCATION_PAGE;
+		}
+	}
+
+	/**
+	 * Browsers report page loads in fetch metadata headers, but only over https and to localhost, so otherwise fall
+	 * back to a request for html that isn't marked as ajax.  This matches the check in the authentication module.
+	 */
+	protected boolean isPageNavigation(HttpServletRequest request) {
+		if (request.getHeader("Sec-Purpose") != null || request.getHeader("Purpose") != null) {
+			return false;  // A prefetch or prerender, which the user may never see
+		}
+		String fetchMode = request.getHeader("Sec-Fetch-Mode");
+		if (fetchMode != null) {
+			return "navigate".equals(fetchMode) && "document".equals(request.getHeader("Sec-Fetch-Dest"));
+		}
+		String accept = request.getHeader("Accept");
+		return accept != null && accept.contains("text/html") && request.getHeader("X-Requested-With") == null;
 	}
 
 	@Override

@@ -50,7 +50,8 @@ public class LoginLocationPageController {
 
     public String get(PageModel model, UiUtils ui, UiSessionContext sessionContext,
                       HttpServletRequest request, HttpServletResponse response,
-                      @SpringBean LocationTagConfig locationTagConfig) {
+                      @SpringBean LocationTagConfig locationTagConfig,
+                      @RequestParam(value = "returnUrl", required = false) String returnUrl) {
 
         model.addAttribute("locationTagConfig", locationTagConfig);
         model.addAttribute("authenticatedUser", sessionContext.getCurrentUser());
@@ -80,7 +81,8 @@ public class LoginLocationPageController {
                 allLoginLocations.addAll(locs);
             }
             if (allLoginLocations.size() == 1) {
-                return post(sessionContext, response, allLoginLocations.get(0), getReferer(currentLoginLocation, request));
+                String redirectUrl = getReturnUrl(returnUrl, currentLoginLocation, request);
+                return setLoginLocationAndRedirect(sessionContext, response, allLoginLocations.get(0), redirectUrl);
             }
 
             currentLoginLocation = sessionContext.getSessionLocation();
@@ -100,16 +102,51 @@ public class LoginLocationPageController {
         model.addAttribute("visitAndLoginLocations", visitAndLoginLocations);
         model.addAttribute("currentVisitLocation", currentVisitLocation);
         model.addAttribute("currentLoginLocation", currentLoginLocation);
-        model.addAttribute("returnUrl", encodeUrl(getReferer(currentLoginLocation, request)));
+        model.addAttribute("returnUrl", encodeUrl(getReturnUrl(returnUrl, currentLoginLocation, request)));
         return "loginLocation";
     }
 
     public String post(UiSessionContext sessionContext, HttpServletResponse response,
                        @RequestParam(value = "sessionLocation") Location sessionLocation,
                        @RequestParam(value = "returnUrl", required = false, defaultValue = "/") String returnUrl) {
+        return setLoginLocationAndRedirect(sessionContext, response, sessionLocation, decodeUrl(returnUrl));
+    }
+
+    protected String setLoginLocationAndRedirect(UiSessionContext sessionContext, HttpServletResponse response,
+                                                 Location sessionLocation, String returnUrl) {
         LocationTagWebConfig.setLoginLocation(sessionLocation, sessionContext, response);
-        returnUrl = decodeUrl(returnUrl);
+        if (!isValidReturnUrl(returnUrl)) {
+            log.debug("Not redirecting to invalid returnUrl: {}", returnUrl);
+            returnUrl = "/";
+        }
         return "redirect:" + returnUrl;
+    }
+
+    /**
+     * @return the returnUrl requested (eg. by RequireLoginLocationFilter for a page requested before login) if valid,
+     * otherwise the page the user came from to change their login location
+     */
+    protected String getReturnUrl(String requestedReturnUrl, Location currentLoginLocation, HttpServletRequest request) {
+        if (isValidReturnUrl(requestedReturnUrl)) {
+            return requestedReturnUrl;
+        }
+        return getReferer(currentLoginLocation, request);
+    }
+
+    /**
+     * @return true for a path within this application, relative to the context path, other than this page.
+     * Rejects anything a redirect would take to another host: a url with a scheme (eg. http:), or starting // or /\
+     * (which browsers treat as //), or with whitespace or control characters (which browsers remove)
+     */
+    protected boolean isValidReturnUrl(String url) {
+        if (StringUtils.isBlank(url) || !url.startsWith("/") || url.startsWith("//") || url.startsWith("/\\")) {
+            return false;
+        }
+        if (url.matches("(?s).*[\\s\\p{Cntrl}].*")) {
+            return false;
+        }
+        String path = url.split("[?#]", 2)[0];
+        return !path.contains("..") && !path.contains("/pihapps/loginLocation.page");
     }
 
     protected String getReferer(Location currentLoginLocation, HttpServletRequest request) {
