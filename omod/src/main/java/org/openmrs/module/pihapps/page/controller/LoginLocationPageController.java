@@ -120,6 +120,10 @@ public class LoginLocationPageController {
     protected String setLoginLocationAndRedirect(UiSessionContext sessionContext, HttpServletResponse response,
                                                  Location sessionLocation, String returnUrl) {
         LocationTagWebConfig.setLoginLocation(sessionLocation, sessionContext, response);
+        // Replace two or more leading slashes with one, eg. //path -> /path
+        if (returnUrl != null) {
+            returnUrl = returnUrl.replaceFirst("^/{2,}", "/");
+        }
         if (!isValidReturnUrl(returnUrl)) {
             log.debug("Not redirecting to invalid returnUrl: {}", returnUrl);
             returnUrl = "/";
