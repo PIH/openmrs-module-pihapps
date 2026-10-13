@@ -92,6 +92,31 @@ public class LoginLocationPageControllerTest {
     }
 
     @Test
+    public void post_shouldRedirectToRefererWithRepeatedSlashesAfterContextPath() {
+        setupLoginLocations(Arrays.asList(loginLocation1, loginLocation2));
+        when(sessionContext.getSessionLocation()).thenReturn(loginLocation1);
+        request.addHeader("Referer", "https://example.org:443/openmrs//pihcore/visit/visit.page?patient=abc&visit=def");
+        PageModel model = new PageModel();
+        controller.get(model, mock(UiUtils.class), sessionContext, request, response, locationTagConfig, null);
+        String result = controller.post(sessionContext, response, loginLocation2, (String) model.get("returnUrl"));
+        assertThat(result, equalTo("redirect:/pihcore/visit/visit.page?patient=abc&visit=def"));
+    }
+
+    @Test
+    public void get_shouldRedirectToReturnUrlWithRepeatedLeadingSlashesIfOnlyOneLoginLocation() {
+        setupLoginLocations(Collections.singletonList(loginLocation1));
+        assertThat(get("//pihcore/visit/visit.page?patient=abc"), equalTo("redirect:/pihcore/visit/visit.page?patient=abc"));
+    }
+
+    @Test
+    public void post_shouldRedirectToReturnUrlWithRepeatedLeadingSlashes() {
+        // As RequireLoginLocationFilter passes on a page requested as /openmrs//pihcore/visit/visit.page
+        String returnUrl = "%2F%2Fpihcore%2Fvisit%2Fvisit.page%3Fpatient%3Dabc";
+        assertThat(controller.post(sessionContext, response, loginLocation1, returnUrl), equalTo("redirect:/pihcore/visit/visit.page?patient=abc"));
+        assertThat(controller.post(sessionContext, response, loginLocation1, "%2F%2F%2Fpihcore%2Fvisit%2Fvisit.page"), equalTo("redirect:/pihcore/visit/visit.page"));
+    }
+
+    @Test
     public void post_shouldRedirectToDecodedReturnUrl() {
         String returnUrl = "%2Fcoreapps%2Fclinicianfacing%2Fpatient.page%3FpatientId%3Dabc%26app%3Dx";
         String result = controller.post(sessionContext, response, loginLocation1, returnUrl);
@@ -106,7 +131,13 @@ public class LoginLocationPageControllerTest {
     @Test
     public void post_shouldRedirectToRootForInvalidReturnUrl() {
         assertThat(controller.post(sessionContext, response, loginLocation1, "https%3A%2F%2Fexample.com"), equalTo("redirect:/"));
-        assertThat(controller.post(sessionContext, response, loginLocation1, "%2F%2Fexample.com"), equalTo("redirect:/"));
+        assertThat(controller.post(sessionContext, response, loginLocation1, "%2F%5Cexample.com"), equalTo("redirect:/"));
+    }
+
+    @Test
+    public void post_shouldRedirectProtocolRelativeReturnUrlWithinApplication() {
+        // Collapsed to a path within this application (/openmrs/example.com), rather than to another host
+        assertThat(controller.post(sessionContext, response, loginLocation1, "%2F%2Fexample.com"), equalTo("redirect:/example.com"));
     }
 
     @Test
