@@ -120,8 +120,7 @@ public class LoginLocationPageController {
     protected String setLoginLocationAndRedirect(UiSessionContext sessionContext, HttpServletResponse response,
                                                  Location sessionLocation, String returnUrl) {
         LocationTagWebConfig.setLoginLocation(sessionLocation, sessionContext, response);
-        // Pages linked to as contextPath + "/" + "/path" (eg. the visit page) load as //path, which isValidReturnUrl
-        // rejects as a url to another host.  The return url is a path within this application, so collapse it to /path.
+        // Replace two or more leading slashes with one, eg. //path -> /path
         if (returnUrl != null) {
             returnUrl = returnUrl.replaceFirst("^/{2,}", "/");
         }
