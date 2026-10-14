@@ -38,7 +38,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
             const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-            const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",effectiveReferenceRange"
+            const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",effectiveReferenceRange,creator:(display,person:(display))"
 
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
@@ -69,6 +69,10 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
             const getNormalRange = (obs) => {
                 return patientUtils.formatReferenceRange(obs.effectiveReferenceRange, obs.concept.units);
+            }
+
+            const getEnteredBy = (obs) => {
+                return jq("<div>").text(obs.creator?.person?.display ?? obs.creator?.display ?? "").html();
             }
 
             const onTableUpdate = () => {
@@ -139,7 +143,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 representation: "custom:(" + obsRep + ")",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
-                    getLabTest, getDate, getResults, getNormalRange
+                    getLabTest, getDate, getResults, getNormalRange, getEnteredBy
                 ],
                 tableUpdateCallback: onTableUpdate,
                 beforeRecreateTableCallback: beforeRecreateTable,
@@ -379,6 +383,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 <th>${ ui.message("pihapps.specimenDate") }</th>
                 <th>${ ui.message("pihapps.results") }</th>
                 <th>${ ui.message("pihapps.normalRange") }</th>
+                <th>${ ui.message("pihapps.enteredBy") }</th>
             </tr>
         </thead>
         <tbody></tbody>
