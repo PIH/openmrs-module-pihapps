@@ -9,8 +9,8 @@ class PihAppsPatientUtils {
 
     getPreferredIdentifier(patient, patientIdentifierTypeUuid) {
         const sortedIdentifiers = patient.identifiers.sort(function(a, b) {
-            const aPrimary = a.identifierType.uuid = patientIdentifierTypeUuid;
-            const bPrimary = b.identifierType.uuid = patientIdentifierTypeUuid;
+            const aPrimary = a.identifierType.uuid === patientIdentifierTypeUuid;
+            const bPrimary = b.identifierType.uuid === patientIdentifierTypeUuid;
             if (aPrimary && !bPrimary) {
                 return -1;
             }
@@ -29,6 +29,42 @@ class PihAppsPatientUtils {
         });
         return sortedIdentifiers && sortedIdentifiers.length > 0 ? sortedIdentifiers[0].identifier : "";
     };
+
+    /**
+     * messages: { gender: { M, F, U, O }, unknownGender }
+     */
+    formatGender(person, messages) {
+        return messages.gender[person.gender] ?? messages.unknownGender;
+    }
+
+    /**
+     * Formats age in years, or months/days for infants
+     * messages: { ageYears, ageMonths, ageDays, unknownAge }, each age message containing a {0} placeholder
+     */
+    formatAge(person, messages) {
+        if (!person.birthdate) {
+            return messages.unknownAge;
+        }
+        const birthdate = moment(person.birthdate).startOf('day');
+        const today = moment().startOf('day');
+        if (today.diff(birthdate, 'years') > 0) {
+            return messages.ageYears.replace("{0}", today.diff(birthdate, 'years'));
+        }
+        if (today.diff(birthdate, 'months') > 0) {
+            return messages.ageMonths.replace("{0}", today.diff(birthdate, 'months'));
+        }
+        return messages.ageDays.replace("{0}", today.diff(birthdate, 'days'));
+    }
+
+    /**
+     * Formats birthdate, prefixed with ~ if estimated
+     */
+    formatBirthdate(person, dateUtils) {
+        if (!person.birthdate) {
+            return "";
+        }
+        return (person.birthdateEstimated ? "~" : "") + dateUtils.formatAsDateWithoutTime(person.birthdate);
+    }
 
     getOrderStatusOption(order, orderStatusOptions) {
         if (order.dateStopped) {
