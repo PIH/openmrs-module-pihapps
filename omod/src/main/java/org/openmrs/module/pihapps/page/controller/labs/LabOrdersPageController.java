@@ -1,7 +1,9 @@
 package org.openmrs.module.pihapps.page.controller.labs;
 
 import org.openmrs.Patient;
+import org.openmrs.module.appui.UiSessionContext;
 import org.openmrs.module.emrapi.patient.PatientDomainWrapper;
+import org.openmrs.module.pihapps.LocationTagConfig;
 import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.ui.framework.UiUtils;
 import org.openmrs.ui.framework.annotation.InjectBeans;
@@ -14,10 +16,13 @@ public class LabOrdersPageController {
     public void get(PageModel model, UiUtils ui,
                       @InjectBeans PatientDomainWrapper patientDomainWrapper,
                       @RequestParam(value = "patient") Patient patient,
-                      @SpringBean("pihAppsConfig") PihAppsConfig pihAppsConfig) {
+                      @SpringBean("pihAppsConfig") PihAppsConfig pihAppsConfig,
+                      @SpringBean("locationTagConfig") LocationTagConfig locationTagConfig,
+                      UiSessionContext sessionContext) {
 
         patientDomainWrapper.setPatient(patient);
         model.addAttribute("patient", patientDomainWrapper);
         model.addAttribute("pihAppsConfig", pihAppsConfig);
+        model.addAttribute("sessionLocationIsAdmission", locationTagConfig.isAdmissionLocation(sessionContext.getSessionLocation()));
     }
 }
