@@ -4,6 +4,7 @@
     ui.includeJavascript("uicommons", "moment-with-locales.min.js")
     ui.includeJavascript("pihapps", "pagingDataTable.js")
     ui.includeJavascript("pihapps", "patientUtils.js")
+    ui.includeJavascript("pihapps", "specimenCollection.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
     ui.includeCss("pihapps", "labs/labs.css")
 
@@ -26,7 +27,7 @@
     const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
     const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep
 
-    const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display),testLocationQuestion:(uuid,datatype:(name),answers:(uuid,display)),specimenCollectionEncounterType:(uuid),specimenCollectionEncounterRole:(uuid),estimatedCollectionDateQuestion:(uuid,datatype:(name)),estimatedCollectionDateAnswer:(uuid),testOrderNumberQuestion:(uuid,datatype:(name)),labIdentifierConcept:(uuid,datatype:(name)),specimenReceivedDateQuestion:(uuid,datatype:(name)),resultsDateQuestion:(uuid,datatype:(name)),reasonTestNotPerformedQuestion:(uuid,datatype:(name),answers:(uuid,display)),collectResultComments,defaultOrderedFromLookbackDays)";
+    const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display)," + PihAppsSpecimenCollection.getConfigRep() + ",resultsDateQuestion:(uuid,datatype:(name)),reasonTestNotPerformedQuestion:(uuid,datatype:(name),answers:(uuid,display)),collectResultComments,defaultOrderedFromLookbackDays)";
     const pihAppsConfigRep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
     moment.locale(window.sessionContext?.locale ?? 'en');
@@ -36,21 +37,22 @@
     const patientOrderRep = "id,uuid,orderNumber,dateActivated,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),accessionNumber,urgency,action,patient:" + patientRep + ",concept:(id,uuid,allowDecimal,display,displayStringForLab)";
     const patientUtils = new PihAppsPatientUtils(jq);
 
+    const specimenCollection = new PihAppsSpecimenCollection({
+        openForm: () => openEncounterEdit(),
+        closeForm: () => closeEncounterEdit(),
+        loadErrorMessage: "${ ui.encodeJavaScript(ui.message("pihapps.specimenCollectionLoadErrorMessage")) }"
+    });
+
     const viewSpecimenEncounter = function(encounterUuid) {
-        const encounterRep = "id,uuid,patient:" + patientRep + ",encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(uuid,concept:(uuid,datatype:(name)),value,valueCoded:(uuid,display),valueNumeric,valueDatetime,valueText,comment,formNamespaceAndPath)";
-        const rep = "encounter:(" + encounterRep + "),orders:(" + orderRep + ")";
         showSpecimenCollectionLoading();
         openEncounterEdit();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
-            jq.get(openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterUuid + "?v=custom:(" + rep + ")", function (encAndOrders) {
-                initializeSpecimenCollectionForm({
-                    patientUuid: encAndOrders.encounter.patient.uuid,
-                    orders: encAndOrders.orders,
-                    selectedOrderUuids: encAndOrders.orders.map(o => o.uuid),
-                    encounter: encAndOrders.encounter,
-                    pihAppsConfig: pihAppsConfig,
-                    onSuccessFunction: () => { closeEncounterEdit(); pagingDataTable.updateTable(); }
-                });
+            specimenCollection.edit({
+                encounterUuid: encounterUuid,
+                orderRep: orderRep,
+                patientRep: patientRep,
+                pihAppsConfig: pihAppsConfig,
+                onSuccess: () => pagingDataTable.updateTable()
             });
         });
     };
@@ -94,14 +96,12 @@
         showSpecimenCollectionLoading();
         openEncounterEdit();
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + pihAppsConfigRep + ")", function(pihAppsConfig) {
-            initializeSpecimenCollectionForm({
+            specimenCollection.collect({
                 patientUuid: patient.uuid,
                 orders: orders,
                 selectedOrderUuids: selectedOrderUuids,
-                encounter: null,
                 pihAppsConfig: pihAppsConfig,
-                onSuccessFunction: () => {
-                    closeEncounterEdit();
+                onSuccess: () => {
                     if (jq("#group-by-patient-btn").hasClass("active")) {
                         patientPagingDataTable.updateTable();
                     } else {
@@ -226,10 +226,13 @@
                             .attr({ "data-order-uuid": order.uuid, "title": resultsTitle })
                     );
                 } else if (status === 'AWAITING' || status === 'ORPHANED') {
-                    actions.append(
-                        jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
-                            .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
-                    );
+                    // An orphaned order can still be expired, in which case it can be marked not performed but not collected
+                    if (PihAppsSpecimenCollection.isCollectable(order)) {
+                        actions.append(
+                            jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
+                                .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
+                        );
+                    }
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-action")
                             .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
@@ -377,11 +380,13 @@
                 const actions = jq("<span>").addClass("patient-group-actions");
                 const patientUuid = patientWithOrders.patient.uuid;
                 const awaitingOrders = patientWithOrders.orders.filter(o => { const s = getOrderStatus(o); return s === 'AWAITING' || s === 'ORPHANED'; });
-                if (awaitingOrders.length > 0) {
+                if (awaitingOrders.some(PihAppsSpecimenCollection.isCollectable)) {
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-group-action")
                             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.collectSpecimen') }" })
                     );
+                }
+                if (awaitingOrders.length > 0) {
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-group-action")
                             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
@@ -493,9 +498,9 @@
                     const patientUuid = jq(event.currentTarget).data("patientUuid");
                     const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
                     if (patientWithOrders) {
-                        const awaitingOrders = patientWithOrders.orders.filter(o => { const s = getOrderStatus(o); return s === 'AWAITING' || s === 'ORPHANED'; });
+                        const collectableOrders = patientWithOrders.orders.filter(PihAppsSpecimenCollection.isCollectable);
                         setLabPatientHeader(patientWithOrders.patient);
-                        collectSpecimen(patientWithOrders.patient, awaitingOrders, awaitingOrders.map(o => o.uuid));
+                        collectSpecimen(patientWithOrders.patient, collectableOrders, collectableOrders.map(o => o.uuid));
                     }
                 });
 
