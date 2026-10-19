@@ -228,6 +228,16 @@ All pages follow the same pattern: the Groovy page controller injects minimal se
   multiple answers, field dependency rules). Used by `recordLabResults.gsp`, and available to implementations that enter
   results for several orders on one page
 
+### Extension points on `labOrderList.gsp`
+
+| Extension point | `extensionParams` | Purpose |
+|---|---|---|
+| `org.openmrs.module.pihapps.labOrderList.patientGroupActions` | `iconClass`, `jsFunction`, `visibleForOrderStatuses` | An action icon on each patient row. `jsFunction(patientWithOrders, extensionParams)` is called on click. With `visibleForOrderStatuses` (a list of `AWAITING`, `COLLECTED`, `AWAITING_VALIDATION`, `COMPLETED`, `NOT_PERFORMED`, `EXPIRED`, `CANCELED`, `ORPHANED`), the icon only shows on rows with at least one order in one of those statuses |
+| `org.openmrs.module.pihapps.labOrderList.orderBadges` | `jsFunction` | Badges beside order statuses. `jsFunction(orders, extensionParams)` returns, or resolves to, a map from order uuid to `{text, cssClass, title, showOnPatientRow}`. Patient rows show the distinct badges of their orders, except those with `showOnPatientRow: false` |
+
+The functions are looked up on `window`, so the implementation must load the script that defines them, for example as
+a global resource.
+
 ### Page interactions
 
 **labOrders.gsp** — On load, fetches `/config` for display options and populates filter dropdowns, then loads `/labOrder` with patient filter. Filter changes trigger a table reload. Discontinue action posts a DISCONTINUE order action to the core `/encounter` endpoint.
