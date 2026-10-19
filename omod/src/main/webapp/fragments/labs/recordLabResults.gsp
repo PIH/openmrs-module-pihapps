@@ -10,6 +10,7 @@
 
     ui.includeJavascript("pihapps", "dateUtils.js")
     ui.includeJavascript("pihapps", "formHelper.js")
+    ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "labs/labResultFields.js")
     ui.includeCss("pihapps", "labs/labs.css")
 
@@ -47,6 +48,7 @@
             removeComment: '${ ui.encodeJavaScript(ui.message("pihapps.removeComment")) }',
             removeResult: '${ ui.encodeJavaScript(ui.message("pihapps.removeResult")) }',
             addAnotherResult: '${ ui.encodeJavaScript(ui.message("pihapps.addAnotherResult")) }',
+            submitForValidation: '${ ui.encodeJavaScript(ui.message("pihapps.submitForValidation")) }',
         };
 
         if (!order || !order.fulfillerEncounter) {
@@ -135,14 +137,18 @@
             resultsEntrySection.find(".result-row").remove();
 
             // Add fulfiller status widget
+            // When results must be validated, completing them submits them for validation: the order stays
+            // in progress, awaiting validation, until a validator completes it
+            const requireResultValidation = pihAppsConfig.labOrderConfig.requireResultValidation;
+            const awaitingValidation = order.fulfillerStatus === 'IN_PROGRESS' && order.fulfillerComment === PihAppsPatientUtils.RESULTS_AWAITING_VALIDATION;
             const fulfillerStatuses = ["IN_PROGRESS", "COMPLETED", "EXCEPTION"]
                 .map(s => { return fulfillerStatusOptions.find(o => o.status === s) })
-                .map(o => { return { value: o.status, display: o.display  }})
+                .map(o => { return { value: o.status, display: (requireResultValidation && o.status === 'COMPLETED') ? messages.submitForValidation : o.display }})
             ;
             const fulfillerStatusWidget = formHelper.createSelectWidget({
                 id: id + "-fulfiller-status",
                 options: fulfillerStatuses,
-                initialValue: order.fulfillerStatus,
+                initialValue: awaitingValidation ? 'COMPLETED' : order.fulfillerStatus,
                 includeEmptyOption: false,
             });
             resultsEntrySection.find(".fulfiller-status").append(fulfillerStatusWidget);

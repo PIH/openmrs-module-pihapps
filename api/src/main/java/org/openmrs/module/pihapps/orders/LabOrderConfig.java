@@ -67,6 +67,9 @@ public class LabOrderConfig {
     public List<Map<String, String>> getOrderFulfillmentStatusOptions() {
         List<Map<String, String>> l = new ArrayList<>();
         for (OrderFulfillmentStatus s : OrderFulfillmentStatus.values()) {
+            if (s == OrderFulfillmentStatus.AWAITING_VALIDATION && !getRequireResultValidation()) {
+                continue;
+            }
             String display = messageSourceService.getMessage("pihapps.orderFulfillmentStatus." + s.name());
             l.add(map("status", s.name(), "display", display));
         }
@@ -484,6 +487,18 @@ public class LabOrderConfig {
 
     public boolean getCollectResultComments() {
         return !"false".equalsIgnoreCase(getCollectResultCommentsReference());
+    }
+
+    // Whether entered results must be validated by a second user before the order is completed.
+    // Defaults to false. When true, saving results leaves the order IN_PROGRESS and awaiting validation,
+    // and results are only returned to clinicians once their order is COMPLETED.
+
+    public String getRequireResultValidationReference() {
+        return ConfigUtil.getProperty("pihapps.labs.requireResultValidation", "false");
+    }
+
+    public boolean getRequireResultValidation() {
+        return "true".equalsIgnoreCase(getRequireResultValidationReference());
     }
 
     // Multiple answer concepts (tests that can produce more than one obs value)

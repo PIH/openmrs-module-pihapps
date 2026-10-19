@@ -87,6 +87,7 @@ The frontend fetches config via `GET /rest/v1/pihapps/config?v=custom:(...)`. Th
 | `getLabOrderEncounterType/Role()` | `pihapps.labs.labOrderEncounterType/Role` | Used when placing/discontinuing orders |
 | `getSpecimenCollectionEncounterType/Role()` | `pihapps.labs.specimenCollectionEncounterType/Role` | Used when saving specimen collection encounters |
 | `getCollectResultComments()` | `pihapps.labs.collectResultComments` | Defaults `true`; controls comment field in results entry |
+| `getRequireResultValidation()` | `pihapps.labs.requireResultValidation` | Defaults `false`; see [Result validation](#result-validation) |
 | `getMultipleAnswerConceptsReference()` | `pihapps.labs.multipleAnswerConcepts` | Falls back to `laboratorymanagement.multipleAnswerConceptIds`; returns raw property string |
 | `getMultipleAnswerConcepts()` | — | Resolves the reference string to `List<Concept>`; result is cached and invalidated when the property value changes |
 
@@ -117,13 +118,29 @@ A composite status that combines `OrderStatus` + `FulfillerStatus` into user-fac
 | Enum value | OrderStatus | FulfillerStatuses | Include null fulfiller? |
 |---|---|---|---|
 | `AWAITING_FULFILLMENT` | ACTIVE | RECEIVED | yes (not yet collected) |
-| `IN_FULFILLMENT` | — | IN_PROGRESS, ON_HOLD | — |
+| `IN_FULFILLMENT` | — | IN_PROGRESS, ON_HOLD | — (excludes orders awaiting validation) |
+| `AWAITING_VALIDATION` | — | IN_PROGRESS | — (only orders awaiting validation) |
 | `COMPLETED_FULFILLMENT` | — | COMPLETED | — |
 | `UNABLE_TO_COMPLETE_FULFILLMENT` | — | EXCEPTION, DECLINED | — |
 | `EXPIRED_BEFORE_FULFILLMENT` | EXPIRED | RECEIVED | yes |
 | `CANCELLED_BEFORE_FULFILLMENT` | STOPPED | RECEIVED | yes |
 
 Note: `AWAITING_FULFILLMENT` includes both null fulfiller status (never collected) and `RECEIVED` status (specimen collected but fulfiller not yet updated), because specimen collection sets the fulfiller status to `RECEIVED`.
+
+An order awaits validation when its fulfiller status is `IN_PROGRESS` and its fulfiller comment is
+`OrderFulfillmentStatus.RESULTS_AWAITING_VALIDATION`. `AWAITING_VALIDATION` is only offered as a filter option when
+result validation is required.
+
+### Result validation
+
+When `pihapps.labs.requireResultValidation` is `true`:
+- `saveEncounterFulfillingOrders` never completes an order: an order submitted as `COMPLETED` is saved as `IN_PROGRESS`
+  and marked as awaiting validation. This is enforced on the server, whatever the client sends.
+- The results form labels its `COMPLETED` choice "Submit for validation".
+- `GET /labResults` only returns results whose order is `COMPLETED`, or that are not linked to an order.
+- Completing a validated order is left to the implementation (for example a validation page in another module), which
+  calls `OrderService.updateOrderFulfillerStatus(order, COMPLETED, ...)` and clears the awaiting validation mark.
+- Saving the order as `IN_PROGRESS`, marking it not performed, or reverting it clears the mark.
 
 ---
 
@@ -293,7 +310,7 @@ Two custom resource wrappers add fields not available in core representations:
 4. Fetches existing obs from the fulfiller encounter
 5. User enters result values; form validates ranges if `allowDecimal` / reference range is set
 6. On save, PATCHes or POSTs obs on the fulfiller encounter:
-   - Sets `fulfillerStatus = COMPLETED` on the order
+   - Sets `fulfillerStatus = COMPLETED` on the order, or leaves it awaiting validation when validation is required
    - Records `specimenReceivedDateQuestion` and `resultsDateQuestion` obs
    - Optionally records `comment` on the obs if `collectResultComments = true`
 
