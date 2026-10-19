@@ -24,6 +24,7 @@ import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Subqueries;
+import org.hibernate.sql.JoinType;
 import org.openmrs.Concept;
 import org.openmrs.Encounter;
 import org.openmrs.EncounterProvider;
@@ -79,6 +80,7 @@ import static org.hibernate.criterion.Restrictions.in;
 import static org.hibernate.criterion.Restrictions.isNotNull;
 import static org.hibernate.criterion.Restrictions.isNull;
 import static org.hibernate.criterion.Restrictions.le;
+import static org.hibernate.criterion.Restrictions.not;
 import static org.hibernate.criterion.Restrictions.or;
 
 @Transactional
@@ -339,6 +341,12 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					fulfillerStatusClauses.add(isNotNull("fulfillerStatus"));
 				}
 				Criterion fulfillerStatusClause = fulfillerStatusClauses.isEmpty() ? null : or(fulfillerStatusClauses.toArray(new Criterion[0]));
+				if (status.getAwaitingValidation() != null) {
+					Criterion awaitingValidation = eq("fulfillerComment", OrderFulfillmentStatus.RESULTS_AWAITING_VALIDATION);
+					Criterion validationClause = status.getAwaitingValidation() ? awaitingValidation :
+							or(isNull("fulfillerComment"), not(awaitingValidation));
+					fulfillerStatusClause = fulfillerStatusClause == null ? validationClause : and(fulfillerStatusClause, validationClause);
+				}
 
 				Criterion statusCriterion;
 				if (orderStatusClause != null && fulfillerStatusClause != null) {
@@ -384,12 +392,15 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Transactional
 	@Authorized(PrivilegeConstants.ADD_ENCOUNTERS)
 	public EncounterFulfillingOrders saveEncounterFulfillingOrders(EncounterFulfillingOrders encounterFulfillingOrders) {
-		// We need to ensure that the session does not flush when we retrieve this concept, to avoid errors with ImmutableObsInterceptor
+		// We need to ensure that the session does not flush when we retrieve this configuration, to avoid errors with
+		// ImmutableObsInterceptor and with the obs of the encounter that are not saved yet
 		Concept accessionNumberConcept;
+		boolean requireResultValidation;
 		FlushMode flushMode = sessionFactory.getCurrentSession().getFlushMode();
 		try {
 			sessionFactory.getCurrentSession().setFlushMode(FlushMode.MANUAL);
 			accessionNumberConcept = labOrderConfig.getLabIdentifierConcept();
+			requireResultValidation = labOrderConfig.getRequireResultValidation();
 		}
 		finally {
 			sessionFactory.getCurrentSession().setFlushMode(flushMode);
@@ -422,7 +433,13 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				if (fulfillerStatus == null) {
 					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
 				}
-				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, null, accessionNumber);
+				// Results that must be validated are only completed by a validator: until then they await validation
+				boolean awaitingValidation = fulfillerStatus == Order.FulfillerStatus.COMPLETED && requireResultValidation;
+				if (awaitingValidation) {
+					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
+				}
+				setAwaitingValidation(order, awaitingValidation);
+				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, order.getFulfillerComment(), accessionNumber);
 			}
 		}
 		encounterService.saveEncounter(encounter);
@@ -538,6 +555,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Authorized(PrivilegeConstants.EDIT_ORDERS)
 	public void markOrdersAsNotFulfilled(List<Order> orders, Concept reason) {
 		for (Order order : orders) {
+			setAwaitingValidation(order, false);
 			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.EXCEPTION, null);
 			Obs existingValue = getReasonOrderNotFulfilled(order);
 			if (reason != null) {
@@ -580,7 +598,21 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			if (existingReason != null) {
 				obsService.voidObs(existingReason, "Reverted to ordered by pihAppsService.revertOrdersToOrdered");
 			}
+			setAwaitingValidation(order, false);
 			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.RECEIVED, null);
+		}
+	}
+
+	/**
+	 * Marks an order's results as awaiting validation, or clears that mark.  Updating the fulfiller status with a
+	 * null comment leaves the existing comment in place, so the mark is cleared on the order itself.
+	 */
+	private void setAwaitingValidation(Order order, boolean awaitingValidation) {
+		if (awaitingValidation) {
+			order.setFulfillerComment(OrderFulfillmentStatus.RESULTS_AWAITING_VALIDATION);
+		}
+		else if (OrderFulfillmentStatus.RESULTS_AWAITING_VALIDATION.equals(order.getFulfillerComment())) {
+			order.setFulfillerComment(null);
 		}
 	}
 
@@ -599,6 +631,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		// Then query to get page of results
 		c = createHibernateObsSearchCriteria(searchCriteria, true);
 		c.setProjection(null);
+		c.setResultTransformer(Criteria.ROOT_ENTITY); // clearing the projection would otherwise return joined rows
 		Integer startIndex = searchCriteria.getStartIndex();
 		Integer limit = searchCriteria.getLimit();
 		if (limit != null) {
@@ -631,6 +664,10 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		if (searchCriteria.getConcepts() != null) {
 			c.add(in("concept", searchCriteria.getConcepts()));
+		}
+		if (searchCriteria.isOnlyCompletedOrders()) {
+			c.createAlias("order", "o", JoinType.LEFT_OUTER_JOIN);
+			c.add(or(isNull("order"), eq("o.fulfillerStatus", Order.FulfillerStatus.COMPLETED)));
 		}
 		if (searchCriteria.getOnOrBefore() != null) {
 			Date onOrBefore = OpenmrsUtil.getLastMomentOfDay(searchCriteria.getOnOrBefore());
