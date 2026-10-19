@@ -21,6 +21,7 @@
     const visitLocationUuid = '${ visitLocationUuid }';
     const visitLocationName = '${ visitLocationForSessionLocation ? ui.encodeJavaScript(visitLocationForSessionLocation.name) : "" }';
     const patientGroupActionExtensions = ${ ui.toJson(patientGroupActionExtensions) };
+    const orderBadgeExtensions = ${ ui.toJson(orderBadgeExtensions) };
 
     const patientRep = "(uuid,display,person:(display),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
     const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
@@ -182,11 +183,51 @@
 
             const getOrderFulfillmentStatus = (order) => {
                 const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
+                const badges = '<span class="lab-ext-order-badges" data-order-uuid="' + order.uuid + '"></span>';
                 if (getOrderStatus(order) === 'ORPHANED') {
                     return '<span class="orphaned-order-status" title="${ ui.message("pihapps.orphanedOrderWarning") }">'
-                        + '<i class="fas fa-fw fa-exclamation-triangle"></i> ' + statusDisplay + '</span>';
+                        + '<i class="fas fa-fw fa-exclamation-triangle"></i> ' + statusDisplay + '</span>' + badges;
                 }
-                return statusDisplay;
+                return statusDisplay + badges;
+            };
+
+            // ---- Badges from extensions, such as payment status, shown beside the order status ----
+
+            const orderBadges = {};  // order uuid -> badges from each extension
+
+            const badgeHtml = (badge) => jq("<span>").addClass("badge lab-ext-badge " + (badge.cssClass || "badge-secondary"))
+                .attr("title", badge.title || "").text(badge.text)[0].outerHTML;
+
+            const renderOrderBadges = () => {
+                jq(".lab-ext-order-badges").each(function() {
+                    jq(this).html((orderBadges[jq(this).attr("data-order-uuid")] || []).map(badgeHtml).join(""));
+                });
+                jq(".lab-ext-patient-badges").each(function() {
+                    const patientUuid = jq(this).attr("data-patient-uuid");
+                    const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
+                    const shown = {};
+                    (patientWithOrders?.orders || []).forEach(order => {
+                        (orderBadges[order.uuid] || []).filter(b => b.showOnPatientRow !== false).forEach(b => { shown[b.text] = b; });
+                    });
+                    jq(this).html(Object.values(shown).map(badgeHtml).join(""));
+                });
+            };
+
+            const loadOrderBadges = (orders) => {
+                renderOrderBadges();
+                if (orders.length === 0) return;
+                orderBadgeExtensions.forEach(ext => {
+                    const fn = window[ext.extensionParams?.jsFunction];
+                    if (typeof fn !== 'function') return;
+                    Promise.resolve(fn(orders, ext.extensionParams)).then(badges => {
+                        orders.forEach(order => {
+                            const others = (orderBadges[order.uuid] || []).filter(b => b.extensionId !== ext.id);
+                            const badge = badges ? badges[order.uuid] : null;
+                            orderBadges[order.uuid] = badge ? others.concat([{ ...badge, extensionId: ext.id }]) : others;
+                        });
+                        renderOrderBadges();
+                    }).catch(error => console.warn("Unable to load badges from " + ext.id, error));
+                });
             };
 
             const buildOrderActions = (order) => {
@@ -274,6 +315,7 @@
             }
 
             const orderTableUpdated = function() {
+                loadOrderBadges(pagingDataTable.getRowObjects());
                 jq(".enter-results-action").off("click").on("click", (event) => {
                     const orderUuid = jq(event.target).data().orderUuid;
                     const order = getOrderFromTable(orderUuid);
@@ -353,7 +395,8 @@
                     'MIXED':         { cls: 'badge-secondary', key: '${ui.encodeJavaScript(ui.message("pihapps.mixedStatus"))}' }
                 };
                 const label = labels[status] || labels['MIXED'];
-                return '<span class="badge ' + label.cls + '">' + label.key + '</span>';
+                return '<span class="badge ' + label.cls + '">' + label.key + '</span>'
+                    + '<span class="lab-ext-patient-badges" data-patient-uuid="' + patientWithOrders.patient.uuid + '"></span>';
             };
 
             const getPatientGroupActions = (patientWithOrders) => {
@@ -371,6 +414,11 @@
                     );
                 }
                 patientGroupActionExtensions.forEach(ext => {
+                    // An action can be limited to patients with at least one order in one of the given statuses
+                    const visibleForOrderStatuses = ext.extensionParams?.visibleForOrderStatuses;
+                    if (visibleForOrderStatuses && !patientWithOrders.orders.some(o => visibleForOrderStatuses.includes(getOrderStatus(o)))) {
+                        return;
+                    }
                     const iconClass = (ext.extensionParams && ext.extensionParams.iconClass) || 'fas fa-fw fa-cog';
                     actions.append(
                         jq("<i>").addClass(iconClass + " lab-action-icon lab-ext-group-action")
@@ -418,6 +466,7 @@
                         subRow.insertAfter(insertAfter);
                         insertAfter = subRow;
                     });
+                    renderOrderBadges();
 
                     // Attach click handlers to newly inserted sub-rows
                     patientWithOrders.orders.forEach(order => {
@@ -464,6 +513,7 @@
             };
 
             const patientTableUpdated = function() {
+                loadOrderBadges(patientPagingDataTable.getRowObjects().flatMap(p => p.orders));
                 jq("#patients-table tbody tr").each(function() {
                     const patientUuid = jq(this).find("[data-patient-uuid]").first().attr("data-patient-uuid");
                     if (patientUuid) {
@@ -739,6 +789,9 @@
         cursor: pointer;
         padding: 0 4px;
         color: #495057;
+    }
+    .lab-ext-badge {
+        margin-left: 4px;
     }
     .lab-action-icon:hover {
         color: #0056b3;
