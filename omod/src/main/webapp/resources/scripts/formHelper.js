@@ -406,6 +406,33 @@ class FormHelper {
         return widget;
     }
 
+    /**
+     * @return the top level obs group of the encounter that contains the obs, or null if the obs is at the top level
+     */
+    getInitialObsGroup(obsUuid) {
+        return (this.encounter?.obs ?? []).find(o => o.groupMembers?.some(m => m.uuid === obsUuid)) ?? null;
+    }
+
+    /**
+     * @return the obs group in the payload for an existing group, or for a new group of the concept and order
+     */
+    getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath) {
+        let obsGroup = initialGroup
+            ? encounter.obs.find(o => o.uuid === initialGroup.uuid)
+            : encounter.obs.find(o => !o.uuid && o.groupMembers && o.concept === groupingConceptUuid && o.order === orderUuid);
+        if (!obsGroup) {
+            obsGroup = {
+                uuid: initialGroup?.uuid,
+                order: initialGroup ? (initialGroup.order?.uuid ?? orderUuid) : orderUuid,
+                concept: initialGroup ? initialGroup.concept.uuid : groupingConceptUuid,
+                formNamespaceAndPath: initialGroup ? initialGroup.formNamespaceAndPath : groupNamespaceAndPath,
+                groupMembers: []
+            };
+            encounter.obs.push(obsGroup);
+        }
+        return obsGroup;
+    }
+
     constructEncounterPayload() {
         const encounter = {
             uuid: this.encounter?.uuid,
@@ -468,20 +495,17 @@ class FormHelper {
                     obs.comment = commentValue.length > 0 ? commentValue : null;
                 }
 
-                if (groupingConceptUuid) {
-                    let initialGroup = this.initialObs.find(o => o.concept.uuid === groupingConceptUuid);
-                    let obsGroup = encounter.obs.find(o => o.concept === groupingConceptUuid);
-                    if (!obsGroup) {
-                        obsGroup = {
-                            uuid: initialGroup?.uuid,
-                            order: orderUuid,
-                            concept: groupingConceptUuid,
-                            formNamespaceAndPath: initialGroup ? initialGroup.formNamespaceAndPath : groupNamespaceAndPath,
-                            groupMembers: []
-                        };
-                        encounter.obs.push(obsGroup);
-                    }
-                    obsGroup.groupMembers.push(obs);
+                // An existing obs stays where it is: in the group it belongs to, or at the top level. It cannot be
+                // moved into a new group, which happens to results recorded without a group, eg by a lab machine.
+                const existingGroup = obsUuid ? this.getInitialObsGroup(obsUuid) : undefined;
+                if (existingGroup) {
+                    this.getPayloadGroup(encounter, existingGroup, orderUuid).groupMembers.push(obs);
+                }
+                else if (groupingConceptUuid && !obsUuid) {
+                    // A new obs goes in the existing group of its panel, for this order if there is one
+                    const groups = (this.encounter?.obs ?? []).filter(o => o.concept.uuid === groupingConceptUuid && o.groupMembers?.length > 0);
+                    const initialGroup = groups.find(g => g.order?.uuid === orderUuid) ?? groups.find(g => !g.order) ?? null;
+                    this.getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath).groupMembers.push(obs);
                 }
                 else {
                     encounter.obs.push(obs);
