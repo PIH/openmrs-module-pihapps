@@ -207,6 +207,9 @@ All pages follow the same pattern: the Groovy page controller injects minimal se
 - `patientUtils.js` — helpers for extracting preferred identifier, computing order status display values
 - `dateUtils.js` — locale-aware date formatting using moment.js
 - `formHelper.js` — used by specimen collection and results forms to build OpenMRS encounter/obs payloads
+- `labs/labResultFields.js` — `PihAppsLabResultFields.render()` draws the result fields of one order (reference ranges,
+  multiple answers, field dependency rules). Used by `recordLabResults.gsp`, and available to implementations that enter
+  results for several orders on one page
 
 ### Page interactions
 
