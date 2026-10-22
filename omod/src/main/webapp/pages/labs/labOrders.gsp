@@ -135,7 +135,32 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 loadErrorMessage: "${ ui.encodeJavaScript(ui.message("pihapps.specimenCollectionLoadErrorMessage")) }"
             });
 
-            const refreshOrders = () => pagingDataTable.updateTable();
+            // Orders selected for a single specimen collection, keyed by order uuid so that the selection survives paging
+            const selectedOrders = new Map();
+
+            const updateSelectionBar = function() {
+                jq("#selected-orders-count").text(selectedOrders.size);
+                jq("#selected-orders-bar").toggle(selectedOrders.size > 0);
+            }
+
+            const clearSelection = function() {
+                selectedOrders.clear();
+                jq("#orders-table .select-order-checkbox").prop("checked", false);
+                updateSelectionBar();
+            }
+
+            const refreshOrders = function() {
+                clearSelection();
+                pagingDataTable.updateTable();
+            }
+
+            // Only orders that can still be collected get a checkbox
+            const getSelectOrderCheckbox = function(order) {
+                if (!sessionLocationIsAdmission || !PihAppsSpecimenCollection.isCollectable(order)) {
+                    return "";
+                }
+                return '<input type="checkbox" class="select-order-checkbox" data-order-uuid="' + order.uuid + '"' + (selectedOrders.has(order.uuid) ? ' checked' : '') + '/>';
+            }
 
             // At admission locations, orders that are awaiting collection can have their specimen collected,
             // and orders that have already been collected can have their specimen collection edited
@@ -193,6 +218,36 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 }
             });
 
+            jq("#orders-table").on("change", ".select-order-checkbox", function(event) {
+                const uuid = jq(event.currentTarget).attr("data-order-uuid");
+                const order = getDisplayedOrder(uuid);
+                if (jq(event.currentTarget).is(":checked") && order) {
+                    selectedOrders.set(uuid, order);
+                } else {
+                    selectedOrders.delete(uuid);
+                }
+                updateSelectionBar();
+            });
+
+            jq("#clear-selected-orders").click(function(event) {
+                event.preventDefault();
+                clearSelection();
+            });
+
+            jq("#collect-selected-orders").click(function(event) {
+                event.preventDefault();
+                const orders = Array.from(selectedOrders.values());
+                if (orders.length > 0) {
+                    specimenCollection.collect({
+                        patientUuid: patientUuid,
+                        orders: orders,
+                        selectedOrderUuids: orders.map(o => o.uuid),
+                        pihAppsConfig: pihAppsConfig,
+                        onSuccess: refreshOrders
+                    });
+                }
+            });
+
             jq("#specimen-encounter-section button.cancel").click(function(event) {
                 event.preventDefault();
                 closeEncounterEdit();
@@ -216,9 +271,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                 endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
                 representation: "custom:(id,uuid,display,orderNumber,orderer:(person:(display)),dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,fulfillerEncounter:(id,uuid,display,encounterDatetime),orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,concept:(id,uuid,allowDecimal,display,displayStringForLab)",
                 parameters: { ...getFilterParameterValues() },
-                columnTransformFunctions: [
+                columnTransformFunctions: (sessionLocationIsAdmission ? [getSelectOrderCheckbox] : []).concat([
                     getOrderDate, getOrderNumber, getLabTest, getOrderer, getOrderFulfillmentStatus, getActions
-                ],
+                ]),
                 datatableOptions: {
                     oLanguage: {
                         sInfo: "${ ui.message("uicommons.dataTable.info") }",
@@ -254,6 +309,18 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 </script>
 <style>
     #edit-specimen-encounter-section { display: none; }
+    #selected-orders-bar {
+        background-color: #d0dcdc;
+        border: 1px solid #b3c5c5;
+        margin: 0 0 5px 0;
+        padding: 5px 10px;
+    }
+    #selected-orders-bar #clear-selected-orders {
+        margin-left: 10px;
+    }
+    #selected-orders-bar button {
+        margin: 0;
+    }
     .order-specimen-actions .collect-specimen-action {
         cursor: pointer;
         padding: 0 4px;
@@ -311,9 +378,22 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     </div>
 </form>
 
+<% if (sessionLocationIsAdmission) { %>
+<div id="selected-orders-bar" class="row justify-content-between align-items-center" style="display: none;">
+    <div class="col">
+        <span><strong id="selected-orders-count">0</strong> ${ ui.message("pihapps.testsSelected") }</span>
+        <a href="#" id="clear-selected-orders">${ ui.message("pihapps.clearSelection") }</a>
+    </div>
+    <div class="col text-right">
+        <button type="button" id="collect-selected-orders"><i class="fas fa-fw fa-vial"></i> ${ ui.message("pihapps.specimenCollection") }</button>
+    </div>
+</div>
+<% } %>
+
 <table id="orders-table">
     <thead>
         <tr>
+            <% if (sessionLocationIsAdmission) { %><th></th><% } %>
             <th>${ ui.message("pihapps.orderDate") }</th>
             <th>${ ui.message("pihapps.orderNumber") }</th>
             <th>${ ui.message("pihapps.labTest") }</th>
