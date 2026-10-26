@@ -32,6 +32,7 @@ public class LocationTagConfig {
 
     private LocationTag visitLocationTag;
     private LocationTag loginLocationTag;
+    private LocationTag admissionLocationTag;
 
     public LocationTagConfig() {}
 
@@ -49,6 +50,13 @@ public class LocationTagConfig {
         return loginLocationTag;
     }
 
+    public LocationTag getAdmissionLocationTag() {
+        if (admissionLocationTag == null) {
+            admissionLocationTag = locationService.getLocationTagByName(EmrApiConstants.LOCATION_TAG_SUPPORTS_ADMISSION);
+        }
+        return admissionLocationTag;
+    }
+
     public List<Location> sortLocations(List<Location> locations) {
         locations.sort(Comparator.comparing(Location::getName));
         return locations;
@@ -60,6 +68,11 @@ public class LocationTagConfig {
 
     public boolean isLoginLocation(Location location) {
         return location.getTags() != null && location.getTags().contains(getLoginLocationTag());
+    }
+
+    public boolean isAdmissionLocation(Location location) {
+        LocationTag tag = getAdmissionLocationTag();
+        return location != null && tag != null && location.getTags() != null && location.getTags().contains(tag);
     }
 
     public List<Location> getVisitLocations() {
