@@ -321,6 +321,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     #selected-orders-bar button {
         margin: 0;
     }
+    .order-specimen-actions {
+        margin-right: 16px;
+    }
     .order-specimen-actions .collect-specimen-action {
         cursor: pointer;
         padding: 0 4px;
