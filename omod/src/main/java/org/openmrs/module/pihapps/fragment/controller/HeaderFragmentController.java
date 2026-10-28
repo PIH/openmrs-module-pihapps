@@ -15,6 +15,7 @@
 package org.openmrs.module.pihapps.fragment.controller;
 
 import org.openmrs.Location;
+import org.openmrs.api.LocationService;
 import org.openmrs.module.appframework.domain.Extension;
 import org.openmrs.module.appframework.service.AppFrameworkService;
 import org.openmrs.module.appui.AppUiExtensions;
@@ -31,6 +32,7 @@ public class HeaderFragmentController {
 
     public void controller(@SpringBean AppFrameworkService appFrameworkService,
                            @SpringBean LocationTagConfig locationTagConfig,
+                           @SpringBean("locationService") LocationService locationService,
                            UiSessionContext sessionContext,
                            UiUtils uiUtils,
                            FragmentModel fragmentModel) {
@@ -46,6 +48,8 @@ public class HeaderFragmentController {
         StringBuilder locationName = new StringBuilder();
         Location loginLocation = sessionContext.getSessionLocation();
         if (loginLocation != null) {
+            // Re-fetch, as the session location may be detached if an earlier transaction in this request rolled back
+            loginLocation = locationService.getLocation(loginLocation.getId());
             locationName.append(uiUtils.format(loginLocation));
             if (locationTagConfig.getValidVisitLocations().size() > 1) {
                 for (Location visitLocation : locationTagConfig.getVisitLocationsForLocation(loginLocation)) {
