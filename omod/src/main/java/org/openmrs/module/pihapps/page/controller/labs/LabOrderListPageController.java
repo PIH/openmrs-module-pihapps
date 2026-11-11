@@ -1,10 +1,12 @@
 package org.openmrs.module.pihapps.page.controller.labs;
 
 import org.openmrs.Location;
+import org.openmrs.api.context.Context;
 import org.openmrs.module.appframework.domain.Extension;
 import org.openmrs.module.appframework.service.AppFrameworkService;
 import org.openmrs.module.appui.UiSessionContext;
 import org.openmrs.module.emrapi.adt.AdtService;
+import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.ui.framework.annotation.SpringBean;
 import org.openmrs.ui.framework.page.PageModel;
 
@@ -25,7 +27,8 @@ public class LabOrderListPageController {
 
     public void controller(PageModel model, UiSessionContext sessionContext,
                            @SpringBean AdtService adtService,
-                           @SpringBean AppFrameworkService appFrameworkService) {
+                           @SpringBean AppFrameworkService appFrameworkService,
+                           @SpringBean LabOrderConfig labOrderConfig) {
 
         Location sessionLocation = sessionContext.getSessionLocation();
         model.addAttribute("sessionLocation", sessionLocation);
@@ -37,6 +40,9 @@ public class LabOrderListPageController {
 
         model.addAttribute("patientGroupActionExtensions", getExtensions(appFrameworkService, PATIENT_GROUP_ACTIONS_EXTENSION_POINT));
         model.addAttribute("orderBadgeExtensions", getExtensions(appFrameworkService, ORDER_BADGES_EXTENSION_POINT));
+        model.addAttribute("canValidateResults", labOrderConfig.getRequireResultValidation()
+                && Context.hasPrivilege(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS));
+        model.addAttribute("validateResultsPage", labOrderConfig.getValidateResultsPage());
     }
 
     private List<Map<String, Object>> getExtensions(AppFrameworkService appFrameworkService, String extensionPoint) {

@@ -494,7 +494,7 @@ public class LabOrderConfig {
 
     // Whether entered results must be validated by a second user before the order is completed.
     // Defaults to false. When true, saving results leaves the order IN_PROGRESS and awaiting validation,
-    // and results are only returned to clinicians once their order is COMPLETED.
+    // and the results stay PRELIMINARY until a validator makes them FINAL.
 
     public String getRequireResultValidationReference() {
         return ConfigUtil.getProperty("pihapps.labs.requireResultValidation", "false");
@@ -502,6 +502,15 @@ public class LabOrderConfig {
 
     public boolean getRequireResultValidation() {
         return "true".equalsIgnoreCase(getRequireResultValidationReference());
+    }
+
+    // The page the lab order list opens to validate a patient's results, relative to the context path, with
+    // {patient} standing for the patient uuid. Lets an implementation use its own page in place of pihapps' page.
+
+    public static final String DEFAULT_VALIDATE_RESULTS_PAGE = "/pihapps/labs/labResultEntry.page?patient={patient}&mode=validate";
+
+    public String getValidateResultsPage() {
+        return ConfigUtil.getProperty("pihapps.labs.validateResultsPage", DEFAULT_VALIDATE_RESULTS_PAGE);
     }
 
     // Multiple answer concepts (tests that can produce more than one obs value)

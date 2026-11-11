@@ -24,6 +24,8 @@
     const visitLocationName = '${ visitLocationForSessionLocation ? ui.encodeJavaScript(visitLocationForSessionLocation.name) : "" }';
     const patientGroupActionExtensions = ${ ui.toJson(patientGroupActionExtensions) };
     const orderBadgeExtensions = ${ ui.toJson(orderBadgeExtensions) };
+    const canValidateResults = ${ canValidateResults ? "true" : "false" };
+    const validateResultsPage = '${ ui.encodeJavaScript(validateResultsPage) }';
 
     const patientRep = "(uuid,display,person:(display,gender,birthdate,birthdateEstimated),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
     const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
@@ -278,6 +280,9 @@
                         jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
                             .attr({ "data-order-uuid": order.uuid, "title": resultsTitle })
                     );
+                    if (canValidateResults && status === 'AWAITING_VALIDATION') {
+                        actions.append(validateResultsAction(order.patient.uuid));
+                    }
                 } else if (status === 'AWAITING' || status === 'ORPHANED') {
                     // An orphaned order can still be expired, in which case it can be marked not performed but not collected
                     if (PihAppsSpecimenCollection.isCollectable(order)) {
@@ -301,6 +306,18 @@
             };
 
             const getActions = (order) => buildOrderActions(order).html();
+
+            // Validating opens a page for all the patient's results awaiting validation, so it is offered on each order
+            // and on the patient row. Bound once, for every table, by the document-level handler below.
+            const validateResultsAction = (patientUuid) => {
+                return jq("<i>").addClass("fas fa-fw fa-check-double lab-action-icon validate-results-action")
+                    .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.labResultEntry.validateResults') }" });
+            };
+            jq(document).on("click", ".validate-results-action", (event) => {
+                event.stopPropagation();
+                const patientUuid = jq(event.currentTarget).data("patientUuid");
+                window.location.href = openmrsContextPath + validateResultsPage.replace("{patient}", encodeURIComponent(patientUuid));
+            });
 
             const getFilterParameterValues = function() {
                 return {
@@ -447,6 +464,9 @@
                         jq("<i>").addClass("fas fa-fw fa-ban lab-action-icon mark-not-performed-group-action")
                             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
                     );
+                }
+                if (canValidateResults && patientWithOrders.orders.some(o => getOrderStatus(o) === 'AWAITING_VALIDATION')) {
+                    actions.append(validateResultsAction(patientUuid));
                 }
                 patientGroupActionExtensions.forEach(ext => {
                     // An action can be limited to patients with at least one order in one of the given statuses

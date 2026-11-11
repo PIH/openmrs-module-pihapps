@@ -1,6 +1,6 @@
 /**
  * Actions for the lab order list's patientGroupActions extension point, referenced by an extension's jsFunction.
- * Each opens the lab result entry page for the patient's orders.
+ * Each opens the lab result entry page for the patient's orders. Validating is built into the lab order list.
  */
 function pihappsLabOpenResultEntry(patientWithOrders, mode) {
     window.location.href = openmrsContextPath + "/pihapps/labs/labResultEntry.page?patient="
@@ -9,8 +9,4 @@ function pihappsLabOpenResultEntry(patientWithOrders, mode) {
 
 function pihappsLabEnterResults(patientWithOrders) {
     pihappsLabOpenResultEntry(patientWithOrders, "enter");
-}
-
-function pihappsLabValidateResults(patientWithOrders) {
-    pihappsLabOpenResultEntry(patientWithOrders, "validate");
 }
