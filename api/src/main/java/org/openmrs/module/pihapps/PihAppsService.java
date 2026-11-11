@@ -88,9 +88,19 @@ public interface PihAppsService extends OpenmrsService {
 	List<OrderFulfillmentEvent> getOrderFulfillmentEvents(Order order);
 
 	/**
+	 * @return the status a result of the given order saved now should have: PRELIMINARY when results must be validated
+	 * and the order is not completed, not performed or declined, otherwise FINAL.  For code that saves results of a
+	 * lab order outside {@link #saveEncounterFulfillingOrders}, such as an implementation's own result widgets, so that
+	 * its results are validated with the order's other results
+	 */
+	@Authorized(PrivilegeConstants.GET_ORDERS)
+	Obs.Status getNewLabResultStatus(Order order);
+
+	/**
 	 * @return the users who entered, changed or removed any result of the given order: the creators and voiders of
 	 * the order's result obs, voided ones included, and the user who last saved the encounter of each.  Result obs are
-	 * those linked to the order whose concept is one of {@link #getLabResultConcepts(Order)}
+	 * those linked to the order whose concept is one of {@link #getLabResultConcepts(Order)}, and the members of their
+	 * obs groups
 	 */
 	@Authorized(PrivilegeConstants.GET_OBS)
 	Set<User> getLabResultEditors(Order order);

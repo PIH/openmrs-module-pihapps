@@ -698,7 +698,8 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	/**
-	 * Marks new, non-voided results of the given order in the encounter, including obs groups, as preliminary
+	 * Marks new, non-voided results of the given order in the encounter as preliminary: obs linked to the order whose
+	 * concept is a result concept of the order, and the members of their groups
 	 */
 	private void markNewResultsPreliminary(Encounter encounter, Order order, Set<Concept> resultConcepts) {
 		Set<Obs> allObs = new HashSet<>();
@@ -710,11 +711,36 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			}
 		}
 		for (Obs obs : allObs) {
-			if (obs.getObsId() == null && !BooleanUtils.isTrue(obs.getVoided()) && order.equals(obs.getOrder())
-					&& resultConcepts.contains(obs.getConcept())) {
+			if (obs.getObsId() == null && !BooleanUtils.isTrue(obs.getVoided()) && isLabResult(obs, order, resultConcepts)) {
 				obs.setStatus(Obs.Status.PRELIMINARY);
 			}
 		}
+	}
+
+	/**
+	 * @return whether the obs is a result of the order: it, or an obs group it is a member of, is linked to the order
+	 * and has one of the order's result concepts
+	 */
+	private boolean isLabResult(Obs obs, Order order, Set<Concept> resultConcepts) {
+		for (Obs o = obs; o != null; o = o.getObsGroup()) {
+			if (order.equals(o.getOrder()) && resultConcepts.contains(o.getConcept())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_ORDERS)
+	public Obs.Status getNewLabResultStatus(Order order) {
+		if (!labOrderConfig.getRequireResultValidation()) {
+			return Obs.Status.FINAL;
+		}
+		Order.FulfillerStatus status = order.getFulfillerStatus();
+		boolean released = status == Order.FulfillerStatus.COMPLETED || status == Order.FulfillerStatus.EXCEPTION
+				|| status == Order.FulfillerStatus.DECLINED;
+		return released ? Obs.Status.FINAL : Obs.Status.PRELIMINARY;
 	}
 
 	@Override
@@ -855,7 +881,8 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	/**
-	 * @return the obs linked to the given order, voided ones included, whose concept is a result concept of the order
+	 * @return the results of the given order, voided ones included: obs linked to the order whose concept is a result
+	 * concept of the order, and the members of their groups that are linked to the order
 	 */
 	@SuppressWarnings({ "unchecked" })
 	private List<Obs> getLabResultObs(Order order) {
@@ -864,7 +891,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		c.add(eq("order", order));
 		List<Obs> ret = new ArrayList<>();
 		for (Obs obs : (List<Obs>) c.list()) {
-			if (resultConcepts.contains(obs.getConcept())) {
+			if (isLabResult(obs, order, resultConcepts)) {
 				ret.add(obs);
 			}
 		}

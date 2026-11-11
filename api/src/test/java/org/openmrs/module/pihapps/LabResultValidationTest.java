@@ -327,6 +327,42 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
+    public void submitAndValidate_shouldTreatMembersOfResultGroupsAsResults() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_9201);
+        Obs panel = resultObs(order, PANEL, null);
+        Obs weight = resultObs(order, WEIGHT, 60.0);
+        // A group within the panel's group with a member whose concept is not a set member of the panel, as an
+        // implementation's own result widget may record
+        Obs nestedGroup = resultObs(order, PANEL, null);
+        Obs nonMember = receivedDateObs(order);
+        nestedGroup.addGroupMember(nonMember);
+        panel.addGroupMember(weight);
+        panel.addGroupMember(nestedGroup);
+        save(order, Order.FulfillerStatus.COMPLETED, panel);
+        assertThat(savedStatus(nonMember), equalTo(Obs.Status.PRELIMINARY));
+
+        becomeValidator();
+        pihAppsService.validateLabResults(Collections.singletonList(order(ORDER_9201)), null);
+        Context.flushSession();
+        Context.clearSession();
+        assertThat(savedStatus(nonMember), equalTo(Obs.Status.FINAL));
+    }
+
+    @Test
+    public void getNewLabResultStatus_shouldBePreliminaryUntilTheOrderIsReleased() {
+        Order inProgress = order(ORDER_102);
+        Order completed = order(ORDER_6);
+        assertThat(pihAppsService.getNewLabResultStatus(inProgress), equalTo(Obs.Status.FINAL));
+
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        assertThat(pihAppsService.getNewLabResultStatus(inProgress), equalTo(Obs.Status.PRELIMINARY));
+        assertThat(pihAppsService.getNewLabResultStatus(completed), equalTo(Obs.Status.FINAL));
+        inProgress.setFulfillerStatus(Order.FulfillerStatus.EXCEPTION);
+        assertThat(pihAppsService.getNewLabResultStatus(inProgress), equalTo(Obs.Status.FINAL));
+    }
+
+    @Test
     public void validate_shouldRejectUserWhoEnteredResults() {
         setGlobalProperty("pihapps.labs.requireResultValidation", "true");
         Order order = order(ORDER_7);

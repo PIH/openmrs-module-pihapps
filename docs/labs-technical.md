@@ -195,6 +195,11 @@ that is already `COMPLETED`.
 The results form labels its `COMPLETED` choice "Submit for validation", except for an order that is already
 `COMPLETED`, where saving amends its results and "In progress" is not offered.
 
+Results are the obs linked to the order whose concept is the ordered concept or one of its set members, and the
+members of their obs groups. Code that saves results of a lab order itself, rather than through
+`saveEncounterFulfillingOrders` (an implementation's own result widget, for example), gives its new obs the status
+`PihAppsService.getNewLabResultStatus(order)` returns, so that they are validated with the order's other results.
+
 The lab order list has a built-in "Validate lab results" action, on each order awaiting validation and on each
 patient row with one, when validation is on and the user has `Task: pihapps.labs.validateResults`. It opens
 `labResultEntry.page` in validate mode for the patient.
