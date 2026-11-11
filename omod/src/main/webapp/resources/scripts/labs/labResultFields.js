@@ -18,7 +18,7 @@
  *     a failed save leaves nothing half saved; saving again must replace what an earlier save recorded.
  * The editor saves its own obs. They are results of the order, so the editor links them to the order and gives them
  * the status PihAppsService.getNewLabResultStatus returns, for them to be validated with the order's other results.
- * A result that replaces one of a released order is AMENDED, with the replaced obs as its previous version.
+ * A result that replaces a FINAL or AMENDED one is AMENDED, with the replaced obs as its previous version.
  * Only the direct members of the ordered panel can have an editor, not the members of a panel within it.
  */
 class PihAppsLabResultFields {
