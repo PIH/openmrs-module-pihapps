@@ -414,6 +414,23 @@ class FormHelper {
     }
 
     /**
+     * @return the existing group of the panel that new obs of the order go into: the order's own group, else a group
+     * with no order if no other order in the form has results for the panel, else null. A group of another order is never used.
+     */
+    getInitialPanelGroup(groupingConceptUuid, orderUuid) {
+        const groups = (this.encounter?.obs ?? []).filter(o => o.concept.uuid === groupingConceptUuid && o.groupMembers?.length > 0);
+        const ownGroup = groups.find(g => g.order?.uuid === orderUuid);
+        if (ownGroup) {
+            return ownGroup;
+        }
+        const otherOrderHasResults = this.obsWidgetFields.some(w => {
+            const d = w.data();
+            return d.groupingConceptUuid === groupingConceptUuid && d.orderUuid !== orderUuid && (d.obsUuid || w.val());
+        });
+        return otherOrderHasResults ? null : (groups.find(g => !g.order) ?? null);
+    }
+
+    /**
      * @return the obs group in the payload for an existing group, or for a new group of the concept and order
      */
     getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath) {
@@ -503,8 +520,7 @@ class FormHelper {
                 }
                 else if (groupingConceptUuid && !obsUuid) {
                     // A new obs goes in the existing group of its panel, for this order if there is one
-                    const groups = (this.encounter?.obs ?? []).filter(o => o.concept.uuid === groupingConceptUuid && o.groupMembers?.length > 0);
-                    const initialGroup = groups.find(g => g.order?.uuid === orderUuid) ?? groups.find(g => !g.order) ?? null;
+                    const initialGroup = this.getInitialPanelGroup(groupingConceptUuid, orderUuid);
                     this.getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath).groupMembers.push(obs);
                 }
                 else {
