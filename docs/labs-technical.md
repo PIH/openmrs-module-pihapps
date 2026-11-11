@@ -298,6 +298,15 @@ All pages follow the same pattern: the Groovy page controller injects minimal se
 | `org.openmrs.module.pihapps.labOrderList.patientGroupActions` | `iconClass`, `jsFunction`, `visibleForOrderStatuses` | An action icon on each patient row. `jsFunction(patientWithOrders, extensionParams)` is called on click. With `visibleForOrderStatuses` (a list of `AWAITING`, `COLLECTED`, `AWAITING_VALIDATION`, `COMPLETED`, `NOT_PERFORMED`, `EXPIRED`, `CANCELED`, `ORPHANED`), the icon only shows on rows with at least one order in one of those statuses |
 | `org.openmrs.module.pihapps.labOrderList.orderBadges` | `jsFunction` | Badges beside order statuses. `jsFunction(orders, extensionParams)` returns, or resolves to, a map from order uuid to `{text, cssClass, title, showOnPatientRow}`. Patient rows show the distinct badges of their orders, except those with `showOnPatientRow: false` |
 
+### Extension points for results recorded as obs groups
+
+| Extension point | `extensionParams` | Purpose |
+|---|---|---|
+| `org.openmrs.module.pihapps.patientLabResults.obsGroupRenderers` | `concept`, `jsFunction` | Shows a result recorded as an obs group (`concept`), such as the organisms a culture isolated and their antibiotic susceptibility, as one row. `jsFunction(obsGroup, extensionParams)` returns, or resolves to, the html or element to show as its result. Used by the patient lab results page, which asks `GET /labResults` for the group rather than its members (`renderedGroup`), and by the validate view of `labResultEntry.page` |
+| `org.openmrs.module.pihapps.labResults.obsGroupEditors` | `concept`, `jsFunction` | Enters such a result on both results forms (the single order form and `labResultEntry.page`), when `concept` is a member of the ordered panel. `jsFunction(context, extensionParams)` returns, or resolves to, an editor `{element, hasValue(), isChanged(), clear(), save(encounterUuid)}`. The forms call `save`, for changed editors, after saving the order's other results, with the encounter fulfilling the order. The editor saves its own obs, linked to the order, with the status `PihAppsService.getNewLabResultStatus(order)` returns. The context is described in `labs/labResultFields.js` |
+
+pihapps does not know how such a result is structured: the implementation's script and its own service define it.
+
 The functions are looked up on `window`, so the implementation must load the script that defines them, for example as
 a global resource.
 

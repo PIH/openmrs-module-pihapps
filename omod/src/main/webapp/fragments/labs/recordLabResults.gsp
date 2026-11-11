@@ -49,7 +49,12 @@
             removeResult: '${ ui.encodeJavaScript(ui.message("pihapps.removeResult")) }',
             addAnotherResult: '${ ui.encodeJavaScript(ui.message("pihapps.addAnotherResult")) }',
             submitForValidation: '${ ui.encodeJavaScript(ui.message("pihapps.submitForValidation")) }',
+            unableToLoadResultEntry: '${ ui.encodeJavaScript(ui.message("pihapps.unableToLoadResultEntry")) }',
         };
+
+        // Results recorded as obs groups that an implementation's own editor enters (see labResultFields.js)
+        const obsGroupEditors = PihAppsLabResultFields.getObsGroupEditors(${ ui.toJson(obsGroupEditorExtensions) });
+        const editors = [];
 
         if (!order || !order.fulfillerEncounter) {
             console.warn("recordLabResults requires an order that has a non-null fulfillerEncounter")
@@ -170,6 +175,10 @@
                 const fulfillerStatus = fulfillerStatusWidget.val();
                 parentElement.find(".status-section").hide().find(":input").val("");
                 parentElement.find(".status-section-" + fulfillerStatus).show();
+                // The results are hidden and cleared unless completed, the editors' as the fields'
+                if (fulfillerStatus !== 'COMPLETED') {
+                    editors.forEach(editor => editor.clear());
+                }
             }).change();
 
             // Add reason not performed widget
@@ -200,7 +209,9 @@
                     container: resultSection,
                     idPrefix: id,
                     collectResultComments: pihAppsConfig.labOrderConfig.collectResultComments,
-                    messages: messages
+                    messages: messages,
+                    obsGroupEditors: obsGroupEditors,
+                    editors: editors
                 });
 
                 const cancelButton = parentElement.find(".action-button.cancel");
@@ -265,6 +276,13 @@
                         return;
                     }
 
+                    const showSaveError = (xhr) => {
+                        parentElement.find(".action-button").removeAttr("disabled");
+                        const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
+                        const message = error?.translatedMessage ?? error?.message ?? error ?? xhr;
+                        parentElement.find(".errors-section").text(String(message));
+                    };
+
                     const payload = { encounter: encounterToSubmit, orders: ordersToSubmit };
                     jq.ajax({
                         url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
@@ -273,16 +291,14 @@
                         data: JSON.stringify(payload),
                         dataType: "json",
                         success: () => {
-                            parentElement.find(".action-button").removeAttr("disabled");
-                            resetForm();
-                            onSuccessFunction();
+                            // Then the results entered with obs group editors, in the same encounter
+                            PihAppsLabResultFields.saveEditors(editors, encounterToSubmit.uuid).then(() => {
+                                parentElement.find(".action-button").removeAttr("disabled");
+                                resetForm();
+                                onSuccessFunction();
+                            }).catch(showSaveError);
                         },
-                        error: (xhr) => {
-                            parentElement.find(".action-button").removeAttr("disabled");
-                            const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
-                            const message = error?.translatedMessage ?? error.message ?? error;
-                            parentElement.find(".errors-section").html(message);
-                        }
+                        error: showSaveError
                     });
                 });
 

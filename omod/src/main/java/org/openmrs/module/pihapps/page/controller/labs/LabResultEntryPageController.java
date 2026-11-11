@@ -2,7 +2,9 @@ package org.openmrs.module.pihapps.page.controller.labs;
 
 import org.openmrs.Patient;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.appframework.service.AppFrameworkService;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.ui.framework.annotation.SpringBean;
 import org.openmrs.ui.framework.page.PageModel;
 import org.openmrs.util.PrivilegeConstants;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,7 +22,8 @@ public class LabResultEntryPageController {
     public void get(PageModel model,
                     @RequestParam("patient") Patient patient,
                     @RequestParam(value = "mode", required = false) String mode,
-                    @RequestParam(value = "orderEncounter", required = false) String orderEncounter) {
+                    @RequestParam(value = "orderEncounter", required = false) String orderEncounter,
+                    @SpringBean AppFrameworkService appFrameworkService) {
         boolean validate = MODE_VALIDATE.equals(mode);
         boolean authorized = validate ? Context.hasPrivilege(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
                 : Context.hasPrivilege(PrivilegeConstants.ADD_ENCOUNTERS);
@@ -28,5 +31,7 @@ public class LabResultEntryPageController {
         model.addAttribute("patient", patient);
         model.addAttribute("mode", validate ? MODE_VALIDATE : MODE_ENTER);
         model.addAttribute("orderEncounter", orderEncounter);
+        model.addAttribute("obsGroupEditorExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.OBS_GROUP_EDITORS));
+        model.addAttribute("obsGroupRendererExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.OBS_GROUP_RENDERERS));
     }
 }

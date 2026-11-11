@@ -129,6 +129,16 @@
         const patientUuid = '${ patient.uuid }';
         const requestedOrderEncounter = '${ ui.encodeJavaScript(orderEncounter ?: "") }';
         const labOrderListLink = '${ ui.encodeJavaScript(labOrderListLink) }';
+
+        // Results recorded as obs groups that an implementation's own editor enters (see labResultFields.js), and
+        // that its renderer shows (as on the patient lab results page), by concept uuid
+        const obsGroupEditors = PihAppsLabResultFields.getObsGroupEditors(${ ui.toJson(obsGroupEditorExtensions) });
+        const obsGroupRenderers = {};
+        ${ ui.toJson(obsGroupRendererExtensions) }.forEach(ext => {
+            if (ext.extensionParams?.concept && typeof window[ext.extensionParams.jsFunction] === 'function') {
+                obsGroupRenderers[ext.extensionParams.concept] = ext;
+            }
+        });
         const locale = window.sessionContext?.locale ?? 'en';
         moment.locale(locale);
 
@@ -172,6 +182,7 @@
             alreadySaved: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.alreadySaved")) }',
             unableToSave: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.unableToSave")) }',
             unableToLoad: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.unableToLoad")) }',
+            unableToLoadResultEntry: '${ ui.encodeJavaScript(ui.message("pihapps.unableToLoadResultEntry")) }',
             enteredBy: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.enteredBy")) }',
             enteredByCurrentUser: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.enteredByCurrentUser")) }',
             validateSelected: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.validateSelected")) }',
@@ -299,9 +310,9 @@
                 }
 
                 return Promise.all(loads).then(() => {
-                    // Members of panels that are panels themselves
+                    // Members of panels that are panels themselves, other than obs groups entered with their own editor
                     const nestedUuids = [...new Set(Object.values(orderables).flatMap(o => o.setMembers)
-                        .filter(m => m.datatype?.name === "N/A").map(m => m.uuid))];
+                        .filter(m => m.datatype?.name === "N/A" && !obsGroupEditors[m.uuid]).map(m => m.uuid))];
                     return Promise.all(nestedUuids.map(uuid => getJson(rest + "concept/" + uuid + "?v=custom:(" + PihAppsLabResultFields.orderableRep + ")")
                         .then(concept => {
                             if (concept.setMembers.length > 0) {
@@ -486,6 +497,8 @@
                             orders: form.blocks.map(b => ({ uuid: b.order.uuid, fulfillerStatus: b.status() }))
                         };
                         return postJson(rest + "encounterFulfillingOrders/" + form.specimen.encounterUuid, payload)
+                            // Then the results entered with obs group editors, in the same encounter
+                            .then(() => PihAppsLabResultFields.saveEditors(form.blocks.flatMap(b => b.editors), form.specimen.encounterUuid))
                             .then(() => saved.push(form.specimen.orders[0].accessionNumber));
                     }), Promise.resolve()).then(() => {
                         dirty = false;
@@ -570,11 +583,13 @@
                     jq(button).attr({ type: "button", tabindex: -1, "data-value": statusOptions[i].value });
                 });
 
-                // Members that are panels themselves are not fields: addNestedPanels adds them with their own fields
-                const isField = (member) => member.datatype?.name !== "N/A";
+                // Members that are panels themselves are not fields: addNestedPanels adds them with their own fields.
+                // Obs groups with their own editor are rendered with it.
+                const isField = (member) => member.datatype?.name !== "N/A" || !!obsGroupEditors[member.uuid];
                 const fieldsOrderable = isPanel ? Object.assign({}, orderable, { setMembers: orderable.setMembers.filter(isField) }) : orderable;
 
                 const results = jq("<div>").addClass("lr-results");
+                const editors = [];
                 PihAppsLabResultFields.render({
                     jq: jq,
                     formHelper: formHelper,
@@ -583,7 +598,10 @@
                     container: results,
                     idPrefix: idPrefix + "-",
                     collectResultComments: labConfig.collectResultComments,
-                    messages: messages
+                    messages: messages,
+                    obsGroupEditors: obsGroupEditors,
+                    editors: editors,
+                    onChange: () => { dirty = true; }
                 });
                 results.find(".comment-toggle, .multi-value-add, .multi-value-remove").attr("tabindex", -1);
 
@@ -643,12 +661,15 @@
                     status: status,
                     setStatus: (value) => statusCell.find(".select-buttons button[data-value='" + value + "']").click(),
                     reasonValue: () => reasonSection.find(".result-value-field").val(),
-                    hasResults: () => resultFields().filter((i, e) => jq(e).is(":checkbox") ? jq(e).is(":checked") : !!jq(e).val()).length > 0,
+                    editors: editors,
+                    hasResults: () => resultFields().filter((i, e) => jq(e).is(":checkbox") ? jq(e).is(":checked") : !!jq(e).val()).length > 0
+                        || editors.some(e => e.hasValue()),
                     prepareForSave: (resultDate) => {
                         // Results are kept unless the test was not performed; the reason only when it was not
                         if (status() === 'EXCEPTION') {
                             results.find(":input").not("button").val("");
                             results.find(":checkbox").prop("checked", false);
+                            editors.forEach(e => e.clear());
                             resultDateField.val("");
                         }
                         else {
@@ -710,6 +731,20 @@
                                 element.append(jq("<div>").addClass("lr-row").append(nameCell).append(jq("<span>")).append(jq("<span>")).append(enteredBy));
                                 const members = jq("<div>").addClass("lr-panel-members");
                                 tests.forEach(concept => {
+                                    const renderer = obsGroupRenderers[concept.uuid];
+                                    if (renderer) {
+                                        const group = (encounter.obs || []).concat((encounter.obs || []).flatMap(o => o.groupMembers || []))
+                                            .find(o => o.concept.uuid === concept.uuid && o.order?.uuid === order.uuid && o.groupMembers);
+                                        if (group) {
+                                            const valueCell = jq("<span>").addClass("lr-value").css("grid-column", "2 / -1");
+                                            members.append(jq("<div>").addClass("lr-row")
+                                                .append(jq("<span>").addClass("test-name").text(concept.displayStringForLab)).append(valueCell));
+                                            Promise.resolve(window[renderer.extensionParams.jsFunction](group, renderer.extensionParams))
+                                                .then(content => valueCell.empty().append(content))
+                                                .catch(error => console.warn("Unable to render the result with " + renderer.id, error));
+                                        }
+                                        return;
+                                    }
                                     const nestedPanel = nestedPanels[concept.uuid];
                                     if (nestedPanel) {
                                         const lines = nestedPanel.setMembers.map(m => valueRow(m, jq("<span>").addClass("test-name").text(m.displayStringForLab)))
