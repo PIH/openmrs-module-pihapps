@@ -15,6 +15,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 <script type="text/javascript">
 
     const patientUuid = '${patient.patient.uuid}';
+    const obsGroupRendererExtensions = ${ ui.toJson(obsGroupRendererExtensions) };
 
     const breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
@@ -38,7 +39,16 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
             const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-            const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",effectiveReferenceRange,creator:(display,person:(display))"
+            const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),order:(uuid),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",effectiveReferenceRange,creator:(display,person:(display))"
+
+            // Obs groups whose result an extension renders, by concept uuid: they are returned as one obs, the group
+            const obsGroupRenderers = {};
+            obsGroupRendererExtensions.forEach(ext => {
+                if (ext.extensionParams?.concept && typeof window[ext.extensionParams.jsFunction] === 'function') {
+                    obsGroupRenderers[ext.extensionParams.concept] = ext;
+                }
+            });
+            const getObsGroupRenderer = (obs) => obsGroupRenderers[obs.concept.uuid];
 
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
@@ -53,7 +63,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     "onOrAfter": jq("#onOrAfter-filter-field").val(),
                     "onOrBefore": jq("#onOrBefore-filter-field").val(),
                     // Clinicians only see results a validator has released
-                    ...(pihAppsConfig.labOrderConfig.requireResultValidation ? { "status": ["FINAL", "AMENDED"] } : {})
+                    ...(pihAppsConfig.labOrderConfig.requireResultValidation ? { "status": ["FINAL", "AMENDED"] } : {}),
+                    "renderedGroup": Object.keys(obsGroupRenderers)
                 }
             }
 
@@ -62,10 +73,16 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             }
 
             const getLabTest = (obs) => {
+                if (getObsGroupRenderer(obs)) {
+                    return jq("<span>").html(obs.concept.displayStringForLab).prop("outerHTML");
+                }
                 return jq("<a>").attr("href", "#").addClass("lab-trends-link").html(obs.concept.displayStringForLab).prop("outerHTML");
             }
 
             const getResults = (obs) => {
+                if (getObsGroupRenderer(obs)) {
+                    return jq("<div>").addClass("obs-group-rendered").prop("outerHTML");
+                }
                 return patientUtils.formatObsValue(obs, dateUtils);
             }
 
@@ -88,6 +105,16 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     });
                 });
 
+                // Obs groups rendered by an extension
+                tableRowObjects.forEach((obs, index) => {
+                    const ext = getObsGroupRenderer(obs);
+                    if (!ext) return;
+                    const container = jq(tableRowData[index]).find(".obs-group-rendered");
+                    Promise.resolve(window[ext.extensionParams.jsFunction](obs, ext.extensionParams)).then(content => {
+                        container.empty().append(content);
+                    }).catch(error => console.warn("Unable to render the result with " + ext.id, error));
+                });
+
                 // Group by date if selected
                 const groupByDate = jq("#groupByDate-filter").is(":checked");
                 if (groupByDate) {
@@ -103,13 +130,16 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                         }
                     });
                 }
-                // Group by panel after grouping by date
+                // Group by panel after grouping by date.  Obs of the order of the panel that are not in its group, such as
+                // groups rendered by an extension, are shown in the panel.
                 let displayedGroup = null;
+                let displayedGroupOrder = null;
                 const alternateRowColor = "rgb(255, 253, 245)";
                 let rowColor = null;
                 tableRowObjects.forEach((obs, index) => {
                     const tableRow = jq(tableRowData[index]);
-                    const currentGroup = obs.obsGroup?.uuid;
+                    const inDisplayedGroupOrder = !obs.obsGroup && displayedGroup && obs.order && obs.order.uuid === displayedGroupOrder;
+                    const currentGroup = inDisplayedGroupOrder ? displayedGroup : obs.obsGroup?.uuid;
                     if (currentGroup !== displayedGroup) {
                         rowColor = (rowColor === "white" ? alternateRowColor : "white");
                         if (currentGroup) {
@@ -119,6 +149,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                             newRow.insertBefore(tableRow);
                         }
                         displayedGroup = currentGroup;
+                        displayedGroupOrder = obs.order?.uuid ?? null;
                     }
                     else if (!currentGroup && !displayedGroup) {
                         rowColor = (rowColor === "white" ? alternateRowColor : "white");

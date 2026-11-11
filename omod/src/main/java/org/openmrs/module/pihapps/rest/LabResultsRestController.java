@@ -72,7 +72,8 @@ public class LabResultsRestController {
                                @RequestParam(value = "onOrBefore", required = false) String onOrBefore,
                                @RequestParam(value = "onOrAfter", required = false) String onOrAfter,
                                @RequestParam(value = "status", required = false) List<String> statuses,
-                                @RequestParam(value = "sortBy", required = false) List<String> sortBy
+                                @RequestParam(value = "sortBy", required = false) List<String> sortBy,
+                                @RequestParam(value = "renderedGroup", required = false) List<String> renderedGroups
                                ) throws ResponseException {
 
         try {
@@ -105,7 +106,7 @@ public class LabResultsRestController {
                 concepts = getSetMembersRecursively(labOrderConfig.getLabResultCategoriesConceptSet());
             }
 
-            searchCriteria.setConcepts(concepts);
+            searchCriteria.setConcepts(collapseRenderedGroups(concepts, getConcepts(renderedGroups)));
             searchCriteria.setStatuses(getStatuses(statuses));
             searchCriteria.setOnOrBefore(getDate(onOrBefore));
             searchCriteria.setOnOrAfter(getDate(onOrAfter));
@@ -127,7 +128,11 @@ public class LabResultsRestController {
                 }
             }
             if (sortCriteriaList.isEmpty()) {
+                // The results of an order, and the members of an obs group, are kept together.  Obs of the order that
+                // are not in a group come after its group: nulls sort last in descending order.
                 sortCriteriaList.add(new SortCriteria("obsDatetime", SortCriteria.Direction.DESC));
+                sortCriteriaList.add(new SortCriteria("order", SortCriteria.Direction.ASC));
+                sortCriteriaList.add(new SortCriteria("obsGroup", SortCriteria.Direction.DESC));
                 sortCriteriaList.add(new SortCriteria("concept", SortCriteria.Direction.ASC));
                 sortCriteriaList.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
             }
@@ -149,6 +154,38 @@ public class LabResultsRestController {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
         }
+    }
+
+    /**
+     * Obs groups whose concept is rendered as one result, by an extension of the patient lab results page, are returned
+     * as one obs, the group, rather than as the obs of their members
+     * @return the concepts, where the members of each rendered group among them are replaced by the group
+     */
+    List<Concept> collapseRenderedGroups(List<Concept> concepts, List<Concept> renderedGroups) {
+        if (concepts == null || renderedGroups.isEmpty()) {
+            return concepts;
+        }
+        List<Concept> ret = new ArrayList<>(concepts);
+        for (Concept group : renderedGroups) {
+            List<Concept> members = getSetMembersRecursively(group);
+            if (ret.removeAll(members) && !ret.contains(group)) {
+                ret.add(group);
+            }
+        }
+        return ret;
+    }
+
+    List<Concept> getConcepts(List<String> uuids) {
+        List<Concept> ret = new ArrayList<>();
+        if (uuids != null) {
+            for (String uuid : uuids) {
+                Concept concept = StringUtils.isBlank(uuid) ? null : conceptService.getConceptByUuid(uuid.trim());
+                if (concept != null) {
+                    ret.add(concept);
+                }
+            }
+        }
+        return ret;
     }
 
     List<Concept> getSetMembersRecursively(Concept concept) {
