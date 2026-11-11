@@ -36,6 +36,7 @@ import org.openmrs.util.PrivilegeConstants;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface PihAppsService extends OpenmrsService {
 
@@ -58,6 +59,12 @@ public interface PihAppsService extends OpenmrsService {
 	void markOrdersAsNotFulfilled(List<Order> orders, Concept reason);
 
 	void revertOrdersToOrdered(List<Order> orders);
+
+	/**
+	 * @return the concepts that results of the given order are recorded with: the ordered concept and, if it is a
+	 * set, its members, recursively
+	 */
+	Set<Concept> getLabResultConcepts(Order order);
 
 	/**
 	 * Saves the given event, setting its event datetime to now if it has none

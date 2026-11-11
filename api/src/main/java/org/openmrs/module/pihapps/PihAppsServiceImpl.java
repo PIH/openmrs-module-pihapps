@@ -421,6 +421,23 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				accessionNumber = BooleanUtils.isTrue(obs.getVoided()) ? "" : obs.getValueText();
 			}
 		}
+		// With validation required, results submitted as completed await validation, and new results of an order
+		// that is not yet completed are preliminary.  Read what is persisted before any order is changed.
+		List<Order> submittedOrders = new ArrayList<>();
+		Map<Order, Order.FulfillerStatus> persistedStatuses = new HashMap<>();
+		Map<Order, Set<Concept>> resultConcepts = new HashMap<>();
+		if (requireResultValidation && encounterFulfillingOrders.getOrders() != null) {
+			try {
+				sessionFactory.getCurrentSession().setFlushMode(FlushMode.MANUAL);
+				for (Order order : encounterFulfillingOrders.getOrders()) {
+					persistedStatuses.put(order, getSavedFulfillerStatus(order));
+					resultConcepts.put(order, getLabResultConcepts(order));
+				}
+			}
+			finally {
+				sessionFactory.getCurrentSession().setFlushMode(flushMode);
+			}
+		}
 		// Update orders before saving the encounter: the obs INSERT (from saveEncounter) needs a shared lock on
 		// the referenced order rows for FK constraint verification. Updating orders first acquires exclusive locks
 		// on those rows, preventing contention with concurrent transactions that also hold exclusive order locks.
@@ -436,16 +453,36 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				if (fulfillerStatus == null) {
 					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
 				}
-				// Results that must be validated are only completed by a validator: until then they await validation
-				boolean awaitingValidation = fulfillerStatus == Order.FulfillerStatus.COMPLETED && requireResultValidation;
-				if (awaitingValidation) {
-					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
+				if (requireResultValidation) {
+					// A completed order stays completed.  Otherwise only a validator completes it: results submitted as completed await validation
+					boolean completed = persistedStatuses.get(order) == Order.FulfillerStatus.COMPLETED;
+					if (completed) {
+						fulfillerStatus = Order.FulfillerStatus.COMPLETED;
+					}
+					else {
+						if (fulfillerStatus == Order.FulfillerStatus.COMPLETED) {
+							fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
+							submittedOrders.add(order);
+						}
+						markNewResultsPreliminary(encounter, order, resultConcepts.get(order));
+					}
 				}
-				setAwaitingValidation(order, awaitingValidation);
-				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, order.getFulfillerComment(), accessionNumber);
+				orderService.updateOrderFulfillerStatus(order, fulfillerStatus, null, accessionNumber);
 			}
 		}
 		encounterService.saveEncounter(encounter);
+		if (!submittedOrders.isEmpty()) {
+			Map<Order, OrderFulfillmentEvent> latestEvents = getLatestOrderFulfillmentEvents(submittedOrders, OrderFulfillmentEventType.RESULT_VALIDATION);
+			for (Order order : submittedOrders) {
+				OrderFulfillmentEvent latest = latestEvents.get(order);
+				if (latest == null || latest.getEventType() != OrderFulfillmentEventType.RESULTS_SUBMITTED) {
+					OrderFulfillmentEvent event = new OrderFulfillmentEvent();
+					event.setOrder(order);
+					event.setEventType(OrderFulfillmentEventType.RESULTS_SUBMITTED);
+					saveOrderFulfillmentEvent(event);
+				}
+			}
+		}
 		return encounterFulfillingOrders;
 	}
 
@@ -558,7 +595,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Authorized(PrivilegeConstants.EDIT_ORDERS)
 	public void markOrdersAsNotFulfilled(List<Order> orders, Concept reason) {
 		for (Order order : orders) {
-			setAwaitingValidation(order, false);
 			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.EXCEPTION, null);
 			Obs existingValue = getReasonOrderNotFulfilled(order);
 			if (reason != null) {
@@ -601,8 +637,59 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			if (existingReason != null) {
 				obsService.voidObs(existingReason, "Reverted to ordered by pihAppsService.revertOrdersToOrdered");
 			}
-			setAwaitingValidation(order, false);
 			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.RECEIVED, null);
+		}
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_CONCEPTS)
+	public Set<Concept> getLabResultConcepts(Order order) {
+		Set<Concept> ret = new HashSet<>();
+		addConceptAndSetMembers(order.getConcept(), ret);
+		return ret;
+	}
+
+	private void addConceptAndSetMembers(Concept concept, Set<Concept> concepts) {
+		if (concept != null && concepts.add(concept) && concept.getSetMembers() != null) {
+			for (Concept setMember : concept.getSetMembers()) {
+				addConceptAndSetMembers(setMember, concepts);
+			}
+		}
+	}
+
+	/**
+	 * @return the fulfiller status of the given order as it is in the database, ignoring unsaved changes.
+	 * Callers are responsible for ensuring this does not flush the session
+	 */
+	private Order.FulfillerStatus getSavedFulfillerStatus(Order order) {
+		if (order.getOrderId() == null) {
+			return null;
+		}
+		Object status = sessionFactory.getCurrentSession()
+				.createSQLQuery("select fulfiller_status from orders where order_id = :orderId")
+				.setInteger("orderId", order.getOrderId())
+				.uniqueResult();
+		return status == null ? null : Order.FulfillerStatus.valueOf(status.toString());
+	}
+
+	/**
+	 * Marks new, non-voided results of the given order in the encounter, including obs groups, as preliminary
+	 */
+	private void markNewResultsPreliminary(Encounter encounter, Order order, Set<Concept> resultConcepts) {
+		Set<Obs> allObs = new HashSet<>();
+		List<Obs> toVisit = new ArrayList<>(encounter.getAllObs(true));
+		while (!toVisit.isEmpty()) {
+			Obs obs = toVisit.remove(toVisit.size() - 1);
+			if (allObs.add(obs) && obs.getGroupMembers(true) != null) {
+				toVisit.addAll(obs.getGroupMembers(true));
+			}
+		}
+		for (Obs obs : allObs) {
+			if (obs.getObsId() == null && !BooleanUtils.isTrue(obs.getVoided()) && order.equals(obs.getOrder())
+					&& resultConcepts.contains(obs.getConcept())) {
+				obs.setStatus(Obs.Status.PRELIMINARY);
+			}
 		}
 	}
 
@@ -650,20 +737,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		c.addOrder(asc("orderFulfillmentEventId"));
 		return c.list();
 	}
-
-	/**
-	 * Marks an order's results as awaiting validation, or clears that mark.  Updating the fulfiller status with a
-	 * null comment leaves the existing comment in place, so the mark is cleared on the order itself.
-	 */
-	private void setAwaitingValidation(Order order, boolean awaitingValidation) {
-		if (awaitingValidation) {
-			order.setFulfillerComment(OrderFulfillmentStatus.RESULTS_AWAITING_VALIDATION);
-		}
-		else if (OrderFulfillmentStatus.RESULTS_AWAITING_VALIDATION.equals(order.getFulfillerComment())) {
-			order.setFulfillerComment(null);
-		}
-	}
-
 
 	@Override
 	@Transactional(readOnly = true)
