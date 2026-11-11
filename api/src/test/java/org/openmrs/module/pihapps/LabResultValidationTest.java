@@ -248,22 +248,21 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
-    public void getObs_shouldOnlyReturnResultsOfCompletedOrdersWhenAsked() {
-        Order completed = Context.getOrderService().getOrder(6);
-        Order inProgress = Context.getOrderService().getOrderByUuid(ORDER_102);
-        Obs completedResult = saveResult(completed);
-        Obs inProgressResult = saveResult(inProgress);
-        Obs resultWithoutOrder = saveResult(null);
+    public void getObs_shouldFilterByStatus() {
+        Order order = Context.getOrderService().getOrder(6);
+        Obs preliminary = saveResult(order, Obs.Status.PRELIMINARY);
+        Obs finalResult = saveResult(order, Obs.Status.FINAL);
+        Obs amended = saveResult(order, Obs.Status.AMENDED);
 
         ObsSearchCriteria criteria = new ObsSearchCriteria();
         criteria.setPatient(Context.getPatientService().getPatient(2));
-        criteria.setConcepts(Collections.singletonList(completedResult.getConcept()));
-        criteria.setCreatedOnOrAfter(completedResult.getDateCreated());
-        assertThat(obsIds(criteria), containsInAnyOrder(completedResult.getObsId(), inProgressResult.getObsId(),
-                resultWithoutOrder.getObsId()));
+        criteria.setConcepts(Collections.singletonList(finalResult.getConcept()));
+        criteria.setCreatedOnOrAfter(preliminary.getDateCreated());
+        assertThat(obsIds(criteria), containsInAnyOrder(preliminary.getObsId(), finalResult.getObsId(),
+                amended.getObsId()));
 
-        criteria.setOnlyCompletedOrders(true);
-        assertThat(obsIds(criteria), containsInAnyOrder(completedResult.getObsId(), resultWithoutOrder.getObsId()));
+        criteria.setStatuses(Arrays.asList(Obs.Status.FINAL, Obs.Status.AMENDED));
+        assertThat(obsIds(criteria), containsInAnyOrder(finalResult.getObsId(), amended.getObsId()));
     }
 
     @Test
@@ -551,7 +550,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
                 .anyMatch(o -> OrderFulfillmentStatus.AWAITING_VALIDATION.name().equals(o.get("status")));
     }
 
-    private Obs saveResult(Order order) {
+    private Obs saveResult(Order order, Obs.Status status) {
         Concept weight = Context.getConceptService().getConcept(WEIGHT);
         Obs obs = new Obs();
         obs.setPerson(Context.getPersonService().getPerson(2));
@@ -559,6 +558,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         obs.setObsDatetime(new Date());
         obs.setValueNumeric(60.0);
         obs.setOrder(order);
+        obs.setStatus(status);
         return Context.getObsService().saveObs(obs, null);
     }
 

@@ -32,6 +32,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -105,8 +106,10 @@ public class LabResultsRestController {
             }
 
             searchCriteria.setConcepts(concepts);
-            // Clinicians only see results once a validator has completed their order
-            searchCriteria.setOnlyCompletedOrders(labOrderConfig.getRequireResultValidation());
+            // Clinicians only see results a validator has released
+            if (labOrderConfig.getRequireResultValidation()) {
+                searchCriteria.setStatuses(Arrays.asList(Obs.Status.FINAL, Obs.Status.AMENDED));
+            }
             searchCriteria.setOnOrBefore(getDate(onOrBefore));
             searchCriteria.setOnOrAfter(getDate(onOrAfter));
             searchCriteria.setStartIndex(requestContext.getStartIndex());

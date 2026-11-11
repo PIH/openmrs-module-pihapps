@@ -25,7 +25,6 @@ import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.criterion.Subqueries;
-import org.hibernate.sql.JoinType;
 import org.openmrs.Concept;
 import org.openmrs.Encounter;
 import org.openmrs.EncounterProvider;
@@ -907,7 +906,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		// Then query to get page of results
 		c = createHibernateObsSearchCriteria(searchCriteria, true);
 		c.setProjection(null);
-		c.setResultTransformer(Criteria.ROOT_ENTITY); // clearing the projection would otherwise return joined rows
 		Integer startIndex = searchCriteria.getStartIndex();
 		Integer limit = searchCriteria.getLimit();
 		if (limit != null) {
@@ -941,9 +939,8 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (searchCriteria.getConcepts() != null) {
 			c.add(in("concept", searchCriteria.getConcepts()));
 		}
-		if (searchCriteria.isOnlyCompletedOrders()) {
-			c.createAlias("order", "o", JoinType.LEFT_OUTER_JOIN);
-			c.add(or(isNull("order"), eq("o.fulfillerStatus", Order.FulfillerStatus.COMPLETED)));
+		if (searchCriteria.getStatuses() != null) {
+			c.add(in("status", searchCriteria.getStatuses()));
 		}
 		if (searchCriteria.getOnOrBefore() != null) {
 			Date onOrBefore = OpenmrsUtil.getLastMomentOfDay(searchCriteria.getOnOrBefore());
