@@ -139,9 +139,13 @@
             // Add fulfiller status widget
             // When results must be validated, completing them submits them for validation: the order stays
             // in progress, awaiting validation, until a validator completes it
+            // For results awaiting validation, "In progress" is not offered: saving it would look the same to the
+            // server as re-saving the specimen, so the order would stay awaiting validation
             const requireResultValidation = pihAppsConfig.labOrderConfig.requireResultValidation;
-            const awaitingValidation = order.fulfillerStatus === 'IN_PROGRESS' && order.fulfillerComment === PihAppsPatientUtils.RESULTS_AWAITING_VALIDATION;
-            const fulfillerStatuses = ["IN_PROGRESS", "COMPLETED", "EXCEPTION"]
+            const validationEventType = order.fulfillerStatus === 'IN_PROGRESS' ? order.labResultValidation?.eventType : null;
+            const awaitingValidation = requireResultValidation && validationEventType === 'RESULTS_SUBMITTED';
+            const returnedForCorrection = requireResultValidation && validationEventType === 'RESULTS_RETURNED';
+            const fulfillerStatuses = (awaitingValidation ? ["COMPLETED", "EXCEPTION"] : ["IN_PROGRESS", "COMPLETED", "EXCEPTION"])
                 .map(s => { return fulfillerStatusOptions.find(o => o.status === s) })
                 .map(o => { return { value: o.status, display: (requireResultValidation && o.status === 'COMPLETED') ? messages.submitForValidation : o.display }})
             ;
@@ -155,6 +159,10 @@
             formHelper.displaySelectWidgetAsButtons(fulfillerStatusWidget, {
                 buttonClass: "btn-outline-secondary"
             });
+
+            const returnedSection = resultsEntrySection.find(".returned-for-correction-section");
+            returnedSection.find(".returned-for-correction-comment").text(returnedForCorrection ? (order.labResultValidation.comment || "") : "");
+            returnedSection.toggle(returnedForCorrection);
 
             fulfillerStatusWidget.on("change", () => {
                 const fulfillerStatus = fulfillerStatusWidget.val();
@@ -387,6 +395,10 @@
         </div>
     </div>
     <div class="result-entry-section">
+        <div class="returned-for-correction-section alert alert-warning" style="display: none;">
+            <strong>${ ui.message("pihapps.orderFulfillmentEventType.RESULTS_RETURNED") }:</strong>
+            <span class="returned-for-correction-comment"></span>
+        </div>
         <div class="result-status-section">
             <fieldset>
                 <legend>${ ui.message("pihapps.status") }</legend>

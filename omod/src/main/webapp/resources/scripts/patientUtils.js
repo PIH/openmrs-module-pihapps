@@ -85,7 +85,7 @@ class PihAppsPatientUtils {
         // fulfillerStatus at all here — matching the backend's OrderFulfillmentStatus enum, where
         // AWAITING/EXPIRED_BEFORE/CANCELLED_BEFORE all include RECEIVED alongside null.
         if (order.fulfillerStatus && order.fulfillerStatus !== 'RECEIVED') {
-            if (order.fulfillerStatus === 'IN_PROGRESS' && order.fulfillerComment === PihAppsPatientUtils.RESULTS_AWAITING_VALIDATION) {
+            if (order.fulfillerStatus === 'IN_PROGRESS' && order.labResultValidation?.eventType === 'RESULTS_SUBMITTED') {
                 const awaitingValidation = orderFulfillmentStatusOptions.filter((option) => option.status === 'AWAITING_VALIDATION')[0];
                 if (awaitingValidation) {
                     return awaitingValidation;
@@ -160,6 +160,3 @@ class PihAppsPatientUtils {
         return value;
     }
 }
-
-// Marks an order whose results await validation: OrderFulfillmentStatus.RESULTS_AWAITING_VALIDATION
-PihAppsPatientUtils.RESULTS_AWAITING_VALIDATION = "Results awaiting validation";

@@ -6,6 +6,7 @@
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "specimenCollection.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
+    ui.includeJavascript("pihapps", "labs/labResultActions.js")
     ui.includeCss("pihapps", "labs/labs.css")
 
     def now = new Date()
@@ -26,7 +27,7 @@
 
     const patientRep = "(uuid,display,person:(display,gender,birthdate,birthdateEstimated),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
     const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
-    const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,fulfillerComment,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep
+    const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,labResultValidation,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep
 
     const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display)," + PihAppsSpecimenCollection.getConfigRep() + ",resultsDateQuestion:(uuid,datatype:(name)),reasonTestNotPerformedQuestion:(uuid,datatype:(name),answers:(uuid,display)),collectResultComments,requireResultValidation,defaultOrderedFromLookbackDays)";
     const pihAppsConfigRep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
@@ -35,7 +36,7 @@
 
     const pagingDataTable = new PagingDataTable(jq);
     const patientPagingDataTable = new PagingDataTable(jq);
-    const patientOrderRep = "id,uuid,orderNumber,dateActivated,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,fulfillerComment,encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),accessionNumber,urgency,action,patient:" + patientRep + ",concept:(id,uuid,allowDecimal,display,displayStringForLab)";
+    const patientOrderRep = "id,uuid,orderNumber,dateActivated,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,labResultValidation,encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),accessionNumber,urgency,action,patient:" + patientRep + ",concept:(id,uuid,allowDecimal,display,displayStringForLab)";
     const patientUtils = new PihAppsPatientUtils(jq);
 
     const specimenCollection = new PihAppsSpecimenCollection({
@@ -197,15 +198,23 @@
                 if (awaiting && order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date())) return 'EXPIRED';
                 if (order.fulfillerStatus === 'EXCEPTION') return 'NOT_PERFORMED';
                 if (order.fulfillerStatus === 'COMPLETED') return 'COMPLETED';
-                if (order.fulfillerStatus === 'IN_PROGRESS' && order.fulfillerComment === PihAppsPatientUtils.RESULTS_AWAITING_VALIDATION) return 'AWAITING_VALIDATION';
+                if (order.fulfillerStatus === 'IN_PROGRESS' && order.labResultValidation?.eventType === 'RESULTS_SUBMITTED') return 'AWAITING_VALIDATION';
                 if (order.fulfillerEncounter) return 'COLLECTED';
                 if (!awaiting) return 'ORPHANED';
                 return 'AWAITING';
             };
 
+            // Results a validator has returned to the lab for correction, with the validator's comment as the title
+            const getReturnedBadge = (order) => {
+                if (order.fulfillerStatus !== 'IN_PROGRESS' || order.labResultValidation?.eventType !== 'RESULTS_RETURNED') return '';
+                return jq("<span>").addClass("badge badge-warning lab-ext-badge")
+                    .attr("title", order.labResultValidation.comment || "")
+                    .text('${ ui.encodeJavaScript(ui.message("pihapps.orderFulfillmentEventType.RESULTS_RETURNED")) }')[0].outerHTML;
+            };
+
             const getOrderFulfillmentStatus = (order) => {
                 const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
-                const badges = '<span class="lab-ext-order-badges" data-order-uuid="' + order.uuid + '"></span>';
+                const badges = getReturnedBadge(order) + '<span class="lab-ext-order-badges" data-order-uuid="' + order.uuid + '"></span>';
                 if (getOrderStatus(order) === 'ORPHANED') {
                     return '<span class="orphaned-order-status" title="${ ui.message("pihapps.orphanedOrderWarning") }">'
                         + '<i class="fas fa-fw fa-exclamation-triangle"></i> ' + statusDisplay + '</span>' + badges;
@@ -241,7 +250,8 @@
                 orderBadgeExtensions.forEach(ext => {
                     const fn = window[ext.extensionParams?.jsFunction];
                     if (typeof fn !== 'function') return;
-                    Promise.resolve(fn(orders, ext.extensionParams)).then(badges => {
+                    // A synchronous throw becomes a rejection, so one bad extension can't stop the table's handlers attaching
+                    new Promise(resolve => resolve(fn(orders, ext.extensionParams))).then(badges => {
                         orders.forEach(order => {
                             const others = (orderBadges[order.uuid] || []).filter(b => b.extensionId !== ext.id);
                             const badge = badges ? badges[order.uuid] : null;
@@ -439,7 +449,7 @@
                 }
                 patientGroupActionExtensions.forEach(ext => {
                     // An action can be limited to patients with at least one order in one of the given statuses
-                    const visibleForOrderStatuses = ext.extensionParams?.visibleForOrderStatuses;
+                    const visibleForOrderStatuses = ext.extensionParams?.visibleForOrderStatuses ? [].concat(ext.extensionParams.visibleForOrderStatuses) : null;
                     if (visibleForOrderStatuses && !patientWithOrders.orders.some(o => visibleForOrderStatuses.includes(getOrderStatus(o)))) {
                         return;
                     }
@@ -579,7 +589,8 @@
                         if (ext && ext.extensionParams && ext.extensionParams.jsFunction) {
                             const fn = window[ext.extensionParams.jsFunction];
                             if (typeof fn === 'function') {
-                                fn(patientWithOrders, ext.extensionParams);
+                                new Promise(resolve => resolve(fn(patientWithOrders, ext.extensionParams)))
+                                    .catch(error => console.warn("Error in action " + ext.id, error));
                             }
                         }
                     }
@@ -627,7 +638,7 @@
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
                 endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
-                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,fulfillerComment,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
+                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,labResultValidation,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
                     getEmrId, getPatientName, getOrderNumber, getOrderDate, getOrderLocation, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest, getActions
