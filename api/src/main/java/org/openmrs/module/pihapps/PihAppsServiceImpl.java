@@ -50,6 +50,8 @@ import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentEvent;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentEventType;
 import org.openmrs.module.pihapps.orders.OrderFulfillmentStatus;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
@@ -61,6 +63,7 @@ import org.openmrs.util.PrivilegeConstants;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -601,6 +604,51 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			setAwaitingValidation(order, false);
 			orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.RECEIVED, null);
 		}
+	}
+
+	@Override
+	@Transactional
+	@Authorized(PrivilegeConstants.EDIT_ORDERS)
+	public OrderFulfillmentEvent saveOrderFulfillmentEvent(OrderFulfillmentEvent event) {
+		if (event.getEventDatetime() == null) {
+			event.setEventDatetime(new Date());
+		}
+		sessionFactory.getHibernateSessionFactory().getCurrentSession().saveOrUpdate(event);
+		return event;
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_ORDERS)
+	@SuppressWarnings({ "unchecked" })
+	public Map<Order, OrderFulfillmentEvent> getLatestOrderFulfillmentEvents(List<Order> orders, Collection<OrderFulfillmentEventType> types) {
+		Map<Order, OrderFulfillmentEvent> result = new HashMap<>();
+		if (orders == null || orders.isEmpty() || types == null || types.isEmpty()) {
+			return result;
+		}
+		List<OrderFulfillmentEvent> events = sessionFactory.getHibernateSessionFactory().getCurrentSession()
+				.createQuery("from OrderFulfillmentEvent e where e.orderFulfillmentEventId in ("
+						+ "select max(l.orderFulfillmentEventId) from OrderFulfillmentEvent l "
+						+ "where l.voided = false and l.order in (:orders) and l.eventType in (:types) group by l.order)")
+				.setParameterList("orders", orders)
+				.setParameterList("types", types)
+				.list();
+		for (OrderFulfillmentEvent event : events) {
+			result.put(event.getOrder(), event);
+		}
+		return result;
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_ORDERS)
+	@SuppressWarnings({ "unchecked" })
+	public List<OrderFulfillmentEvent> getOrderFulfillmentEvents(Order order) {
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(OrderFulfillmentEvent.class);
+		c.add(eq("voided", false));
+		c.add(eq("order", order));
+		c.addOrder(asc("orderFulfillmentEventId"));
+		return c.list();
 	}
 
 	/**

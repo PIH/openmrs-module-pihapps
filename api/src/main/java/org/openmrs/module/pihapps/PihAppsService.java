@@ -26,11 +26,14 @@ import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentEvent;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentEventType;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
 import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
 import org.openmrs.util.PrivilegeConstants;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -55,6 +58,21 @@ public interface PihAppsService extends OpenmrsService {
 	void markOrdersAsNotFulfilled(List<Order> orders, Concept reason);
 
 	void revertOrdersToOrdered(List<Order> orders);
+
+	/**
+	 * Saves the given event, setting its event datetime to now if it has none
+	 */
+	OrderFulfillmentEvent saveOrderFulfillmentEvent(OrderFulfillmentEvent event);
+
+	/**
+	 * @return for each of the given orders that has any, its latest non-voided event of the given types
+	 */
+	Map<Order, OrderFulfillmentEvent> getLatestOrderFulfillmentEvents(List<Order> orders, Collection<OrderFulfillmentEventType> types);
+
+	/**
+	 * @return the non-voided events of the given order, oldest first
+	 */
+	List<OrderFulfillmentEvent> getOrderFulfillmentEvents(Order order);
 
 	/**
 	 * Searches observations by whatever {@link ObsSearchCriteria} names: the patient, the concepts,

@@ -31,6 +31,8 @@ public class LabOrderConfig {
 
     private static final Logger log = LoggerFactory.getLogger(LabOrderConfig.class);
 
+    public static final String PRIVILEGE_VALIDATE_RESULTS = "Task: pihapps.labs.validateResults";
+
     @Setter
     ConceptService conceptService;
 
@@ -66,8 +68,9 @@ public class LabOrderConfig {
 
     public List<Map<String, String>> getOrderFulfillmentStatusOptions() {
         List<Map<String, String>> l = new ArrayList<>();
+        boolean requireResultValidation = getRequireResultValidation();
         for (OrderFulfillmentStatus s : OrderFulfillmentStatus.values()) {
-            if (s == OrderFulfillmentStatus.AWAITING_VALIDATION && !getRequireResultValidation()) {
+            if (s == OrderFulfillmentStatus.AWAITING_VALIDATION && !requireResultValidation) {
                 continue;
             }
             String display = messageSourceService.getMessage("pihapps.orderFulfillmentStatus." + s.name());
