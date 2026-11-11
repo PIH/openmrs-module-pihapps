@@ -26,6 +26,12 @@ public class ObsSearchCriteria {
      */
     private boolean includeVoided = false;
 
+    /**
+     * Leave out observations linked to an order that is not COMPLETED, such as lab results that still
+     * await validation. Observations not linked to any order are kept.
+     */
+    private boolean onlyCompletedOrders = false;
+
     /** Restrict to observations this user created. */
     private User createdBy;
 
