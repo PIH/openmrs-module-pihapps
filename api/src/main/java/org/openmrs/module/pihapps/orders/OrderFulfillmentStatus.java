@@ -24,12 +24,6 @@ public enum OrderFulfillmentStatus {
     EXPIRED_BEFORE_FULFILLMENT(OrderStatus.EXPIRED, Collections.singletonList(RECEIVED), Boolean.TRUE, null),
     CANCELLED_BEFORE_FULFILLMENT(OrderStatus.STOPPED, Collections.singletonList(RECEIVED), Boolean.TRUE, null);
 
-    /**
-     * The fulfiller comment that marks an order whose results have been entered and await validation,
-     * when result validation is required.  The order stays IN_PROGRESS until a validator completes it.
-     */
-    public static final String RESULTS_AWAITING_VALIDATION = "Results awaiting validation";
-
     @Getter
     private final OrderStatus orderStatus;
 

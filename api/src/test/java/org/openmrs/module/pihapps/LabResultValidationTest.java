@@ -14,6 +14,7 @@ import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.module.pihapps.orders.OrderFulfillmentEvent;
 import org.openmrs.module.pihapps.orders.OrderFulfillmentEventType;
 import org.openmrs.module.pihapps.orders.OrderFulfillmentStatus;
+import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.test.jupiter.BaseModuleContextSensitiveTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -28,6 +29,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 
 /**
@@ -43,6 +45,8 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     // Added dataset order 102: collected, in progress
     private static final String ORDER_102 = "b2c3d4e5-f6a7-8901-bcde-f12345678901";
     // Added validation dataset order 9201: a test order for panel 9110 (5089, 5497), patient 2, specimen received
+    // Added dataset order 103: collected, in progress
+    private static final String ORDER_103 = "c3d4e5f6-a7b8-9012-cdef-123456789012";
     private static final String ORDER_9201 = "9201aaaa-0000-4000-8000-000000009201";
 
     private static final int WEIGHT = 5089;
@@ -184,6 +188,51 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
+    public void getOrders_shouldSeparateAwaitingValidationFromCollected() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_7);
+        save(order, Order.FulfillerStatus.COMPLETED, resultObs(order, CD4_COUNT, 300.0));
+
+        assertThat(orderUuids(OrderFulfillmentStatus.AWAITING_VALIDATION), containsInAnyOrder(ORDER_7));
+        assertThat(orderUuids(OrderFulfillmentStatus.IN_FULFILLMENT), containsInAnyOrder(ORDER_102, ORDER_103));
+    }
+
+    @Test
+    public void getOrders_shouldShowReturnedOrdersAsCollected() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_7);
+        order = save(order, Order.FulfillerStatus.COMPLETED, resultObs(order, CD4_COUNT, 300.0));
+        saveEvent(order, OrderFulfillmentEventType.RESULTS_RETURNED);
+
+        assertThat(orderUuids(OrderFulfillmentStatus.IN_FULFILLMENT), hasItem(ORDER_7));
+        assertThat(orderUuids(OrderFulfillmentStatus.AWAITING_VALIDATION), empty());
+    }
+
+    @Test
+    public void getOrders_shouldIgnoreVoidedSubmission() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_7);
+        order = save(order, Order.FulfillerStatus.COMPLETED, resultObs(order, CD4_COUNT, 300.0));
+        OrderFulfillmentEvent event = latestValidationEvent(order);
+        event.setVoided(true);
+        pihAppsService.saveOrderFulfillmentEvent(event);
+        Context.flushSession();
+
+        assertThat(orderUuids(OrderFulfillmentStatus.IN_FULFILLMENT), hasItem(ORDER_7));
+        assertThat(orderUuids(OrderFulfillmentStatus.AWAITING_VALIDATION), empty());
+    }
+
+    @Test
+    public void getOrders_shouldShowSubmittedOrdersAsCollectedWhenValidationTurnedOff() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_7);
+        save(order, Order.FulfillerStatus.COMPLETED, resultObs(order, CD4_COUNT, 300.0));
+        setGlobalProperty("pihapps.labs.requireResultValidation", "false");
+
+        assertThat(orderUuids(OrderFulfillmentStatus.IN_FULFILLMENT), hasItem(ORDER_7));
+    }
+
+    @Test
     public void getObs_shouldOnlyReturnResultsOfCompletedOrdersWhenAsked() {
         Order completed = Context.getOrderService().getOrder(6);
         Order inProgress = Context.getOrderService().getOrderByUuid(ORDER_102);
@@ -259,6 +308,21 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     private OrderFulfillmentEvent latestValidationEvent(Order order) {
         return pihAppsService.getLatestOrderFulfillmentEvents(Collections.singletonList(order),
                 OrderFulfillmentEventType.RESULT_VALIDATION).get(order);
+    }
+
+    private List<String> orderUuids(OrderFulfillmentStatus status) {
+        OrderSearchCriteria criteria = new OrderSearchCriteria();
+        criteria.setOrderTypes(Collections.singletonList(labOrderConfig.getLabTestOrderType()));
+        criteria.setOrderFulfillmentStatuses(Collections.singletonList(status));
+        return pihAppsService.getOrders(criteria).getOrders().stream().map(Order::getUuid).collect(Collectors.toList());
+    }
+
+    private void saveEvent(Order order, OrderFulfillmentEventType type) {
+        OrderFulfillmentEvent event = new OrderFulfillmentEvent();
+        event.setOrder(order);
+        event.setEventType(type);
+        pihAppsService.saveOrderFulfillmentEvent(event);
+        Context.flushSession();
     }
 
     private Order order(String uuid) {

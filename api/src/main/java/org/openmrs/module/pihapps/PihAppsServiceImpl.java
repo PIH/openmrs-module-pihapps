@@ -23,6 +23,7 @@ import org.hibernate.FlushMode;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Projections;
+import org.hibernate.criterion.Restrictions;
 import org.hibernate.criterion.Subqueries;
 import org.hibernate.sql.JoinType;
 import org.openmrs.Concept;
@@ -274,6 +275,24 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				+ ", limit=" + searchCriteria.getLimit() + ")");
 	}
 
+	/**
+	 * Matches orders with a non-voided RESULTS_SUBMITTED event that no later non-voided validation event follows,
+	 * ie. orders whose latest validation event is RESULTS_SUBMITTED
+	 */
+	private Criterion awaitingValidationCriterion() {
+		DetachedCriteria submitted = DetachedCriteria.forClass(OrderFulfillmentEvent.class, "submitted");
+		submitted.add(Restrictions.eqProperty("submitted.order.orderId", "this.orderId"));
+		submitted.add(Restrictions.eq("submitted.voided", false));
+		submitted.add(Restrictions.eq("submitted.eventType", OrderFulfillmentEventType.RESULTS_SUBMITTED));
+		DetachedCriteria later = DetachedCriteria.forClass(OrderFulfillmentEvent.class, "later");
+		later.add(Restrictions.eqProperty("later.order.orderId", "this.orderId"));
+		later.add(Restrictions.eq("later.voided", false));
+		later.add(Restrictions.in("later.eventType", OrderFulfillmentEventType.RESULT_VALIDATION));
+		later.add(Restrictions.gtProperty("later.orderFulfillmentEventId", "submitted.orderFulfillmentEventId"));
+		submitted.add(Subqueries.notExists(later.setProjection(Projections.id())));
+		return Subqueries.exists(submitted.setProjection(Projections.id()));
+	}
+
 	@SuppressWarnings({"deprecation"})
 	private Criteria createHibernateOrderSearchCriteria(OrderSearchCriteria searchCriteria, boolean applySortCriteria) {
 		Date now = new Date();
@@ -344,10 +363,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					fulfillerStatusClauses.add(isNotNull("fulfillerStatus"));
 				}
 				Criterion fulfillerStatusClause = fulfillerStatusClauses.isEmpty() ? null : or(fulfillerStatusClauses.toArray(new Criterion[0]));
-				if (status.getAwaitingValidation() != null) {
-					Criterion awaitingValidation = eq("fulfillerComment", OrderFulfillmentStatus.RESULTS_AWAITING_VALIDATION);
-					Criterion validationClause = status.getAwaitingValidation() ? awaitingValidation :
-							or(isNull("fulfillerComment"), not(awaitingValidation));
+				if (status.getAwaitingValidation() != null && labOrderConfig.getRequireResultValidation()) {
+					Criterion awaitingValidation = awaitingValidationCriterion();
+					Criterion validationClause = status.getAwaitingValidation() ? awaitingValidation : not(awaitingValidation);
 					fulfillerStatusClause = fulfillerStatusClause == null ? validationClause : and(fulfillerStatusClause, validationClause);
 				}
 
