@@ -105,6 +105,8 @@ public class LabResultsRestController {
             }
 
             searchCriteria.setConcepts(concepts);
+            // Clinicians only see results once a validator has completed their order
+            searchCriteria.setOnlyCompletedOrders(labOrderConfig.getRequireResultValidation());
             searchCriteria.setOnOrBefore(getDate(onOrBefore));
             searchCriteria.setOnOrAfter(getDate(onOrAfter));
             searchCriteria.setStartIndex(requestContext.getStartIndex());
