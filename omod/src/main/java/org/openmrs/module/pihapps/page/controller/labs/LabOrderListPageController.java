@@ -42,7 +42,6 @@ public class LabOrderListPageController {
         model.addAttribute("orderBadgeExtensions", getExtensions(appFrameworkService, ORDER_BADGES_EXTENSION_POINT));
         model.addAttribute("canValidateResults", labOrderConfig.getRequireResultValidation()
                 && Context.hasPrivilege(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS));
-        model.addAttribute("validateResultsPage", labOrderConfig.getValidateResultsPage());
     }
 
     private List<Map<String, Object>> getExtensions(AppFrameworkService appFrameworkService, String extensionPoint) {

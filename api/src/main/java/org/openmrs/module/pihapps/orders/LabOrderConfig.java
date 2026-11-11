@@ -504,15 +504,6 @@ public class LabOrderConfig {
         return "true".equalsIgnoreCase(getRequireResultValidationReference());
     }
 
-    // The page the lab order list opens to validate a patient's results, relative to the context path, with
-    // {patient} standing for the patient uuid. Lets an implementation use its own page in place of pihapps' page.
-
-    public static final String DEFAULT_VALIDATE_RESULTS_PAGE = "/pihapps/labs/labResultEntry.page?patient={patient}&mode=validate";
-
-    public String getValidateResultsPage() {
-        return ConfigUtil.getProperty("pihapps.labs.validateResultsPage", DEFAULT_VALIDATE_RESULTS_PAGE);
-    }
-
     // Multiple answer concepts (tests that can produce more than one obs value)
 
     public String getMultipleAnswerConceptsReference() {

@@ -88,7 +88,6 @@ The frontend fetches config via `GET /rest/v1/pihapps/config?v=custom:(...)`. Th
 | `getSpecimenCollectionEncounterType/Role()` | `pihapps.labs.specimenCollectionEncounterType/Role` | Used when saving specimen collection encounters |
 | `getCollectResultComments()` | `pihapps.labs.collectResultComments` | Defaults `true`; controls comment field in results entry |
 | `getRequireResultValidation()` | `pihapps.labs.requireResultValidation` | Defaults `false`; see [Result validation](#result-validation) |
-| `getValidateResultsPage()` | `pihapps.labs.validateResultsPage` | Page the lab order list's validate action opens, relative to the context path, with `{patient}` for the patient uuid. Defaults to `/pihapps/labs/labResultEntry.page?patient={patient}&mode=validate` |
 | `getMultipleAnswerConceptsReference()` | `pihapps.labs.multipleAnswerConcepts` | Falls back to `laboratorymanagement.multipleAnswerConceptIds`; returns raw property string |
 | `getMultipleAnswerConcepts()` | — | Resolves the reference string to `List<Concept>`; result is cached and invalidated when the property value changes |
 
@@ -198,7 +197,7 @@ The results form labels its `COMPLETED` choice "Submit for validation", except f
 
 The lab order list has a built-in "Validate lab results" action, on each order awaiting validation and on each
 patient row with one, when validation is on and the user has `Task: pihapps.labs.validateResults`. It opens
-`pihapps.labs.validateResultsPage` for the patient.
+`labResultEntry.page` in validate mode for the patient.
 
 ---
 

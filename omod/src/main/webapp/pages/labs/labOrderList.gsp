@@ -25,7 +25,6 @@
     const patientGroupActionExtensions = ${ ui.toJson(patientGroupActionExtensions) };
     const orderBadgeExtensions = ${ ui.toJson(orderBadgeExtensions) };
     const canValidateResults = ${ canValidateResults ? "true" : "false" };
-    const validateResultsPage = '${ ui.encodeJavaScript(validateResultsPage) }';
 
     const patientRep = "(uuid,display,person:(display,gender,birthdate,birthdateEstimated),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
     const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
@@ -316,7 +315,8 @@
             jq(document).on("click", ".validate-results-action", (event) => {
                 event.stopPropagation();
                 const patientUuid = jq(event.currentTarget).data("patientUuid");
-                window.location.href = openmrsContextPath + validateResultsPage.replace("{patient}", encodeURIComponent(patientUuid));
+                window.location.href = openmrsContextPath + "/pihapps/labs/labResultEntry.page?patient="
+                    + encodeURIComponent(patientUuid) + "&mode=validate";
             });
 
             const getFilterParameterValues = function() {
