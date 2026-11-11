@@ -141,13 +141,15 @@
             // in progress, awaiting validation, until a validator completes it
             // For results awaiting validation, "In progress" is not offered: saving it would look the same to the
             // server as re-saving the specimen, so the order would stay awaiting validation
+            // For a completed order, saving amends its results, so it is not offered as a submission either
             const requireResultValidation = pihAppsConfig.labOrderConfig.requireResultValidation;
             const validationEventType = order.fulfillerStatus === 'IN_PROGRESS' ? order.labResultValidation?.eventType : null;
             const awaitingValidation = requireResultValidation && validationEventType === 'RESULTS_SUBMITTED';
             const returnedForCorrection = requireResultValidation && validationEventType === 'RESULTS_RETURNED';
-            const fulfillerStatuses = (awaitingValidation ? ["COMPLETED", "EXCEPTION"] : ["IN_PROGRESS", "COMPLETED", "EXCEPTION"])
+            const completed = requireResultValidation && order.fulfillerStatus === 'COMPLETED';
+            const fulfillerStatuses = ((awaitingValidation || completed) ? ["COMPLETED", "EXCEPTION"] : ["IN_PROGRESS", "COMPLETED", "EXCEPTION"])
                 .map(s => { return fulfillerStatusOptions.find(o => o.status === s) })
-                .map(o => { return { value: o.status, display: (requireResultValidation && o.status === 'COMPLETED') ? messages.submitForValidation : o.display }})
+                .map(o => { return { value: o.status, display: (requireResultValidation && !completed && o.status === 'COMPLETED') ? messages.submitForValidation : o.display }})
             ;
             const fulfillerStatusWidget = formHelper.createSelectWidget({
                 id: id + "-fulfiller-status",

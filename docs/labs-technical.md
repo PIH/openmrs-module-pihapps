@@ -172,10 +172,14 @@ not result obs and stay `FINAL`.
   not go through `ObsService.saveObs`, so obs save hooks and events do not fire for it.
 - A result edited on a `COMPLETED` order is saved by core as `AMENDED`, and a result added to it is saved `FINAL`.
   The order stays `COMPLETED` and no event is recorded.
-- `GET /labResults` only returns results whose order is `COMPLETED`, or that are not linked to an order.
+- With validation on, `GET /labResults` returns only `FINAL` and `AMENDED` obs; results not linked to an order are
+  `FINAL` by default.
+- Turning validation off makes any leftover `PRELIMINARY` results visible, and the `AWAITING_VALIDATION` filter then
+  matches all `IN_PROGRESS` orders (the option is not offered when validation is off).
 
 **Validating.** `validateLabResults` and `returnLabResultsForCorrection` require the
-`Task: pihapps.labs.validateResults` privilege (`LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS`). Both check every
+`Task: pihapps.labs.validateResults` privilege (`LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS`). Validators also need
+core `Edit Orders`, as validating calls `OrderService.updateOrderFulfillerStatus`. Both check every
 order before changing anything, and throw an `APIException` naming the first order that:
 - is not awaiting validation (not `IN_PROGRESS`, or its latest validation event is not `RESULTS_SUBMITTED`), or
 - has results the current user entered, changed or removed (`getLabResultEditors`): the creators and voiders of the
@@ -184,9 +188,11 @@ order before changing anything, and throw an `APIException` naming the first ord
 
 `canValidateLabResults(order, user)` answers the same question for one order and user. Returning results requires
 a non-blank reason; the order stays `IN_PROGRESS` with its results `PRELIMINARY` until the lab submits again.
-Marking an order not performed works as without validation.
+Marking an order not performed (`EXCEPTION` or `DECLINED`) works as without validation, including for an order
+that is already `COMPLETED`.
 
-The results form labels its `COMPLETED` choice "Submit for validation".
+The results form labels its `COMPLETED` choice "Submit for validation", except for an order that is already
+`COMPLETED`, where saving amends its results and "In progress" is not offered.
 
 ---
 

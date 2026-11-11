@@ -476,10 +476,12 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					fulfillerStatus = Order.FulfillerStatus.IN_PROGRESS;
 				}
 				if (requireResultValidation) {
-					// A completed order stays completed.  Otherwise only a validator completes it: results submitted as completed await validation
+					// A completed order stays completed unless marked not performed.  Otherwise only a validator completes it: results submitted as completed await validation
 					boolean completed = persistedStatuses.get(order) == Order.FulfillerStatus.COMPLETED;
 					if (completed) {
-						fulfillerStatus = Order.FulfillerStatus.COMPLETED;
+						if (fulfillerStatus != Order.FulfillerStatus.EXCEPTION && fulfillerStatus != Order.FulfillerStatus.DECLINED) {
+							fulfillerStatus = Order.FulfillerStatus.COMPLETED;
+						}
 					}
 					else {
 						if (fulfillerStatus == Order.FulfillerStatus.COMPLETED) {

@@ -152,6 +152,16 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
+    public void markNotPerformed_shouldChangeCompletedOrderToException() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_6);
+        order = save(order, Order.FulfillerStatus.EXCEPTION, receivedDateObs(order));
+
+        assertThat(order.getFulfillerStatus(), equalTo(Order.FulfillerStatus.EXCEPTION));
+        assertThat(pihAppsService.getOrderFulfillmentEvents(order), empty());
+    }
+
+    @Test
     public void saveResultsOnCompletedOrder_shouldAmendEditsAndSaveAdditionsAsFinal() {
         Order order = order(ORDER_6);
         Obs original = resultObs(order, CD4_COUNT, 300.0);

@@ -66,21 +66,25 @@ public interface PihAppsService extends OpenmrsService {
 	 * @return the concepts that results of the given order are recorded with: the ordered concept and, if it is a
 	 * set, its members, recursively
 	 */
+	@Authorized(PrivilegeConstants.GET_CONCEPTS)
 	Set<Concept> getLabResultConcepts(Order order);
 
 	/**
 	 * Saves the given event, setting its event datetime to now if it has none
 	 */
+	@Authorized(PrivilegeConstants.EDIT_ORDERS)
 	OrderFulfillmentEvent saveOrderFulfillmentEvent(OrderFulfillmentEvent event);
 
 	/**
 	 * @return for each of the given orders that has any, its latest non-voided event of the given types
 	 */
+	@Authorized(PrivilegeConstants.GET_ORDERS)
 	Map<Order, OrderFulfillmentEvent> getLatestOrderFulfillmentEvents(List<Order> orders, Collection<OrderFulfillmentEventType> types);
 
 	/**
 	 * @return the non-voided events of the given order, oldest first
 	 */
+	@Authorized(PrivilegeConstants.GET_ORDERS)
 	List<OrderFulfillmentEvent> getOrderFulfillmentEvents(Order order);
 
 	/**

@@ -240,7 +240,8 @@
                     (patientWithOrders?.orders || []).forEach(order => {
                         (orderBadges[order.uuid] || []).filter(b => b.showOnPatientRow !== false).forEach(b => { shown[b.text] = b; });
                     });
-                    jq(this).html(Object.values(shown).map(badgeHtml).join(""));
+                    const returnedOrder = (patientWithOrders?.orders || []).find(order => getReturnedBadge(order));
+                    jq(this).html((returnedOrder ? getReturnedBadge(returnedOrder) : "") + Object.values(shown).map(badgeHtml).join(""));
                 });
             };
 
