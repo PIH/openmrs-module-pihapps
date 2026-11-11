@@ -309,6 +309,10 @@ class FormHelper {
             }
             button.html(option.html());
             button.on("click", () => {
+                // Clicking the selected option changes nothing, so it must not fire change: listeners clear fields on change
+                if (widget.val() === value) {
+                    return;
+                }
                 widget.val(value);
                 widget.change();
                 buttonGroup.find("button").removeClass("active");
