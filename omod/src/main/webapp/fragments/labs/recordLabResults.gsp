@@ -283,23 +283,24 @@
                         parentElement.find(".errors-section").text(String(message));
                     };
 
+                    // The results entered with obs group editors first, in the same encounter: if they fail, nothing else
+                    // is saved, and saving again does not record the other results twice
                     const payload = { encounter: encounterToSubmit, orders: ordersToSubmit };
-                    jq.ajax({
-                        url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
-                        type: "POST",
-                        contentType: "application/json; charset=utf-8",
-                        data: JSON.stringify(payload),
-                        dataType: "json",
-                        success: () => {
-                            // Then the results entered with obs group editors, in the same encounter
-                            PihAppsLabResultFields.saveEditors(editors, encounterToSubmit.uuid).then(() => {
+                    PihAppsLabResultFields.saveEditors(editors, encounterToSubmit.uuid).then(() => {
+                        jq.ajax({
+                            url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
+                            type: "POST",
+                            contentType: "application/json; charset=utf-8",
+                            data: JSON.stringify(payload),
+                            dataType: "json",
+                            success: () => {
                                 parentElement.find(".action-button").removeAttr("disabled");
                                 resetForm();
                                 onSuccessFunction();
-                            }).catch(showSaveError);
-                        },
-                        error: showSaveError
-                    });
+                            },
+                            error: showSaveError
+                        });
+                    }).catch(showSaveError);
                 });
 
                 formLoaded();

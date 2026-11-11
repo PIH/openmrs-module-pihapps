@@ -496,9 +496,10 @@
                             encounter: form.formHelper.constructEncounterPayload(),
                             orders: form.blocks.map(b => ({ uuid: b.order.uuid, fulfillerStatus: b.status() }))
                         };
-                        return postJson(rest + "encounterFulfillingOrders/" + form.specimen.encounterUuid, payload)
-                            // Then the results entered with obs group editors, in the same encounter
-                            .then(() => PihAppsLabResultFields.saveEditors(form.blocks.flatMap(b => b.editors), form.specimen.encounterUuid))
+                        // The results entered with obs group editors first, in the same encounter: if they fail, nothing
+                        // else of the specimen is saved
+                        return PihAppsLabResultFields.saveEditors(form.blocks.flatMap(b => b.editors), form.specimen.encounterUuid)
+                            .then(() => postJson(rest + "encounterFulfillingOrders/" + form.specimen.encounterUuid, payload))
                             .then(() => saved.push(form.specimen.orders[0].accessionNumber));
                     }), Promise.resolve()).then(() => {
                         dirty = false;

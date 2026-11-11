@@ -882,20 +882,27 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 
 	/**
 	 * @return the results of the given order, voided ones included: obs linked to the order whose concept is a result
-	 * concept of the order, and the members of their groups that are linked to the order
+	 * concept of the order, and the members of their groups, whether or not the members are linked to the order
 	 */
 	@SuppressWarnings({ "unchecked" })
 	private List<Obs> getLabResultObs(Order order) {
 		Set<Concept> resultConcepts = getLabResultConcepts(order);
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
 		c.add(eq("order", order));
-		List<Obs> ret = new ArrayList<>();
+		Set<Obs> ret = new LinkedHashSet<>();
+		List<Obs> toVisit = new ArrayList<>();
 		for (Obs obs : (List<Obs>) c.list()) {
 			if (isLabResult(obs, order, resultConcepts)) {
-				ret.add(obs);
+				toVisit.add(obs);
 			}
 		}
-		return ret;
+		while (!toVisit.isEmpty()) {
+			Obs obs = toVisit.remove(toVisit.size() - 1);
+			if (ret.add(obs) && obs.getGroupMembers(true) != null) {
+				toVisit.addAll(obs.getGroupMembers(true));
+			}
+		}
+		return new ArrayList<>(ret);
 	}
 
 	private Set<User> getLabResultEditors(List<Obs> resultObs) {

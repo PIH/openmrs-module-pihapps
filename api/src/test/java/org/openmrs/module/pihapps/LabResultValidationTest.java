@@ -336,6 +336,8 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         // implementation's own result widget may record
         Obs nestedGroup = resultObs(order, PANEL, null);
         Obs nonMember = receivedDateObs(order);
+        // Members of a group are not always linked to the order themselves
+        nonMember.setOrder(null);
         nestedGroup.addGroupMember(nonMember);
         panel.addGroupMember(weight);
         panel.addGroupMember(nestedGroup);

@@ -14,9 +14,12 @@
  *     onChange - to call when the editor's value changes
  *   editor: { element, hasValue(), isChanged(), clear(), save(encounterUuid) }
  *     element - shown as the result of the row; save - records the value in the encounter fulfilling the order and
- *     returns a promise. Forms call save, for changed editors only, after saving the order's other results.
+ *     returns a promise. Forms call save, for changed editors only, before saving the order's other results, so that
+ *     a failed save leaves nothing half saved; saving again must replace what an earlier save recorded.
  * The editor saves its own obs. They are results of the order, so the editor links them to the order and gives them
  * the status PihAppsService.getNewLabResultStatus returns, for them to be validated with the order's other results.
+ * A result that replaces one of a released order is AMENDED, with the replaced obs as its previous version.
+ * Only the direct members of the ordered panel can have an editor, not the members of a panel within it.
  */
 class PihAppsLabResultFields {
 
@@ -53,11 +56,15 @@ class PihAppsLabResultFields {
      */
     static createObsGroupEditor(jq, extension, context, widgetSection, messages) {
         let editor = null;
+        let clearWhenReady = false;  // cleared, eg by marking the test not performed, before the editor was ready
         const ready = Promise.resolve()
             .then(() => window[extension.extensionParams.jsFunction](context, extension.extensionParams))
             .then(created => {
                 editor = created;
                 widgetSection.append(editor.element);
+                if (clearWhenReady) {
+                    editor.clear();
+                }
                 return editor;
             })
             .catch(error => {
@@ -70,7 +77,14 @@ class PihAppsLabResultFields {
             ready: ready,
             hasValue: () => !!editor && editor.hasValue(),
             isChanged: () => !!editor && editor.isChanged(),
-            clear: () => { if (editor) { editor.clear(); } },
+            clear: () => {
+                if (editor) {
+                    editor.clear();
+                }
+                else {
+                    clearWhenReady = true;
+                }
+            },
             save: (encounterUuid) => ready.then(e => (e && e.isChanged()) ? e.save(encounterUuid) : null)
         };
     }
