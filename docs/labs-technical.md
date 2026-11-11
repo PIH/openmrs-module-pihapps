@@ -127,20 +127,66 @@ A composite status that combines `OrderStatus` + `FulfillerStatus` into user-fac
 
 Note: `AWAITING_FULFILLMENT` includes both null fulfiller status (never collected) and `RECEIVED` status (specimen collected but fulfiller not yet updated), because specimen collection sets the fulfiller status to `RECEIVED`.
 
-An order awaits validation when its fulfiller status is `IN_PROGRESS` and its fulfiller comment is
-`OrderFulfillmentStatus.RESULTS_AWAITING_VALIDATION`. `AWAITING_VALIDATION` is only offered as a filter option when
-result validation is required.
+An order awaits validation when its fulfiller status is `IN_PROGRESS` and its latest non-voided result validation
+event (see below) is `RESULTS_SUBMITTED`. `AWAITING_VALIDATION` is only offered as a filter option when result
+validation is required, and only then does `IN_FULFILLMENT` exclude orders awaiting validation.
 
 ### Result validation
 
-When `pihapps.labs.requireResultValidation` is `true`:
-- `saveEncounterFulfillingOrders` never completes an order: an order submitted as `COMPLETED` is saved as `IN_PROGRESS`
-  and marked as awaiting validation. This is enforced on the server, whatever the client sends.
-- The results form labels its `COMPLETED` choice "Submit for validation".
+When `pihapps.labs.requireResultValidation` is `true`, results are entered by one user and validated by another.
+Validation is per order. With it `false` (the default), no events are recorded and results are saved `FINAL`.
+
+**Order fulfillment events.** Table `pihapps_order_fulfillment_event` (entity `OrderFulfillmentEvent`) records the
+steps of an order's fulfillment, one append-only row per event:
+
+| Column | Notes |
+|---|---|
+| `order_fulfillment_event_id`, `uuid` | |
+| `order_id` | the order |
+| `event_type` | `OrderFulfillmentEventType`, stored by name |
+| `comment` | the reason results were returned, or the validator's note |
+| `event_datetime` | when it happened |
+| `creator`, `date_created` | who recorded it, and when |
+| `voided`, `voided_by`, `date_voided`, `void_reason` | an event entered in error is voided, not deleted |
+
+The result validation event types (`OrderFulfillmentEventType.RESULT_VALIDATION`):
+
+| Event type | Recorded by | Order fulfiller status after |
+|---|---|---|
+| `RESULTS_SUBMITTED` | `saveEncounterFulfillingOrders`, when results are submitted as `COMPLETED` | `IN_PROGRESS` |
+| `RESULTS_RETURNED` | `returnLabResultsForCorrection`, with the reason as comment | `IN_PROGRESS` |
+| `RESULTS_VALIDATED` | `validateLabResults`, with an optional comment | `COMPLETED` |
+
+An order's validation state is its latest non-voided event of these types: submitted (awaiting validation), returned
+(back with the lab), validated, or none (the lab is still entering results).
+
+**Result obs status.** Result obs are the obs linked to the order whose concept is the ordered concept or one of its
+set members, recursively (`getLabResultConcepts`). Specimen obs, such as the lab identifier and received date, are
+not result obs and stay `FINAL`.
+- `saveEncounterFulfillingOrders` never completes an order that is not already `COMPLETED`: an order submitted as
+  `COMPLETED` is saved as `IN_PROGRESS` and `RESULTS_SUBMITTED` is recorded, unless it already awaits validation.
+  New result obs of such an order are saved `PRELIMINARY`. This is enforced on the server, whatever the client sends.
+- `validateLabResults` sets the order's non-voided `PRELIMINARY` result obs to `FINAL` in place, by allowing the
+  `status` property through `ImmutableObsInterceptor` for the current thread. The obs keep their ids; obs have no
+  `changedBy`, so the `RESULTS_VALIDATED` event records who validated and when. Being an in-place update, it does
+  not go through `ObsService.saveObs`, so obs save hooks and events do not fire for it.
+- A result edited on a `COMPLETED` order is saved by core as `AMENDED`, and a result added to it is saved `FINAL`.
+  The order stays `COMPLETED` and no event is recorded.
 - `GET /labResults` only returns results whose order is `COMPLETED`, or that are not linked to an order.
-- Completing a validated order is left to the implementation (for example a validation page in another module), which
-  calls `OrderService.updateOrderFulfillerStatus(order, COMPLETED, ...)` and clears the awaiting validation mark.
-- Saving the order as `IN_PROGRESS`, marking it not performed, or reverting it clears the mark.
+
+**Validating.** `validateLabResults` and `returnLabResultsForCorrection` require the
+`Task: pihapps.labs.validateResults` privilege (`LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS`). Both check every
+order before changing anything, and throw an `APIException` naming the first order that:
+- is not awaiting validation (not `IN_PROGRESS`, or its latest validation event is not `RESULTS_SUBMITTED`), or
+- has results the current user entered, changed or removed (`getLabResultEditors`): the creators and voiders of the
+  order's result obs, voided ones included, and the user who last saved each one's encounter (`changedBy`).
+  Events are not obs, so recording one never makes the validator an editor.
+
+`canValidateLabResults(order, user)` answers the same question for one order and user. Returning results requires
+a non-blank reason; the order stays `IN_PROGRESS` with its results `PRELIMINARY` until the lab submits again.
+Marking an order not performed works as without validation.
+
+The results form labels its `COMPLETED` choice "Submit for validation".
 
 ---
 
@@ -271,6 +317,10 @@ EncounterFulfillingOrders getEncounterFulfillingOrders(String encounterUuid)
 Encounter getFulfillerEncounterForOrder(Order order)
 Obs getReasonOrderNotFulfilled(Order order)
 void markOrdersAsNotFulfilled(List<Order> orders, Concept reason)
+Set<User> getLabResultEditors(Order order)
+boolean canValidateLabResults(Order order, User user)
+void validateLabResults(List<Order> orders, String comment)
+void returnLabResultsForCorrection(List<Order> orders, String reason)
 ObsSearchResult getObs(ObsSearchCriteria criteria)
 ```
 
@@ -320,7 +370,8 @@ Two custom resource wrappers add fields not available in core representations:
 4. Fetches existing obs from the fulfiller encounter
 5. User enters result values; form validates ranges if `allowDecimal` / reference range is set
 6. On save, PATCHes or POSTs obs on the fulfiller encounter:
-   - Sets `fulfillerStatus = COMPLETED` on the order, or leaves it awaiting validation when validation is required
+   - Sets `fulfillerStatus = COMPLETED` on the order or, when validation is required, leaves it `IN_PROGRESS` with
+     `RESULTS_SUBMITTED` recorded and its new results `PRELIMINARY`
    - Records `specimenReceivedDateQuestion` and `resultsDateQuestion` obs
    - Optionally records `comment` on the obs if `collectResultComments = true`
 

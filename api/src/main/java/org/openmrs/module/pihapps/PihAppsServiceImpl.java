@@ -38,11 +38,14 @@ import org.openmrs.Patient;
 import org.openmrs.Provider;
 import org.openmrs.User;
 import org.openmrs.annotation.Authorized;
+import org.openmrs.api.APIException;
 import org.openmrs.api.EncounterService;
 import org.openmrs.api.LocationService;
 import org.openmrs.api.ObsService;
 import org.openmrs.api.OrderService;
+import org.openmrs.api.context.Context;
 import org.openmrs.api.db.hibernate.DbSessionFactory;
+import org.openmrs.api.db.hibernate.ImmutableObsInterceptor;
 import org.openmrs.api.impl.BaseOpenmrsService;
 import org.openmrs.module.emrapi.EmrApiConstants;
 import org.openmrs.module.pihapps.encounter.EncounterSearchCriteria;
@@ -65,10 +68,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -754,6 +759,138 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		c.add(eq("order", order));
 		c.addOrder(asc("orderFulfillmentEventId"));
 		return c.list();
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_OBS)
+	public Set<User> getLabResultEditors(Order order) {
+		return getLabResultEditors(getLabResultObs(order));
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	@Authorized(PrivilegeConstants.GET_ORDERS)
+	public boolean canValidateLabResults(Order order, User user) {
+		if (!labOrderConfig.getRequireResultValidation()) {
+			return false;
+		}
+		OrderFulfillmentEvent latest = getLatestOrderFulfillmentEvents(Collections.singletonList(order),
+				OrderFulfillmentEventType.RESULT_VALIDATION).get(order);
+		return isAwaitingValidation(order, latest) && !getLabResultEditors(order).contains(user);
+	}
+
+	@Override
+	@Transactional
+	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
+	public void validateLabResults(List<Order> orders, String comment) {
+		Map<Order, List<Obs>> resultObs = checkCanValidateLabResults(orders);
+		ImmutableObsInterceptor interceptor = Context.getRegisteredComponents(ImmutableObsInterceptor.class).get(0);
+		try {
+			// Results become final in place, rather than by void and replace, which would double the result rows
+			interceptor.addMutablePropertiesForThread("status");
+			for (Order order : orders) {
+				for (Obs obs : resultObs.get(order)) {
+					if (!BooleanUtils.isTrue(obs.getVoided()) && obs.getStatus() == Obs.Status.PRELIMINARY) {
+						obs.setStatus(Obs.Status.FINAL);
+					}
+				}
+				orderService.updateOrderFulfillerStatus(order, Order.FulfillerStatus.COMPLETED, null);
+				saveValidationEvent(order, OrderFulfillmentEventType.RESULTS_VALIDATED, StringUtils.trimToNull(comment));
+			}
+			sessionFactory.getCurrentSession().flush();
+		}
+		finally {
+			interceptor.removeMutablePropertiesForThread();
+		}
+	}
+
+	@Override
+	@Transactional
+	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
+	public void returnLabResultsForCorrection(List<Order> orders, String reason) {
+		if (StringUtils.isBlank(reason)) {
+			throw new APIException("A reason is required to return lab results for correction");
+		}
+		checkCanValidateLabResults(orders);
+		for (Order order : orders) {
+			saveValidationEvent(order, OrderFulfillmentEventType.RESULTS_RETURNED, reason.trim());
+		}
+	}
+
+	/**
+	 * Checks that the current user can validate the results of every given order, before anything is changed
+	 * @return the result obs of each order, voided ones included
+	 * @throws APIException naming the first order that cannot be validated
+	 */
+	private Map<Order, List<Obs>> checkCanValidateLabResults(List<Order> orders) {
+		if (!labOrderConfig.getRequireResultValidation()) {
+			throw new APIException("Lab result validation is not enabled");
+		}
+		User user = Context.getAuthenticatedUser();
+		Map<Order, OrderFulfillmentEvent> latestEvents = getLatestOrderFulfillmentEvents(orders, OrderFulfillmentEventType.RESULT_VALIDATION);
+		Map<Order, List<Obs>> resultObs = new HashMap<>();
+		for (Order order : orders) {
+			if (!isAwaitingValidation(order, latestEvents.get(order))) {
+				throw new APIException("The results of order " + order.getOrderNumber() + " are not awaiting validation");
+			}
+			List<Obs> obs = getLabResultObs(order);
+			if (getLabResultEditors(obs).contains(user)) {
+				throw new APIException("You entered or changed the results of order " + order.getOrderNumber()
+						+ ", so another user must validate them");
+			}
+			resultObs.put(order, obs);
+		}
+		return resultObs;
+	}
+
+	/**
+	 * @return whether the order is in progress and its latest validation event is a submission.  An order marked not
+	 * performed after its results were submitted keeps that event, so its fulfiller status is checked too
+	 */
+	private boolean isAwaitingValidation(Order order, OrderFulfillmentEvent latestValidationEvent) {
+		return order.getFulfillerStatus() == Order.FulfillerStatus.IN_PROGRESS && latestValidationEvent != null
+				&& latestValidationEvent.getEventType() == OrderFulfillmentEventType.RESULTS_SUBMITTED;
+	}
+
+	/**
+	 * @return the obs linked to the given order, voided ones included, whose concept is a result concept of the order
+	 */
+	@SuppressWarnings({ "unchecked" })
+	private List<Obs> getLabResultObs(Order order) {
+		Set<Concept> resultConcepts = getLabResultConcepts(order);
+		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(Obs.class);
+		c.add(eq("order", order));
+		List<Obs> ret = new ArrayList<>();
+		for (Obs obs : (List<Obs>) c.list()) {
+			if (resultConcepts.contains(obs.getConcept())) {
+				ret.add(obs);
+			}
+		}
+		return ret;
+	}
+
+	private Set<User> getLabResultEditors(List<Obs> resultObs) {
+		Set<User> ret = new LinkedHashSet<>();
+		for (Obs obs : resultObs) {
+			ret.add(obs.getCreator());
+			if (obs.getVoidedBy() != null) {
+				ret.add(obs.getVoidedBy());
+			}
+			// Whoever saved the results last, eg submitting results that a lab machine recorded, entered them too
+			if (obs.getEncounter() != null && obs.getEncounter().getChangedBy() != null) {
+				ret.add(obs.getEncounter().getChangedBy());
+			}
+		}
+		return ret;
+	}
+
+	private void saveValidationEvent(Order order, OrderFulfillmentEventType eventType, String comment) {
+		OrderFulfillmentEvent event = new OrderFulfillmentEvent();
+		event.setOrder(order);
+		event.setEventType(eventType);
+		event.setComment(comment);
+		saveOrderFulfillmentEvent(event);
 	}
 
 	@Override

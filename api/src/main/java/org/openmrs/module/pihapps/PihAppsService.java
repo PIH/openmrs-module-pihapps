@@ -19,6 +19,7 @@ import org.openmrs.EncounterType;
 import org.openmrs.Location;
 import org.openmrs.Obs;
 import org.openmrs.Order;
+import org.openmrs.User;
 import org.openmrs.annotation.Authorized;
 import org.openmrs.api.OpenmrsService;
 import org.openmrs.module.pihapps.encounter.EncounterSearchCriteria;
@@ -26,6 +27,7 @@ import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
+import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.module.pihapps.orders.OrderFulfillmentEvent;
 import org.openmrs.module.pihapps.orders.OrderFulfillmentEventType;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
@@ -80,6 +82,37 @@ public interface PihAppsService extends OpenmrsService {
 	 * @return the non-voided events of the given order, oldest first
 	 */
 	List<OrderFulfillmentEvent> getOrderFulfillmentEvents(Order order);
+
+	/**
+	 * @return the users who entered, changed or removed any result of the given order: the creators and voiders of
+	 * the order's result obs, voided ones included, and the user who last saved the encounter of each.  Result obs are
+	 * those linked to the order whose concept is one of {@link #getLabResultConcepts(Order)}
+	 */
+	@Authorized(PrivilegeConstants.GET_OBS)
+	Set<User> getLabResultEditors(Order order);
+
+	/**
+	 * @return whether the given user may validate the results of the given order: validation is required, the order
+	 * is in progress and awaiting validation, and the user is not one of {@link #getLabResultEditors(Order)}
+	 */
+	@Authorized(PrivilegeConstants.GET_ORDERS)
+	boolean canValidateLabResults(Order order, User user);
+
+	/**
+	 * Validates the results of the given orders: their preliminary results become final and each order is completed.
+	 * Nothing is changed if the current user cannot validate any one of the orders.
+	 * @param comment an optional note from the validator
+	 */
+	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
+	void validateLabResults(List<Order> orders, String comment);
+
+	/**
+	 * Returns the results of the given orders to the lab for correction: each order stays in progress with its results
+	 * preliminary.  Nothing is changed if the current user cannot validate any one of the orders.
+	 * @param reason why the results are returned, required
+	 */
+	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
+	void returnLabResultsForCorrection(List<Order> orders, String reason);
 
 	/**
 	 * Searches observations by whatever {@link ObsSearchCriteria} names: the patient, the concepts,
