@@ -32,7 +32,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -72,6 +71,7 @@ public class LabResultsRestController {
                                @RequestParam(value = "category", required = false) Concept category,
                                @RequestParam(value = "onOrBefore", required = false) String onOrBefore,
                                @RequestParam(value = "onOrAfter", required = false) String onOrAfter,
+                               @RequestParam(value = "status", required = false) List<String> statuses,
                                 @RequestParam(value = "sortBy", required = false) List<String> sortBy
                                ) throws ResponseException {
 
@@ -106,10 +106,7 @@ public class LabResultsRestController {
             }
 
             searchCriteria.setConcepts(concepts);
-            // Clinicians only see results a validator has released
-            if (labOrderConfig.getRequireResultValidation()) {
-                searchCriteria.setStatuses(Arrays.asList(Obs.Status.FINAL, Obs.Status.AMENDED));
-            }
+            searchCriteria.setStatuses(getStatuses(statuses));
             searchCriteria.setOnOrBefore(getDate(onOrBefore));
             searchCriteria.setOnOrAfter(getDate(onOrAfter));
             searchCriteria.setStartIndex(requestContext.getStartIndex());
@@ -176,6 +173,25 @@ public class LabResultsRestController {
             ret.addAll(concept.getSetMembers());
         }
         ret.remove(concept);
+        return ret;
+    }
+
+    /**
+     * @return the obs statuses named, or null to match any status if none are named
+     */
+    List<Obs.Status> getStatuses(List<String> statuses) {
+        if (statuses == null || statuses.isEmpty()) {
+            return null;
+        }
+        List<Obs.Status> ret = new ArrayList<>();
+        for (String status : statuses) {
+            try {
+                ret.add(Obs.Status.valueOf(status.trim().toUpperCase()));
+            }
+            catch (Exception e) {
+                throw new IllegalArgumentException("Invalid obs status: " + status);
+            }
+        }
         return ret;
     }
 

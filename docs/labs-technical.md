@@ -172,9 +172,10 @@ not result obs and stay `FINAL`.
   not go through `ObsService.saveObs`, so obs save hooks and events do not fire for it.
 - A result edited on a `COMPLETED` order is saved by core as `AMENDED`, and a result added to it is saved `FINAL`.
   The order stays `COMPLETED` and no event is recorded.
-- With validation on, `GET /labResults` returns only `FINAL` and `AMENDED` obs; results not linked to an order are
-  `FINAL` by default.
-- Turning validation off makes any leftover `PRELIMINARY` results visible, and the `AWAITING_VALIDATION` filter then
+- `GET /labResults` returns obs of any status unless the client passes `status`. With validation on, the patient lab
+  results page and the trends fragment pass `FINAL` and `AMENDED`; results not linked to an order are `FINAL` by
+  default.
+- Turning validation off makes those pages show any leftover `PRELIMINARY` results, and the `AWAITING_VALIDATION` filter then
   matches all `IN_PROGRESS` orders (the option is not offered when validation is off).
 
 **Validating.** `validateLabResults` and `returnLabResultsForCorrection` require the
@@ -246,6 +247,7 @@ Sets fulfiller status to `EXCEPTION` on each order and records a reason obs link
 | `labTest` | UUID | Walks concept set members recursively |
 | `category` | UUID | Walks concept set members recursively |
 | `onOrAfter`, `onOrBefore` | `yyyy-MM-dd` | |
+| `status` | `Obs.Status`, repeatable | e.g. `status=FINAL&status=AMENDED`. Omit for any status |
 | `sortBy` | `field-DIRECTION` | Defaults to `obsDatetime-DESC, obsId-DESC` |
 
 If neither `labTest` nor `category` is supplied, uses `labResultCategoriesConceptSet` to find all result concept leaves.

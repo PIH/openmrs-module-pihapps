@@ -32,7 +32,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         const configRep =
             "dateFormat,dateTimeFormat,labOrderConfig:(" +
                 "labResultCategoriesConceptSet:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + ",setMembers:(" + conceptRep + "))))," +
-                "collectResultComments" +
+                "collectResultComments,requireResultValidation" +
             ")";
 
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
@@ -51,7 +51,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     "labTest": (testVal === "" ? panelVal : testVal),
                     "category": jq("#category-filter").val(),
                     "onOrAfter": jq("#onOrAfter-filter-field").val(),
-                    "onOrBefore": jq("#onOrBefore-filter-field").val()
+                    "onOrBefore": jq("#onOrBefore-filter-field").val(),
+                    // Clinicians only see results a validator has released
+                    ...(pihAppsConfig.labOrderConfig.requireResultValidation ? { "status": ["FINAL", "AMENDED"] } : {})
                 }
             }
 
