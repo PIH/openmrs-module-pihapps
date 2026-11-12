@@ -233,7 +233,6 @@
         getJson(rest + "pihapps/config?v=custom:(" + configRep + ")").then(config => {
             const labConfig = config.labOrderConfig;
             const requireResultValidation = labConfig.requireResultValidation;
-            const nestedPanels = {};  // concept uuid -> panel that is a member of an ordered panel, with its members
             const dateUtils = new PihAppsDateUtils(moment, config.dateFormat, config.dateTimeFormat);
 
             // Status labels as on the single order results form: completing results submits them for validation
@@ -321,16 +320,6 @@
                 }
 
                 return Promise.all(loads).then(() => {
-                    // Members of panels that are panels themselves, other than obs groups entered with their own editor
-                    const nestedUuids = [...new Set(Object.values(orderables).flatMap(o => o.setMembers)
-                        .filter(m => m.datatype?.name === "N/A" && !obsGroupEditors[m.uuid]).map(m => m.uuid))];
-                    return Promise.all(nestedUuids.map(uuid => getJson(rest + "concept/" + uuid + "?v=custom:(" + PihAppsLabResultFields.orderableRep + ")")
-                        .then(concept => {
-                            if (concept.setMembers.length > 0) {
-                                nestedPanels[uuid] = concept;
-                            }
-                        })));
-                }).then(() => {
                     jq("#lr-loading").hide();
                     jq("#lr-content").append(validateMode
                         ? renderValidation(group, orderables, validation)
@@ -554,40 +543,6 @@
                 return page;
             }
 
-            // Adds, in the order of the members of the panel, the members that are panels themselves, each with a
-            // heading and their fields
-            function addNestedPanels(order, orderable, results, formHelper, idPrefix) {
-                let previousRow = null;
-                orderable.setMembers.forEach(member => {
-                    const nestedPanel = nestedPanels[member.uuid];
-                    if (!nestedPanel) {
-                        const row = results.find('.result-row[data-concept-uuid="' + member.uuid + '"]').first();
-                        previousRow = row.length > 0 ? row : previousRow;
-                        return;
-                    }
-                    const section = jq("<div>").addClass("lr-subpanel")
-                        .append(jq("<div>").addClass("lr-row").append(jq("<span>").addClass("lr-subpanel-name").text(member.displayStringForLab)));
-                    PihAppsLabResultFields.render({
-                        jq: jq,
-                        formHelper: formHelper,
-                        order: order,
-                        orderable: nestedPanel,
-                        container: section,
-                        idPrefix: idPrefix + "-" + member.uuid + "-",
-                        collectResultComments: labConfig.collectResultComments,
-                        messages: messages
-                    });
-                    section.find(".comment-toggle, .multi-value-add, .multi-value-remove").attr("tabindex", -1);
-                    if (previousRow) {
-                        previousRow.after(section);
-                    }
-                    else {
-                        results.prepend(section);
-                    }
-                    previousRow = section;
-                });
-            }
-
             function renderEntryOrder(order, orderable, formHelper, obsFor, idPrefix) {
                 const element = jq("<div>").addClass("lr-order");
                 const isPanel = orderable.setMembers.length > 0;
@@ -608,18 +563,13 @@
                     jq(button).attr({ type: "button", tabindex: -1, "data-value": statusOptions[i].value });
                 });
 
-                // Members that are panels themselves are not fields: addNestedPanels adds them with their own fields.
-                // Obs groups with their own editor are rendered with it.
-                const isField = (member) => member.datatype?.name !== "N/A" || !!obsGroupEditors[member.uuid];
-                const fieldsOrderable = isPanel ? Object.assign({}, orderable, { setMembers: orderable.setMembers.filter(isField) }) : orderable;
-
                 const results = jq("<div>").addClass("lr-results");
                 const editors = [];
                 PihAppsLabResultFields.render({
                     jq: jq,
                     formHelper: formHelper,
                     order: order,
-                    orderable: fieldsOrderable,
+                    orderable: orderable,
                     container: results,
                     idPrefix: idPrefix + "-",
                     collectResultComments: labConfig.collectResultComments,
@@ -636,7 +586,6 @@
                         .append(jq("<span>").addClass("lr-name").attr("title", order.orderNumber).html(testName(order)))
                         .append(jq("<span>")).append(jq("<span>")).append(statusCell));
                     element.append(results.addClass("lr-panel-members"));
-                    addNestedPanels(order, orderable, results, formHelper, idPrefix);
                 }
                 else {
                     // A single test is one line: its name, result, normal range and status
@@ -789,7 +738,7 @@
                                         }
                                         return;
                                     }
-                                    const nestedPanel = nestedPanels[concept.uuid];
+                                    const nestedPanel = PihAppsLabResultFields.isNestedPanel(concept, obsGroupEditors) ? concept : null;
                                     if (nestedPanel) {
                                         const lines = nestedPanel.setMembers.map(m => valueRow(m, jq("<span>").addClass("test-name").text(m.displayStringForLab)))
                                             .filter(line => line.hasValues);

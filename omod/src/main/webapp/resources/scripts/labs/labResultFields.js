@@ -143,7 +143,15 @@ class PihAppsLabResultFields {
     static get orderableRep() {
         const baseConceptRep = "uuid,display,displayStringForLab,datatype:(uuid,name),allowDecimal,units,multipleAnswer,fieldDependencyRule";
         const baseConceptRepWithAnswers = baseConceptRep + ",answers:(" + baseConceptRep + ")";
-        return baseConceptRepWithAnswers + ",setMembers:(" + baseConceptRepWithAnswers + ")";
+        // Members of the ordered concept, and of its members that are panels themselves
+        return baseConceptRepWithAnswers + ",setMembers:(" + baseConceptRepWithAnswers + ",setMembers:(" + baseConceptRepWithAnswers + "))";
+    }
+
+    /**
+     * @return whether a member of a panel is a panel itself, rendered as a heading and its own tests, rather than a field
+     */
+    static isNestedPanel(concept, obsGroupEditors) {
+        return concept.datatype?.name === "N/A" && (concept.setMembers || []).length > 0 && !(obsGroupEditors || {})[concept.uuid];
     }
 
     /**
@@ -250,6 +258,20 @@ class PihAppsLabResultFields {
         const isPanel = orderable.setMembers.length > 0;
         const tests = isPanel ? orderable.setMembers : [orderable];
         tests.forEach((concept) => {
+            // A member that is a panel itself: a heading, then its tests, recorded in their own obs group
+            if (isPanel && PihAppsLabResultFields.isNestedPanel(concept, obsGroupEditors)) {
+                const section = jq("<div>").addClass("result-subpanel lr-subpanel");
+                section.append(jq("<div>").addClass("result-subpanel-heading lr-row")
+                    .append(jq("<span>").addClass("result-subpanel-name lr-subpanel-name").text(concept.displayStringForLab)));
+                config.container.append(section);
+                PihAppsLabResultFields.render(Object.assign({}, config, {
+                    orderable: concept,
+                    container: section,
+                    idPrefix: id + concept.uuid + "-",
+                    obsGroupEditors: {}
+                }));
+                return;
+            }
             const orderableRow = jq("<div>").addClass("form-field-section row result-row align-items-start").attr("data-concept-uuid", concept.uuid);
             config.container.append(orderableRow);
             const testNameSection = jq("<span>").addClass("test-name col-3").append(concept.displayStringForLab);
@@ -395,7 +417,7 @@ class PihAppsLabResultFields {
             }
         });
 
-        const fieldTests = tests.filter(concept => !(isPanel && obsGroupEditors[concept.uuid]));
+        const fieldTests = tests.filter(concept => !(isPanel && (obsGroupEditors[concept.uuid] || PihAppsLabResultFields.isNestedPanel(concept, obsGroupEditors))));
         formHelper.wireFieldDependencyRules(config.container, fieldTests);
         return fieldTests;
     }

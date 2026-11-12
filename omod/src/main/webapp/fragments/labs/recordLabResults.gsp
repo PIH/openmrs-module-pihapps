@@ -160,7 +160,8 @@
             const fulfillerStatusWidget = formHelper.createSelectWidget({
                 id: id + "-fulfiller-status",
                 options: fulfillerStatuses,
-                initialValue: awaitingValidation ? 'COMPLETED' : order.fulfillerStatus,
+                // Results awaiting validation or returned for correction open as submitted, with their results shown
+                initialValue: (awaitingValidation || returnedForCorrection) ? 'COMPLETED' : order.fulfillerStatus,
                 includeEmptyOption: false,
             });
             resultsEntrySection.find(".fulfiller-status").append(fulfillerStatusWidget);
@@ -172,14 +173,12 @@
             returnedSection.find(".returned-for-correction-comment").text(returnedForCorrection ? (order.labResultValidation.comment || "") : "");
             returnedSection.toggle(returnedForCorrection);
 
+            // Changing the status only shows its section: what the other sections hold is cleared when saving, so that
+            // choosing another status and back keeps what was entered
             fulfillerStatusWidget.on("change", () => {
                 const fulfillerStatus = fulfillerStatusWidget.val();
-                parentElement.find(".status-section").hide().find(":input").val("");
+                parentElement.find(".status-section").hide();
                 parentElement.find(".status-section-" + fulfillerStatus).show();
-                // The results are hidden and cleared unless completed, the editors' as the fields'
-                if (fulfillerStatus !== 'COMPLETED') {
-                    editors.forEach(editor => editor.clear());
-                }
             }).change();
 
             // Add reason not performed widget
@@ -233,8 +232,16 @@
                     parentElement.find(".action-button").attr("disabled", "disabled");
                     parentElement.find(".errors-section").html("");
 
-                    const encounterToSubmit = formHelper.constructEncounterPayload();
                     const fulfillerStatusToSubmit = jq("#" + id + "-fulfiller-status").val();
+                    // What the sections of the other statuses hold is not saved: results unless completed (the editors'
+                    // as the fields'), the reason unless not performed
+                    const otherSections = parentElement.find(".status-section").not(".status-section-" + fulfillerStatusToSubmit);
+                    otherSections.find(":checkbox, :radio").prop("checked", false);
+                    otherSections.find(":input").not(":checkbox, :radio, button").val("");
+                    if (fulfillerStatusToSubmit !== 'COMPLETED') {
+                        editors.forEach(editor => editor.clear());
+                    }
+                    const encounterToSubmit = formHelper.constructEncounterPayload();
                     const ordersToSubmit = [{ uuid: order.uuid, fulfillerStatus: fulfillerStatusToSubmit }];
 
                     // Validate

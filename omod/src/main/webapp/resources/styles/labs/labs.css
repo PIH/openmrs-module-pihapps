@@ -197,3 +197,7 @@ form input, form select, form textarea, .form input, .form select, .form textare
 .result-flag-critical { color: #c62828; }
 .obs-widget .field-error:empty { display: none; }
 .obs-widget .field-error.error-value { display: block; flex-basis: 100%; order: 1; padding-left: 0; font-weight: bold; font-size: 0.85em; color: #c62828; }
+
+/* A panel within an ordered panel (labResultFields.js): a heading above its own tests */
+.result-subpanel-heading { margin-top: 6px; }
+.result-subpanel-name { font-weight: bold; }
