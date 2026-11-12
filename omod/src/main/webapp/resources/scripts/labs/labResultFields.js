@@ -107,16 +107,19 @@ class PihAppsLabResultFields {
             if (!concept.allowDecimal && !Number.isInteger(numericValue)) {
                 return {type: "error", message: messages.valueMustBeInteger};
             }
-            if (refRange.lowAbsolute && value < refRange.lowAbsolute) {
+            // A limit of 0 is a limit: compare with null, not truthiness
+            const below = (limit) => limit != null && numericValue < limit;
+            const above = (limit) => limit != null && numericValue > limit;
+            if (below(refRange.lowAbsolute)) {
                 return {type: "error", message: messages.minimumAllowedValue + ": " + refRange.lowAbsolute};
             }
-            if (refRange.hiAbsolute && value > refRange.hiAbsolute) {
+            if (above(refRange.hiAbsolute)) {
                 return {type: "error", message: messages.maximumAllowedValue + ": " + refRange.hiAbsolute};
             }
-            if ((refRange.lowCritical && value < refRange.lowCritical) || (refRange.hiCritical && value > refRange.hiCritical)) {
+            if (below(refRange.lowCritical) || above(refRange.hiCritical)) {
                 return {type: "critical", message: messages.criticalValue};
             }
-            if ((refRange.lowNormal && value < refRange.lowNormal) || (refRange.hiNormal && value > refRange.hiNormal)) {
+            if (below(refRange.lowNormal) || above(refRange.hiNormal)) {
                 return {type: "abnormal", message: messages.abnormalValue};
             }
         }
