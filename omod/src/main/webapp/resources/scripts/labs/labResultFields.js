@@ -20,8 +20,9 @@
  *     container - the element holding the order's result rows, each a .result-row with data-concept-uuid;
  *     onChange - to call when the editor's value changes
  *   editor: { element, hasValue(), isChanged(), clear(), getObs() }
- *     element - shown as the result of the row; getObs - the group to record, in the representation the obs resource
- *     accepts ({ concept, groupMembers: [{ concept, value, groupMembers }] }), or null to remove the result
+ *     element - shown as the result of the row; getObs - the group to record, as new obs in the representation the
+ *     obs resource accepts ({ concept, groupMembers: [{ concept, valueCoded, groupMembers }] }), without the uuids of
+ *     existing obs (the server rejects them), or null to remove the result
  * The editor does not save anything: the form sends the groups of changed editors with the order's other results, in
  * one request (EncounterFulfillingOrders.obsGroupResults).  The server replaces the order's existing group of the
  * concept with it, links its obs to the order, and gives them the status of the order's other new results: preliminary

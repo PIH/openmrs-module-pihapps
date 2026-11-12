@@ -70,8 +70,9 @@ public interface PihAppsService extends OpenmrsService {
 	Set<Concept> getLabResultConcepts(Order order);
 
 	/**
-	 * Saves the given event, setting its event datetime to now if it has none.  Saving a RESULTS_VALIDATED or
-	 * RESULTS_RETURNED event also requires {@link LabOrderConfig#PRIVILEGE_VALIDATE_RESULTS}
+	 * Saves the given event, setting its event datetime to now if it has none.  Events decide whether an order's
+	 * results await validation, so saving one directly (including voiding it) also requires
+	 * {@link LabOrderConfig#PRIVILEGE_VALIDATE_RESULTS}; saving, validating and returning results record theirs themselves
 	 */
 	@Authorized(PrivilegeConstants.EDIT_ORDERS)
 	OrderFulfillmentEvent saveOrderFulfillmentEvent(OrderFulfillmentEvent event);

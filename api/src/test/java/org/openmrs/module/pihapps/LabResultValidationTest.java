@@ -284,21 +284,30 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
-    public void saveOrderFulfillmentEvent_shouldRequireTheValidatePrivilegeToValidateOrReturn() {
+    public void saveOrderFulfillmentEvent_shouldRequireTheValidatePrivilege() {
         Order order = order(ORDER_7);
         User user = Context.getUserService().getUser(VALIDATOR_USER); // without the validator role in this test
         Context.becomeUser(user.getSystemId());
         Context.addProxyPrivilege(PrivilegeConstants.EDIT_ORDERS);
-        for (OrderFulfillmentEventType type : Arrays.asList(OrderFulfillmentEventType.RESULTS_VALIDATED, OrderFulfillmentEventType.RESULTS_RETURNED)) {
+        for (OrderFulfillmentEventType type : OrderFulfillmentEventType.values()) {
             OrderFulfillmentEvent event = new OrderFulfillmentEvent();
             event.setOrder(order);
             event.setEventType(type);
             assertThrows(APIAuthenticationException.class, () -> pihAppsService.saveOrderFulfillmentEvent(event));
         }
-        OrderFulfillmentEvent submitted = new OrderFulfillmentEvent();
-        submitted.setOrder(order);
-        submitted.setEventType(OrderFulfillmentEventType.RESULTS_SUBMITTED);
-        pihAppsService.saveOrderFulfillmentEvent(submitted);
+    }
+
+    @Test
+    public void saveObsGroupResult_shouldRejectAnExistingGroupGivenBack() {
+        Order order = order(ORDER_9201);
+        Encounter encounter = encounter(order);
+        order = saveWithGroupResult(encounter, order, Order.FulfillerStatus.COMPLETED, panelGroup(60.0, 300.0));
+        Obs existing = groupResult(order);
+        Order completed = order;
+        assertThrows(IllegalArgumentException.class, () -> saveWithGroupResult(
+                Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), completed, Order.FulfillerStatus.COMPLETED, existing));
+        Context.clearSession();
+        assertThat(groupResult(order(ORDER_9201)).getUuid(), equalTo(existing.getUuid()));
     }
 
     @Test

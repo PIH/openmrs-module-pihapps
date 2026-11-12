@@ -459,6 +459,11 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			sessionFactory.getCurrentSession().setFlushMode(FlushMode.MANUAL);
 			if (requireResultValidation && encounterFulfillingOrders.getOrders() != null) {
 				for (Order order : encounterFulfillingOrders.getOrders()) {
+					// Locked first, so that the state read is not changed by a validation before this save completes
+					if (order.getOrderId() != null) {
+						sessionFactory.getHibernateSessionFactory().getCurrentSession()
+								.buildLockRequest(new LockOptions(LockMode.PESSIMISTIC_WRITE)).lock(order);
+					}
 					Order.FulfillerStatus persistedStatus = getSavedFulfillerStatus(order);
 					persistedStatuses.put(order, persistedStatus);
 					resultConcepts.put(order, getLabResultConcepts(order));
@@ -537,7 +542,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					OrderFulfillmentEvent event = new OrderFulfillmentEvent();
 					event.setOrder(order);
 					event.setEventType(OrderFulfillmentEventType.RESULTS_SUBMITTED);
-					saveOrderFulfillmentEvent(event);
+					persistEvent(event);
 				}
 			}
 		}
@@ -780,6 +785,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				if (!concept.equals(group.getConcept())) {
 					throw new IllegalArgumentException("The obs group of a result must be of the result's concept");
 				}
+				requireNewObs(group);
 				Obs.Status status = Obs.Status.FINAL;
 				if (replaced != null) {
 					group.setPreviousVersion(replaced);
@@ -808,6 +814,20 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				.setInteger("orderId", order.getOrderId())
 				.setParameter("concept", concept)
 				.list();
+	}
+
+	/**
+	 * Requires the obs and its members to be new: an existing obs given back as a result would be voided as replaced
+	 */
+	private void requireNewObs(Obs obs) {
+		if (obs.getObsId() != null) {
+			throw new IllegalArgumentException("An obs group result must be new obs, without uuids of existing obs: " + obs.getUuid());
+		}
+		if (obs.getGroupMembers() != null) {
+			for (Obs member : obs.getGroupMembers()) {
+				requireNewObs(member);
+			}
+		}
 	}
 
 	private void voidWithMembers(Obs obs, String reason) {
@@ -919,11 +939,15 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Transactional
 	@Authorized(PrivilegeConstants.EDIT_ORDERS)
 	public OrderFulfillmentEvent saveOrderFulfillmentEvent(OrderFulfillmentEvent event) {
-		if (event.getEventType() == OrderFulfillmentEventType.RESULTS_VALIDATED || event.getEventType() == OrderFulfillmentEventType.RESULTS_RETURNED) {
-			if (!Context.hasPrivilege(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)) {
-				throw new APIAuthenticationException("Privilege required: " + LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS);
-			}
+		// Events decide whether an order's results await validation: recording or voiding one directly, rather than
+		// through saving, validating or returning results, is for validators only
+		if (!Context.hasPrivilege(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)) {
+			throw new APIAuthenticationException("Privilege required: " + LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS);
 		}
+		return persistEvent(event);
+	}
+
+	private OrderFulfillmentEvent persistEvent(OrderFulfillmentEvent event) {
 		if (event.getEventDatetime() == null) {
 			event.setEventDatetime(new Date());
 		}
@@ -1150,7 +1174,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		event.setOrder(order);
 		event.setEventType(eventType);
 		event.setComment(comment);
-		saveOrderFulfillmentEvent(event);
+		persistEvent(event);
 	}
 
 	@Override
