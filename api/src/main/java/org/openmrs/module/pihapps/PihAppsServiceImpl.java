@@ -690,11 +690,10 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (order.getOrderId() == null) {
 			return null;
 		}
-		Object status = sessionFactory.getCurrentSession()
-				.createSQLQuery("select fulfiller_status from orders where order_id = :orderId")
+		return (Order.FulfillerStatus) sessionFactory.getCurrentSession()
+				.createQuery("select o.fulfillerStatus from Order o where o.orderId = :orderId")
 				.setInteger("orderId", order.getOrderId())
 				.uniqueResult();
-		return status == null ? null : Order.FulfillerStatus.valueOf(status.toString());
 	}
 
 	/**
