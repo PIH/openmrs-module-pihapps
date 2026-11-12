@@ -57,7 +57,7 @@
 
     /* Every line of the table: test, result, normal range, status (or who entered the results) */
     .lr-row, .lr-specimen .result-row {
-        display: grid; grid-template-columns: 230px 380px 130px minmax(0, 1fr); column-gap: 12px; align-items: center;
+        display: grid; grid-template-columns: 200px 310px 220px minmax(0, 1fr); column-gap: 12px; align-items: center;
         margin: 0; padding: 3px 0; min-height: 32px;
     }
     .lr-specimen .result-row > span { flex: none; max-width: none; width: auto; padding: 0; }
@@ -73,8 +73,8 @@
     .lr-status-cell .btn { padding: 1px 8px; font-size: 0.85em; }
     .lr-not-performed .result-row .form-field-widgets { visibility: hidden; }
     .lr-not-performed .lr-panel-members { display: none; }
-    .lr-reason { margin: 0 0 6px 242px; }
-    .lr-note { color: #b26a00; font-size: 0.85em; margin: 0 0 4px 242px; }
+    .lr-reason { margin: 0 0 6px 212px; }
+    .lr-note { color: #b26a00; font-size: 0.85em; margin: 0 0 4px 212px; }
     .lr-hidden { display: none; }
 
     /* Result fields: the same width for each kind of field, so that units and comments line up */
@@ -88,10 +88,6 @@
     .lr-specimen .multi-value-add { font-size: 0.8em; padding: 0 6px; }
     .lr-specimen .reference-range, .lr-range { color: #546e7a; font-size: 0.9em; }
     .lr-specimen .form-field-widgets p { margin: 0; }
-    .field-error { display: inline; padding-left: 4px; font-weight: bold; font-size: 0.85em; }
-    .field-error:empty { display: none; }
-    .field-error.abnormal-value, .field-error.critical-value { color: #e65100; }
-    .field-error.error-value { color: #c62828; }
 
     /* Validation */
     .lr-value.lr-abnormal { color: #e65100; font-weight: bold; }

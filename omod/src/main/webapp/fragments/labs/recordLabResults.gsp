@@ -336,21 +336,19 @@
         width: 125px;
     }
     .result-units {
+        display: inline-block;
+        width: 90px;
         padding-left: 10px;
     }
-    .field-error {
-        display: inline;
-        padding-left: 10px;
-        font-weight: bold;
+    /* The field, units and comment link on one line; an invalid value's message and the comment below them */
+    .result-entry-section .obs-widget {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
     }
-    .field-error.abnormal-value {
-        color: orange;
-    }
-    .field-error.critical-value {
-        color: orange;
-    }
-    .field-error.error-value {
-        color: red;
+    .result-entry-section .obs-widget .comment-section {
+        flex-basis: 100%;
+        order: 2;
     }
 </style>
 

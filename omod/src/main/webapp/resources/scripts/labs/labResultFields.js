@@ -133,12 +133,37 @@ class PihAppsLabResultFields {
                     refRange.hiNormal ? ("=< " + refRange.hiNormal) : "";
     }
 
-    static showValidationResult(jq, messages, concept, refRange, textbox) {
-        const validationError = PihAppsLabResultFields.validateNumericResult(messages, concept, refRange, textbox.val());
-        const fieldErrorDiv = textbox.siblings(".field-error");
-        fieldErrorDiv.html("").removeClass("abnormal-value").removeClass("critical-value").removeClass("error-value");
-        if (validationError) {
-            fieldErrorDiv.html(validationError.message).addClass(validationError.type + "-value");
+    /**
+     * Shows the validation of the given numeric fields of one test.  An invalid value is shown under its field, as it
+     * prevents saving.  Abnormal and critical values color their field, and the most severe of them is flagged in
+     * flagElement (beside the normal range), so that the widths of the fields and what follows them do not change.
+     */
+    static showValidationResult(jq, messages, concept, refRange, textboxes, flagElement) {
+        let flag = null;
+        textboxes.each((i, element) => {
+            const textbox = jq(element);
+            const validationError = PihAppsLabResultFields.validateNumericResult(messages, concept, refRange, textbox.val());
+            const fieldErrorDiv = textbox.siblings(".field-error");
+            fieldErrorDiv.html("").removeClass("abnormal-value critical-value error-value");
+            textbox.removeClass("result-abnormal result-critical result-invalid");
+            if (validationError?.type === "error") {
+                fieldErrorDiv.html(validationError.message).addClass("error-value");
+                textbox.addClass("result-invalid");
+            }
+            else if (validationError) {
+                textbox.addClass("result-" + validationError.type);
+                if (!flag || validationError.type === "critical") {
+                    flag = validationError;
+                }
+            }
+        });
+        if (flagElement) {
+            flagElement.removeClass("result-flag-abnormal result-flag-critical").empty();
+            if (flag) {
+                flagElement.addClass("result-flag-" + flag.type)
+                    .append(jq("<i>").addClass("fas fa-fw fa-exclamation-triangle"))
+                    .append(document.createTextNode(flag.message));
+            }
         }
     }
 
@@ -280,12 +305,14 @@ class PihAppsLabResultFields {
 
                 if (concept.datatype.name === 'Numeric') {
                     PihAppsLabResultFields.fetchReferenceRange(jq, order, concept, (refRange) => {
-                        widgetSection.on("focusout", ".result-numeric-input", (event) => {
-                            PihAppsLabResultFields.showValidationResult(jq, messages, concept, refRange, jq(event.target));
-                        });
-                        widgetSection.find(".result-numeric-input").trigger("focusout");
+                        const flag = jq("<span>").addClass("result-flag");
+                        const validate = () => PihAppsLabResultFields.showValidationResult(jq, messages, concept, refRange,
+                            widgetSection.find(".result-numeric-input"), flag);
+                        widgetSection.on("focusout", ".result-numeric-input", validate);
+                        widgetSection.on("click", ".multi-value-remove", () => setTimeout(validate));
                         const refRangeDisplay = PihAppsLabResultFields.formatReferenceRange(refRange);
-                        widgetInfoSection.append(jq("<p>").append(jq("<span>").addClass("reference-range").html(refRangeDisplay)));
+                        widgetInfoSection.append(jq("<p>").append(jq("<span>").addClass("reference-range").html(refRangeDisplay)).append(flag));
+                        validate();
                     });
                 }
 
@@ -305,15 +332,17 @@ class PihAppsLabResultFields {
                 widgetSection.append(widgetWrapper);
 
                 const referenceRangeSection = jq("<span>").addClass("reference-range");
+                const flag = jq("<span>").addClass("result-flag");
                 if (concept.datatype.name === 'Numeric') {
                     PihAppsLabResultFields.fetchReferenceRange(jq, order, concept, (refRange) => {
-                        widgetSection.find(".result-numeric-input").on("blur", (event) => {
-                            PihAppsLabResultFields.showValidationResult(jq, messages, concept, refRange, jq(event.target));
-                        }).blur();
+                        const textbox = widgetSection.find(".result-numeric-input");
+                        const validate = () => PihAppsLabResultFields.showValidationResult(jq, messages, concept, refRange, textbox, flag);
+                        textbox.on("blur", validate);
                         referenceRangeSection.html(PihAppsLabResultFields.formatReferenceRange(refRange));
+                        validate();
                     });
                 }
-                widgetInfoSection.append(jq("<p>").append(referenceRangeSection));
+                widgetInfoSection.append(jq("<p>").append(referenceRangeSection).append(flag));
             }
         });
 
