@@ -48,10 +48,11 @@ omod/src/main/webapp/
     labOrderList.gsp                     # System-wide order list + inline forms
     labPatientList.gsp                   # Patient dashboard (grouped by patient)
     labPatientReception.gsp              # Per-patient specimen collection
+    labResultsByLabId.gsp                # Enter or validate a patient's results, grouped by Lab ID
     patientLabResults.gsp                # Patient result history
   fragments/labs/
     specimenCollectionEncounter.gsp      # Specimen collection form (inline in multiple pages)
-    recordLabResults.gsp                 # Results entry form (inline in labOrderList)
+    recordLabResults.gsp                 # Results entry form for one order (inline in labOrderList)
     recordOrderNotFulfilled.gsp          # Not-performed reason form (inline in multiple pages)
     selectedOrders.gsp                   # Read-only order display used within forms
     patientLabTrends.gsp                 # Chart.js trend chart (inline in patientLabResults)
@@ -202,7 +203,7 @@ members of their obs groups. Code that saves results of a lab order itself, rath
 
 The lab order list has a built-in "Validate lab results" action, on each order awaiting validation and on each
 patient row with one, when validation is on and the user has `Task: pihapps.labs.validateResults`. It opens
-`labResultEntry.page` in validate mode for the patient.
+`labResultsByLabId.page` in validate mode for the patient.
 
 ---
 
@@ -302,8 +303,8 @@ All pages follow the same pattern: the Groovy page controller injects minimal se
 
 | Extension point | `extensionParams` | Purpose |
 |---|---|---|
-| `org.openmrs.module.pihapps.patientLabResults.obsGroupRenderers` | `concept`, `jsFunction` | Shows a result recorded as an obs group (`concept`), such as the organisms a culture isolated and their antibiotic susceptibility, as one row. `jsFunction(obsGroup, extensionParams)` returns, or resolves to, the html or element to show as its result. Used by the patient lab results page, which asks `GET /labResults` for the group rather than its members (`renderedGroup`), and by the validate view of `labResultEntry.page` |
-| `org.openmrs.module.pihapps.labResults.obsGroupEditors` | `concept`, `jsFunction` | Enters such a result on both results forms (the single order form and `labResultEntry.page`), when `concept` is a direct member of the ordered panel. `jsFunction(context, extensionParams)` returns, or resolves to, an editor `{element, hasValue(), isChanged(), clear(), save(encounterUuid)}`. The forms call `save`, for changed editors, before saving the order's other results, with the encounter fulfilling the order; saving again must replace what an earlier save recorded. The editor saves its own obs, linked to the order, with the status `PihAppsService.getNewLabResultStatus(order)` returns; a result replacing a `FINAL` or `AMENDED` one is `AMENDED`, with the replaced obs as its previous version. The context is described in `labs/labResultFields.js` |
+| `org.openmrs.module.pihapps.patientLabResults.obsGroupRenderers` | `concept`, `jsFunction` | Shows a result recorded as an obs group (`concept`), such as the organisms a culture isolated and their antibiotic susceptibility, as one row. `jsFunction(obsGroup, extensionParams)` returns, or resolves to, the html or element to show as its result. Used by the patient lab results page, which asks `GET /labResults` for the group rather than its members (`renderedGroup`), and by the validate view of `labResultsByLabId.page` |
+| `org.openmrs.module.pihapps.labResults.obsGroupEditors` | `concept`, `jsFunction` | Enters such a result on both results forms (the single order form and `labResultsByLabId.page`), when `concept` is a direct member of the ordered panel. `jsFunction(context, extensionParams)` returns, or resolves to, an editor `{element, hasValue(), isChanged(), clear(), save(encounterUuid)}`. The forms call `save`, for changed editors, before saving the order's other results, with the encounter fulfilling the order; saving again must replace what an earlier save recorded. The editor saves its own obs, linked to the order, with the status `PihAppsService.getNewLabResultStatus(order)` returns; a result replacing a `FINAL` or `AMENDED` one is `AMENDED`, with the replaced obs as its previous version. The context is described in `labs/labResultFields.js` |
 
 pihapps does not know how such a result is structured: the implementation's script and its own service define it.
 
@@ -317,6 +318,17 @@ a global resource.
 **labOrderList.gsp** — More complex. Three sections toggled in/out: the order table (`#view-orders-section`), specimen encounter edit (`#edit-specimen-encounter-section`), and results entry (`#record-lab-results-section`). Each section contains an included fragment whose JavaScript function (`initializeSpecimenCollectionForm`, `initializeLabResultsForm`, `initializeOrderNotFulfilledForm`) is called with the relevant data and a callback to refresh the table on save.
 
 **labPatientReception.gsp** — Loads `/labOrder` with patient + `AWAITING_FULFILLMENT` status. Checkboxes select orders; the specimen collection fragment is initialized with the selected orders when the user proceeds.
+
+**labResultsByLabId.gsp** — Opened from the lab order list for a patient: by the `pihappsLabEnterResults` patient
+action, and in validate mode by the built-in validate action. Loads every collected order of the patient that is not
+completed (in validate mode, every order awaiting validation) and shows them on one page, grouped by Lab ID (the
+order's accession number), STAT first and then the oldest. Each Lab ID shows its specimen collection encounter, or each
+of them if the same Lab ID was recorded for more than one, with a section per lab test category. Orders without a Lab
+ID are grouped by specimen collection encounter. In enter mode, one result date applies to the page and each specimen
+collection encounter is saved in turn through `POST /encounterFulfillingOrders`; if one fails, those already saved are
+marked as saved and left out when saving again. In validate mode, results are read only, and the selected orders are
+validated or returned for correction together. Unlike the single order form (`recordLabResults.gsp`), it does not
+edit completed orders.
 
 **patientLabResults.gsp** — Loads `/labResults` for the patient. Clicking a result value calls `initializeLabTrends()` which loads Chart.js with historical data for that concept.
 

@@ -310,12 +310,12 @@
             // and on the patient row. Bound once, for every table, by the document-level handler below.
             const validateResultsAction = (patientUuid) => {
                 return jq("<i>").addClass("fas fa-fw fa-check-double lab-action-icon validate-results-action")
-                    .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.encodeJavaScript(ui.message('pihapps.labResultEntry.validateResults')) }" });
+                    .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.encodeJavaScript(ui.message('pihapps.labResultsByLabId.validateResults')) }" });
             };
             jq(document).on("click", ".validate-results-action", (event) => {
                 event.stopPropagation();
                 const patientUuid = jq(event.currentTarget).data("patientUuid");
-                window.location.href = openmrsContextPath + "/pihapps/labs/labResultEntry.page?patient="
+                window.location.href = openmrsContextPath + "/pihapps/labs/labResultsByLabId.page?patient="
                     + encodeURIComponent(patientUuid) + "&mode=validate";
             });
 

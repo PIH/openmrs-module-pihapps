@@ -13,7 +13,7 @@
     ui.includeCss("pihapps", "labs/labs.css")
 
     def validateMode = (mode == "validate")
-    def title = ui.message(validateMode ? "pihapps.labResultEntry.validateResults" : "pihapps.labResultEntry.enterResults")
+    def title = ui.message(validateMode ? "pihapps.labResultsByLabId.validateResults" : "pihapps.labResultsByLabId.enterResults")
     def labOrderListLink = ui.pageLink("pihapps", "labs/labOrderList") + "?grouping=patient"
     def patientIdentifier = patient.patientIdentifier ? patient.patientIdentifier.identifier : ""
 %>
@@ -33,18 +33,11 @@
     .lr-patient { color: #455a64; font-size: 1.05em; }
     .lr-hint { color: #607d8b; font-size: 0.9em; margin: 4px 0 12px; }
 
-    /* Choice between the order encounters of the patient */
-    .lr-groups { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
-    .lr-group-choice { border: 1px solid #cfd8dc; border-radius: 6px; padding: 6px 10px; background: #fff; color: #37474f;
-                       text-decoration: none; max-width: 380px; line-height: 1.3; }
-    .lr-group-choice:hover { border-color: #00473f; text-decoration: none; }
-    .lr-group-choice.lr-current { border-color: #00473f; box-shadow: inset 0 0 0 1px #00473f; background: #f1f8f6; }
-    .lr-group-choice small { display: block; color: #607d8b; }
-
     .lr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
     .lr-toolbar .lr-label { color: #455a64; font-weight: bold; }
 
     .lr-specimen { border: 1px solid #d9e2e7; border-radius: 6px; background: #fff; margin-bottom: 16px; }
+    .lr-specimen.lr-saved { opacity: 0.6; }
     .lr-specimen-header { display: flex; flex-wrap: wrap; gap: 24px; padding: 8px 12px; background: #f5f7f8;
                           border-bottom: 1px solid #d9e2e7; border-radius: 6px 6px 0 0; }
     .lr-specimen-header .lr-label { color: #607d8b; }
@@ -113,10 +106,9 @@
     </div>
 
 <% if (!authorized) { %>
-    <div class="lr-empty">${ ui.message(validateMode ? "pihapps.labResultEntry.notAuthorizedToValidate" : "pihapps.labResultEntry.notAuthorizedToEnter") }</div>
-    <a class="button" href="${ labOrderListLink }">${ ui.message("pihapps.labResultEntry.backToLabOrders") }</a>
+    <div class="lr-empty">${ ui.message(validateMode ? "pihapps.labResultsByLabId.notAuthorizedToValidate" : "pihapps.labResultsByLabId.notAuthorizedToEnter") }</div>
+    <a class="button" href="${ labOrderListLink }">${ ui.message("pihapps.labResultsByLabId.backToLabOrders") }</a>
 <% } else { %>
-    <div id="lr-groups" class="lr-groups"></div>
     <div id="lr-loading"><i class="icon-spinner icon-spin icon-2x"></i></div>
     <div id="lr-content"></div>
 <% } %>
@@ -127,7 +119,6 @@
     jq(function() {
         const validateMode = ${ validateMode };
         const patientUuid = '${ patient.uuid }';
-        const requestedOrderEncounter = '${ ui.encodeJavaScript(orderEncounter ?: "") }';
         const labOrderListLink = '${ ui.encodeJavaScript(labOrderListLink) }';
 
         // Results recorded as obs groups that an implementation's own editor enters (see labResultFields.js), and
@@ -169,29 +160,29 @@
             normalRange: '${ ui.encodeJavaScript(ui.message("pihapps.normalRange")) }',
             status: '${ ui.encodeJavaScript(ui.message("pihapps.status")) }',
             save: '${ ui.encodeJavaScript(ui.message("coreapps.save")) }',
-            backToLabOrders: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.backToLabOrders")) }',
-            otherCategory: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.otherCategory")) }',
-            noResultsAwaitingValidation: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.noResultsAwaitingValidation")) }',
-            noTestsAwaitingResults: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.noTestsAwaitingResults")) }',
-            validationHint: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.validationHint")) }',
-            markAll: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.markAll")) }',
-            unfinishedResults: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.unfinishedResults")) }',
-            changeStatusAndSave: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.changeStatusAndSave")) }',
-            saveWithoutChangingStatus: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.saveWithoutChangingStatus")) }',
-            resultsSaved: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.resultsSaved")) }',
-            alreadySaved: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.alreadySaved")) }',
-            unableToSave: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.unableToSave")) }',
-            unableToLoad: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.unableToLoad")) }',
+            backToLabOrders: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.backToLabOrders")) }',
+            otherCategory: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.otherCategory")) }',
+            noResultsAwaitingValidation: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.noResultsAwaitingValidation")) }',
+            noTestsAwaitingResults: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.noTestsAwaitingResults")) }',
+            validationHint: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.validationHint")) }',
+            markAll: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.markAll")) }',
+            unfinishedResults: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.unfinishedResults")) }',
+            changeStatusAndSave: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.changeStatusAndSave")) }',
+            saveWithoutChangingStatus: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.saveWithoutChangingStatus")) }',
+            resultsSaved: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.resultsSaved")) }',
+            alreadySaved: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.alreadySaved")) }',
+            unableToSave: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.unableToSave")) }',
+            unableToLoad: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.unableToLoad")) }',
             unableToLoadResultEntry: '${ ui.encodeJavaScript(ui.message("pihapps.unableToLoadResultEntry")) }',
-            enteredBy: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.enteredBy")) }',
-            enteredByCurrentUser: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.enteredByCurrentUser")) }',
-            validateSelected: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.validateSelected")) }',
-            returnSelected: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.returnSelected")) }',
-            returnReasonPlaceholder: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.returnReasonPlaceholder")) }',
-            selectTestsToValidate: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.selectTestsToValidate")) }',
-            selectTestsToReturn: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.selectTestsToReturn")) }',
-            resultsValidated: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.resultsValidated")) }',
-            resultsReturned: '${ ui.encodeJavaScript(ui.message("pihapps.labResultEntry.resultsReturned")) }',
+            enteredBy: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.enteredBy")) }',
+            enteredByCurrentUser: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.enteredByCurrentUser")) }',
+            validateSelected: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.validateSelected")) }',
+            returnSelected: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.returnSelected")) }',
+            returnReasonPlaceholder: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.returnReasonPlaceholder")) }',
+            selectTestsToValidate: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.selectTestsToValidate")) }',
+            selectTestsToReturn: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.selectTestsToReturn")) }',
+            resultsValidated: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.resultsValidated")) }',
+            resultsReturned: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.resultsReturned")) }',
         };
         // Replaces {0}, {1}... in a message
         const format = (message, ...args) => message.replace(/[{]([0-9]+)[}]/g, (match, i) => args[i] ?? match);
@@ -270,30 +261,31 @@
                     return;
                 }
 
-                // The tests ordered in one encounter are shown together, with every specimen collected for them
-                const groups = [];
+                // Every order of the patient on one page, grouped by Lab ID: STAT first, then the oldest. Results are
+                // saved in the specimen collection encounter, so a Lab ID recorded for two collections shows each of
+                // them. Orders without a Lab ID are grouped by their specimen collection encounter.
+                const labIdGroups = [];
                 orders.forEach(order => {
-                    const key = order.encounter?.uuid ?? order.uuid;
-                    let group = groups.find(g => g.key === key);
-                    if (!group) {
-                        group = { key: key, orders: [], specimens: [] };
-                        groups.push(group);
+                    const key = order.accessionNumber?.trim() || ("encounter:" + order.fulfillerEncounter.uuid);
+                    let labIdGroup = labIdGroups.find(g => g.key === key);
+                    if (!labIdGroup) {
+                        labIdGroup = { key: key, orders: [], specimens: [] };
+                        labIdGroups.push(labIdGroup);
                     }
-                    group.orders.push(order);
-                    let specimen = group.specimens.find(s => s.encounterUuid === order.fulfillerEncounter.uuid);
+                    labIdGroup.orders.push(order);
+                    let specimen = labIdGroup.specimens.find(s => s.encounterUuid === order.fulfillerEncounter.uuid);
                     if (!specimen) {
                         specimen = { encounterUuid: order.fulfillerEncounter.uuid, orders: [] };
-                        group.specimens.push(specimen);
+                        labIdGroup.specimens.push(specimen);
                     }
                     specimen.orders.push(order);
                 });
-                groups.forEach(g => {
+                labIdGroups.forEach(g => {
                     g.orderedOn = g.orders.map(o => o.dateActivated).sort()[0];
                     g.stat = g.orders.some(o => o.urgency === 'STAT');
                 });
-                groups.sort((a, b) => (b.stat - a.stat) || (a.orderedOn < b.orderedOn ? -1 : a.orderedOn > b.orderedOn ? 1 : 0));
-                const group = groups.find(g => g.key === requestedOrderEncounter) ?? groups[0];
-                renderGroupChoice(groups, group);
+                labIdGroups.sort((a, b) => (b.stat - a.stat) || (a.orderedOn < b.orderedOn ? -1 : a.orderedOn > b.orderedOn ? 1 : 0));
+                const group = { orders: orders, specimens: labIdGroups.flatMap(g => g.specimens) };
 
                 const conceptUuids = [...new Set(group.orders.map(o => o.concept.uuid))];
                 const orderables = {};
@@ -328,24 +320,6 @@
             });
 
             // ---- Shared ----
-
-            function renderGroupChoice(groups, current) {
-                if (groups.length < 2) {
-                    return;
-                }
-                groups.forEach(g => {
-                    const labIds = [...new Set(g.orders.map(o => o.accessionNumber).filter(id => id))];
-                    const tests = g.orders.map(o => o.concept.displayStringForLab);
-                    const href = "?" + jq.param({ patient: patientUuid, mode: validateMode ? "validate" : "enter", orderEncounter: g.key });
-                    const choice = jq("<a>").addClass("lr-group-choice").attr("href", href)
-                        .toggleClass("lr-current", g === current)
-                        .append(jq("<strong>").html((g.stat ? '<i class="fas fa-fw fa-exclamation" style="color:red;"></i>' : '')
-                            + escapeHtml(messages.labId + " " + labIds.join(", "))))
-                        .append(jq("<small>").text(dateUtils.formatAsDateWithoutTime(g.orderedOn) + " · "
-                            + tests.slice(0, 4).join(", ") + (tests.length > 4 ? " +" + (tests.length - 4) : "")));
-                    jq("#lr-groups").append(choice);
-                });
-            }
 
             function groupByCategory(orders) {
                 const groups = {};
@@ -387,7 +361,7 @@
                 errors.forEach(e => container.find(".lr-errors").first().append(jq("<div>").text(e)));
             }
 
-            // ---- Entering results: every test of the order encounter on one form, saved together ----
+            // ---- Entering results: every test on one form, saved together ----
 
             function renderEntry(group, orderables) {
                 const page = jq("<div>");
@@ -438,7 +412,7 @@
                         card.append(section);
                     });
                     blocks.push(...specimenBlocks);
-                    specimenForms.push({ specimen: specimen, formHelper: formHelper, blocks: specimenBlocks });
+                    specimenForms.push({ specimen: specimen, formHelper: formHelper, blocks: specimenBlocks, card: card, saved: false });
                     page.append(card);
                 });
 
@@ -489,9 +463,10 @@
 
                     blocks.forEach(b => b.prepareForSave(resultDate));
                     saveButton.attr("disabled", "disabled");
-                    const saved = [];
-                    // Each specimen is saved with its own encounter, one after the other
-                    specimenForms.reduce((previous, form) => previous.then(() => {
+                    // Each specimen is saved with its own encounter, one after the other. If one fails, those already
+                    // saved are shown as saved and left out when saving again, as their form no longer matches what
+                    // is saved.
+                    specimenForms.filter(form => !form.saved).reduce((previous, form) => previous.then(() => {
                         const payload = {
                             encounter: form.formHelper.constructEncounterPayload(),
                             orders: form.blocks.map(b => ({ uuid: b.order.uuid, fulfillerStatus: b.status() }))
@@ -500,13 +475,17 @@
                         // else of the specimen is saved
                         return PihAppsLabResultFields.saveEditors(form.blocks.flatMap(b => b.editors), form.specimen.encounterUuid)
                             .then(() => postJson(rest + "encounterFulfillingOrders/" + form.specimen.encounterUuid, payload))
-                            .then(() => saved.push(form.specimen.orders[0].accessionNumber));
+                            .then(() => {
+                                form.saved = true;
+                                form.card.addClass("lr-saved").find(":input").prop("disabled", true);
+                            });
                     }), Promise.resolve()).then(() => {
                         dirty = false;
                         emr.successMessage(messages.resultsSaved);
                         window.location.reload();
                     }).catch(xhr => {
                         saveButton.removeAttr("disabled");
+                        const saved = [...new Set(specimenForms.filter(form => form.saved).map(form => form.specimen.orders[0].accessionNumber))];
                         showErrors(page, [errorMessage(xhr)].concat(saved.length > 0 ? [format(messages.alreadySaved, saved.join(", "))] : []));
                     });
                 };
