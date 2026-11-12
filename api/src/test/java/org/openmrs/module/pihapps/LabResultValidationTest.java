@@ -298,7 +298,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
-    public void saveObsGroupResult_shouldRejectAnExistingGroupGivenBack() {
+    public void saveEditorResult_shouldRejectAnExistingGroupGivenBack() {
         Order order = order(ORDER_9201);
         Encounter encounter = encounter(order);
         order = saveWithGroupResult(encounter, order, Order.FulfillerStatus.COMPLETED, panelGroup(60.0, 300.0));
@@ -312,7 +312,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
-    public void saveObsGroupResult_shouldSaveTheGroupAsResultsOfTheOrder() {
+    public void saveEditorResult_shouldSaveTheGroupAsResultsOfTheOrder() {
         setGlobalProperty("pihapps.labs.requireResultValidation", "true");
         Order order = order(ORDER_9201);
         Encounter encounter = encounter(order);
@@ -336,7 +336,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
-    public void saveObsGroupResult_shouldReplaceTheGroupAndAmendAFinalOne() {
+    public void saveEditorResult_shouldReplaceTheGroupAndAmendAFinalOne() {
         Order order = order(ORDER_9201);
         Encounter encounter = encounter(order);
         order = saveWithGroupResult(encounter, order, Order.FulfillerStatus.COMPLETED, panelGroup(60.0, 300.0));
@@ -360,7 +360,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
-    public void saveObsGroupResult_shouldReplaceTheGroupWhenTheEncounterGivenDoesNotHoldIt() {
+    public void saveEditorResult_shouldReplaceTheGroupWhenTheEncounterGivenDoesNotHoldIt() {
         Order order = order(ORDER_9201);
         Encounter encounter = encounter(order);
         order = saveWithGroupResult(encounter, order, Order.FulfillerStatus.COMPLETED, panelGroup(60.0, 300.0));
@@ -379,16 +379,16 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
-    public void saveObsGroupResult_shouldRejectAConceptThatIsNotAResultOfTheOrder() {
+    public void saveEditorResult_shouldRejectAConceptThatIsNotAResultOfTheOrder() {
         Order order = order(ORDER_7);
         EncounterFulfillingOrders encounterFulfillingOrders = new EncounterFulfillingOrders();
         encounterFulfillingOrders.setEncounter(encounter(order));
         encounterFulfillingOrders.setOrders(Collections.singletonList(order));
-        EncounterFulfillingOrders.ObsGroupResult result = new EncounterFulfillingOrders.ObsGroupResult();
+        EncounterFulfillingOrders.EditorResult result = new EncounterFulfillingOrders.EditorResult();
         result.setOrder(order);
         result.setConcept(Context.getConceptService().getConcept(PANEL));
         result.setObs(panelGroup(60.0, 300.0));
-        encounterFulfillingOrders.setObsGroupResults(Collections.singletonList(result));
+        encounterFulfillingOrders.setEditorResults(Collections.singletonList(result));
         assertThrows(IllegalArgumentException.class, () -> pihAppsService.saveEncounterFulfillingOrders(encounterFulfillingOrders));
     }
 
@@ -760,11 +760,11 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         EncounterFulfillingOrders encounterFulfillingOrders = new EncounterFulfillingOrders();
         encounterFulfillingOrders.setEncounter(encounter);
         encounterFulfillingOrders.setOrders(Collections.singletonList(order));
-        EncounterFulfillingOrders.ObsGroupResult result = new EncounterFulfillingOrders.ObsGroupResult();
+        EncounterFulfillingOrders.EditorResult result = new EncounterFulfillingOrders.EditorResult();
         result.setOrder(order);
         result.setConcept(Context.getConceptService().getConcept(PANEL));
         result.setObs(group);
-        encounterFulfillingOrders.setObsGroupResults(Collections.singletonList(result));
+        encounterFulfillingOrders.setEditorResults(Collections.singletonList(result));
         pihAppsService.saveEncounterFulfillingOrders(encounterFulfillingOrders);
         Context.flushSession();
         Context.clearSession();

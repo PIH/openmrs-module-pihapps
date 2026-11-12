@@ -497,14 +497,14 @@
 
                     changedForms.forEach(form => form.changedBlocks.forEach(b => b.prepareForSave(resultDate)));
                     saveButton.attr("disabled", "disabled");
-                    // Each specimen is saved with its own encounter, in one request with its obs group results, one
+                    // Each specimen is saved with its own encounter, in one request with its editor results, one
                     // after the other. If one fails, those already saved are shown as saved and left out when saving
                     // again, as their form no longer matches what is saved.
                     changedForms.reduce((previous, form) => previous.then(() => {
                         const payload = {
                             encounter: form.formHelper.constructEncounterPayload(),
                             orders: form.changedBlocks.map(b => ({ uuid: b.order.uuid, fulfillerStatus: b.status() })),
-                            obsGroupResults: PihAppsLabResultFields.getObsGroupResults(form.changedBlocks.flatMap(b => b.editors))
+                            editorResults: PihAppsLabResultFields.getEditorResults(form.changedBlocks.flatMap(b => b.editors))
                         };
                         return postJson(rest + "encounterFulfillingOrders/" + form.specimen.encounterUuid, payload)
                             .then(() => {

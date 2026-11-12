@@ -471,7 +471,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					}
 				}
 			}
-			applyObsGroupResults(encounter, encounterFulfillingOrders);
+			applyEditorResults(encounter, encounterFulfillingOrders);
 		}
 		finally {
 			sessionFactory.getCurrentSession().setFlushMode(flushMode);
@@ -830,16 +830,16 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	 * validation required, {@link #markNewResultsPreliminary} later makes the new results of an order that is not
 	 * completed preliminary.
 	 */
-	private void applyObsGroupResults(Encounter encounter, EncounterFulfillingOrders encounterFulfillingOrders) {
-		if (encounterFulfillingOrders.getObsGroupResults() == null) {
+	private void applyEditorResults(Encounter encounter, EncounterFulfillingOrders encounterFulfillingOrders) {
+		if (encounterFulfillingOrders.getEditorResults() == null) {
 			return;
 		}
 		List<Order> orders = encounterFulfillingOrders.getOrders() == null ? Collections.<Order>emptyList() : encounterFulfillingOrders.getOrders();
-		for (EncounterFulfillingOrders.ObsGroupResult result : encounterFulfillingOrders.getObsGroupResults()) {
+		for (EncounterFulfillingOrders.EditorResult result : encounterFulfillingOrders.getEditorResults()) {
 			Order order = result.getOrder();
 			Concept concept = result.getConcept();
 			if (order == null || concept == null || !orders.contains(order)) {
-				throw new IllegalArgumentException("An obs group result needs an order that the encounter fulfills, and a concept");
+				throw new IllegalArgumentException("An editor result needs an order that the encounter fulfills, and a concept");
 			}
 			if (!getLabResultConcepts(order).contains(concept)) {
 				throw new IllegalArgumentException(concept.getUuid() + " is not a result concept of order " + order.getUuid());
@@ -931,7 +931,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	 */
 	private void requireNewObs(Obs obs) {
 		if (obs.getObsId() != null) {
-			throw new IllegalArgumentException("An obs group result must be new obs, without uuids of existing obs: " + obs.getUuid());
+			throw new IllegalArgumentException("An editor result must be new obs, without uuids of existing obs: " + obs.getUuid());
 		}
 		if (obs.getGroupMembers(true) != null) {
 			for (Obs member : obs.getGroupMembers(true)) {

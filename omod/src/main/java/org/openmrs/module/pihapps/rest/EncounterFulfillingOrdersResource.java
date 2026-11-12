@@ -48,7 +48,7 @@ public class EncounterFulfillingOrdersResource extends DelegatingCrudResource<En
         DelegatingResourceDescription description = new DelegatingResourceDescription();
         description.addProperty("encounter");
         description.addProperty("orders");
-        description.addProperty("obsGroupResults");
+        description.addProperty("editorResults");
         return description;
     }
 
@@ -56,23 +56,23 @@ public class EncounterFulfillingOrdersResource extends DelegatingCrudResource<En
      * Results recorded as obs groups: a list of {order, concept, obs}, where obs is an obs group in the representation
      * of the obs resource (concept, groupMembers, values), or null to remove the order's result of the concept
      */
-    @PropertySetter("obsGroupResults")
-    public static void setObsGroupResults(EncounterFulfillingOrders delegate, Object value) {
-        List<EncounterFulfillingOrders.ObsGroupResult> results = new ArrayList<>();
+    @PropertySetter("editorResults")
+    public static void setEditorResults(EncounterFulfillingOrders delegate, Object value) {
+        List<EncounterFulfillingOrders.EditorResult> results = new ArrayList<>();
         if (value instanceof List) {
             for (Object item : (List<?>) value) {
                 if (!(item instanceof Map)) {
-                    throw new IllegalArgumentException("Each obs group result must be an object with order, concept and obs");
+                    throw new IllegalArgumentException("Each editor result must be an object with order, concept and obs");
                 }
                 Map<?, ?> map = (Map<?, ?>) item;
-                EncounterFulfillingOrders.ObsGroupResult result = new EncounterFulfillingOrders.ObsGroupResult();
+                EncounterFulfillingOrders.EditorResult result = new EncounterFulfillingOrders.EditorResult();
                 result.setOrder(map.get("order") == null ? null : (Order) ConversionUtil.convert(map.get("order"), Order.class));
                 result.setConcept(map.get("concept") == null ? null : (Concept) ConversionUtil.convert(map.get("concept"), Concept.class));
                 result.setObs(map.get("obs") == null ? null : (Obs) ConversionUtil.convert(map.get("obs"), Obs.class));
                 results.add(result);
             }
         }
-        delegate.setObsGroupResults(results);
+        delegate.setEditorResults(results);
     }
 
     @Override

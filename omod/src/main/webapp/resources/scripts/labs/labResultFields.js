@@ -24,7 +24,7 @@
  *     obs resource accepts ({ concept, groupMembers: [{ concept, valueCoded, groupMembers }] }), without the uuids of
  *     existing obs (the server rejects them), or null to remove the result
  * The editor does not save anything: the form sends the groups of changed editors with the order's other results, in
- * one request (EncounterFulfillingOrders.obsGroupResults).  The server replaces the order's existing group of the
+ * one request (EncounterFulfillingOrders.editorResults).  The server replaces the order's existing group of the
  * concept with it, links its obs to the order, and gives them the status of the order's other new results: preliminary
  * when they await validation, and amended, with the replaced group as previous version, when they replace a final one.
  */
@@ -89,14 +89,14 @@ class PihAppsLabResultFields {
     }
 
     /**
-     * @return the results of the changed editors, for EncounterFulfillingOrders.obsGroupResults
+     * @return the results of the changed editors, for EncounterFulfillingOrders.editorResults
      */
-    static getObsGroupResults(editors) {
+    static getEditorResults(editors) {
         return (editors || []).map(editor => editor.getResult()).filter(result => result);
     }
 
     /**
-     * Creates the editor of an obs group result in the widget section of its row
+     * Creates the editor of an obs group in the widget section of its row
      * @return an editor that can be used before the extension's editor is ready: until then it has no value
      */
     static createObsGroupEditor(jq, extension, context, existingGroupUuid, widgetSection, messages) {
@@ -243,7 +243,7 @@ class PihAppsLabResultFields {
      * config.collectResultComments - whether a comment can be entered with each result
      * config.messages - the messages used by the results form
      * config.obsGroupEditors - optional, the obs group editor extensions by concept uuid (see getObsGroupEditors)
-     * config.editors - optional, an array the editors of obs group results are added to
+     * config.editors - optional, an array the editors are added to
      * config.onChange - optional, called when an obs group editor's value changes
      */
     static render(config) {

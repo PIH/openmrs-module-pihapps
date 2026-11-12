@@ -295,7 +295,7 @@
                     const payload = {
                         encounter: encounterToSubmit,
                         orders: ordersToSubmit,
-                        obsGroupResults: PihAppsLabResultFields.getObsGroupResults(editors)
+                        editorResults: PihAppsLabResultFields.getEditorResults(editors)
                     };
                     jq.ajax({
                         url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
