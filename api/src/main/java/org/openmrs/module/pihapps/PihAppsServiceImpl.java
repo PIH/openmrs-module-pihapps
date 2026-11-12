@@ -841,7 +841,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
 	public void returnLabResultsForCorrection(List<Order> orders, String reason) {
 		if (StringUtils.isBlank(reason)) {
-			throw new APIException("A reason is required to return lab results for correction");
+			throw new APIException("pihapps.labResultValidation.error.reasonRequired", (Object[]) null);
 		}
 		checkCanValidateLabResults(orders);
 		for (Order order : orders) {
@@ -856,19 +856,18 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	 */
 	private Map<Order, List<Obs>> checkCanValidateLabResults(List<Order> orders) {
 		if (!labOrderConfig.getRequireResultValidation()) {
-			throw new APIException("Lab result validation is not enabled");
+			throw new APIException("pihapps.labResultValidation.error.notEnabled", (Object[]) null);
 		}
 		User user = Context.getAuthenticatedUser();
 		Map<Order, OrderFulfillmentEvent> latestEvents = getLatestOrderFulfillmentEvents(orders, OrderFulfillmentEventType.RESULT_VALIDATION);
 		Map<Order, List<Obs>> resultObs = new HashMap<>();
 		for (Order order : orders) {
 			if (!isAwaitingValidation(order, latestEvents.get(order))) {
-				throw new APIException("The results of order " + order.getOrderNumber() + " are not awaiting validation");
+				throw new APIException("pihapps.labResultValidation.error.notAwaitingValidation", new Object[] { order.getOrderNumber() });
 			}
 			List<Obs> obs = getLabResultObs(order);
 			if (getLabResultEditors(obs).contains(user)) {
-				throw new APIException("You entered or changed the results of order " + order.getOrderNumber()
-						+ ", so another user must validate them");
+				throw new APIException("pihapps.labResultValidation.error.enteredByCurrentUser", new Object[] { order.getOrderNumber() });
 			}
 			resultObs.put(order, obs);
 		}
