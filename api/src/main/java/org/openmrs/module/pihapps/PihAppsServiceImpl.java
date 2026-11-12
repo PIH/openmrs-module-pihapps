@@ -20,8 +20,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.hibernate.Criteria;
 import org.hibernate.FlushMode;
-import org.hibernate.LockMode;
-import org.hibernate.LockOptions;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Projections;
@@ -458,16 +456,12 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		try {
 			sessionFactory.getCurrentSession().setFlushMode(FlushMode.MANUAL);
 			if (requireResultValidation && encounterFulfillingOrders.getOrders() != null) {
-				// Locked first, in order of id as validation does, so that the state read is not changed by a validation
-				// before this save completes
-				for (Order order : byId(encounterFulfillingOrders.getOrders())) {
-					persistedStatuses.put(order, lockFulfillerStatus(order));
-				}
 				for (Order order : encounterFulfillingOrders.getOrders()) {
-					Order.FulfillerStatus persistedStatus = persistedStatuses.get(order);
+					Order.FulfillerStatus persistedStatus = getSavedFulfillerStatus(order);
+					persistedStatuses.put(order, persistedStatus);
 					resultConcepts.put(order, getLabResultConcepts(order));
 					if (persistedStatus == Order.FulfillerStatus.COMPLETED) {
-						persistedObsIds.put(order, lockSavedResultObs(order, resultConcepts.get(order)).keySet());
+						persistedObsIds.put(order, getSavedResultObs(order, resultConcepts.get(order)).keySet());
 					}
 				}
 			}
@@ -527,11 +521,8 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				sessionFactory.getCurrentSession().flush();
 				for (Order order : persistedObsIds.keySet()) {
 					if (order.getFulfillerStatus() == Order.FulfillerStatus.COMPLETED) {
-						Set<Integer> saved = lockSavedResultObs(order, resultConcepts.get(order)).keySet();
+						Set<Integer> saved = getSavedResultObs(order, resultConcepts.get(order)).keySet();
 						if (!persistedObsIds.get(order).equals(saved)) {
-							Set<Integer> added = new HashSet<>(saved);
-							added.removeAll(persistedObsIds.get(order));
-							releaseNewResults(added);
 							saveValidationEvent(order, OrderFulfillmentEventType.RESULTS_AMENDED, null);
 						}
 					}
@@ -539,7 +530,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			}
 		}
 		if (!submittedOrders.isEmpty()) {
-			Map<Order, OrderFulfillmentEventType> latestEvents = lockLatestValidationEventTypes(submittedOrders);
+			Map<Order, OrderFulfillmentEventType> latestEvents = getLatestValidationEventTypes(submittedOrders);
 			for (Order order : submittedOrders) {
 				if (latestEvents.get(order) != OrderFulfillmentEventType.RESULTS_SUBMITTED) {
 					OrderFulfillmentEvent event = new OrderFulfillmentEvent();
@@ -730,85 +721,57 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 	}
 
-	/*
-	 * Locking reads.  Once an order is locked, what decides what happens to it is read with SELECT ... FOR UPDATE, in
-	 * SQL: a locking read returns what is committed in the database, whatever the transaction isolation level (MySQL's
-	 * REPEATABLE_READ would otherwise give a snapshot from before the lock), and SQL reads the database rather than the
-	 * copies already in the Hibernate session.  Callers are responsible for ensuring these do not flush the session.
-	 */
-
 	/**
-	 * Locks the order and returns its fulfiller status as committed in the database
+	 * @return the fulfiller status of the order as saved, not as changed by the request
 	 */
-	private Order.FulfillerStatus lockFulfillerStatus(Order order) {
+	private Order.FulfillerStatus getSavedFulfillerStatus(Order order) {
 		if (order.getOrderId() == null) {
 			return null;
 		}
-		Object status = sessionFactory.getCurrentSession()
-				.createSQLQuery("select fulfiller_status from orders where order_id = :orderId for update")
+		return (Order.FulfillerStatus) sessionFactory.getCurrentSession()
+				.createQuery("select o.fulfillerStatus from Order o where o.orderId = :orderId")
 				.setInteger("orderId", order.getOrderId())
 				.uniqueResult();
-		return status == null ? null : Order.FulfillerStatus.valueOf(status.toString());
 	}
 
 	/**
-	 * @return for each given order that has any, the type of its latest non-voided validation event, as committed
+	 * @return for each given order that has any, the type of its latest non-voided validation event
 	 */
-	@SuppressWarnings("unchecked")
-	private Map<Order, OrderFulfillmentEventType> lockLatestValidationEventTypes(List<Order> orders) {
-		Map<Integer, Order> byOrderId = new HashMap<>();
+	private Map<Order, OrderFulfillmentEventType> getLatestValidationEventTypes(List<Order> orders) {
+		List<Order> saved = new ArrayList<>();
 		for (Order order : orders) {
 			if (order.getOrderId() != null) {
-				byOrderId.put(order.getOrderId(), order);
+				saved.add(order);
 			}
 		}
 		Map<Order, OrderFulfillmentEventType> ret = new HashMap<>();
-		if (byOrderId.isEmpty()) {
-			return ret;
-		}
-		List<String> types = new ArrayList<>();
-		for (OrderFulfillmentEventType type : OrderFulfillmentEventType.RESULT_VALIDATION) {
-			types.add(type.name());
-		}
-		// Ordered so that the last row of each order is its latest event: by event datetime, then id
-		List<Object[]> rows = sessionFactory.getCurrentSession()
-				.createSQLQuery("select order_id, event_type from pihapps_order_fulfillment_event "
-						+ "where voided = 0 and order_id in (:orderIds) and event_type in (:types) "
-						+ "order by order_id, event_datetime, order_fulfillment_event_id for update")
-				.setParameterList("orderIds", byOrderId.keySet())
-				.setParameterList("types", types)
-				.list();
-		for (Object[] row : rows) {
-			ret.put(byOrderId.get(((Number) row[0]).intValue()), OrderFulfillmentEventType.valueOf(row[1].toString()));
+		for (Map.Entry<Order, OrderFulfillmentEvent> e : getLatestOrderFulfillmentEvents(saved, OrderFulfillmentEventType.RESULT_VALIDATION).entrySet()) {
+			ret.put(e.getKey(), e.getValue().getEventType());
 		}
 		return ret;
 	}
 
 	/**
-	 * @return the non-voided results of the given order as committed, by obs id with their uuid: obs linked to the
-	 * order of one of the given result concepts, and the members of their groups, at any depth
+	 * @return the non-voided results of the given order as saved, by obs id with their uuid: obs linked to the order
+	 * of one of the given result concepts, and the members of their groups, at any depth
 	 */
 	@SuppressWarnings("unchecked")
-	private Map<Integer, String> lockSavedResultObs(Order order, Set<Concept> resultConcepts) {
+	private Map<Integer, String> getSavedResultObs(Order order, Set<Concept> resultConcepts) {
 		Map<Integer, String> ret = new LinkedHashMap<>();
 		if (order.getOrderId() == null || resultConcepts == null || resultConcepts.isEmpty()) {
 			return ret;
 		}
-		List<Integer> conceptIds = new ArrayList<>();
-		for (Concept concept : resultConcepts) {
-			conceptIds.add(concept.getConceptId());
-		}
 		List<Object[]> level = sessionFactory.getCurrentSession()
-				.createSQLQuery("select obs_id, uuid from obs where order_id = :orderId and voided = 0 and concept_id in (:conceptIds) for update")
+				.createQuery("select o.obsId, o.uuid from Obs o where o.order.orderId = :orderId and o.voided = false and o.concept in (:concepts)")
 				.setInteger("orderId", order.getOrderId())
-				.setParameterList("conceptIds", conceptIds)
+				.setParameterList("concepts", resultConcepts)
 				.list();
 		while (!level.isEmpty()) {
 			List<Integer> ids = new ArrayList<>();
 			for (Object[] row : level) {
-				Integer id = ((Number) row[0]).intValue();
+				Integer id = (Integer) row[0];
 				if (!ret.containsKey(id)) {
-					ret.put(id, row[1].toString());
+					ret.put(id, (String) row[1]);
 					ids.add(id);
 				}
 			}
@@ -816,7 +779,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				break;
 			}
 			level = sessionFactory.getCurrentSession()
-					.createSQLQuery("select obs_id, uuid from obs where obs_group_id in (:ids) and voided = 0 for update")
+					.createQuery("select o.obsId, o.uuid from Obs o where o.obsGroup.obsId in (:ids) and o.voided = false")
 					.setParameterList("ids", ids)
 					.list();
 		}
@@ -871,59 +834,20 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	/**
-	 * @return the non-voided obs of the concept linked to the order in the encounter, as committed (read with a locking
-	 * read, then refreshed with their members), most recent first
+	 * @return the non-voided obs of the concept linked to the order in the encounter, as saved, most recent first
 	 */
 	@SuppressWarnings("unchecked")
 	private List<Obs> getSavedObsGroups(Encounter encounter, Order order, Concept concept) {
 		if (encounter.getEncounterId() == null || order.getOrderId() == null) {
 			return Collections.emptyList();
 		}
-		List<Number> ids = sessionFactory.getCurrentSession()
-				.createSQLQuery("select obs_id from obs where encounter_id = :encounterId and order_id = :orderId "
-						+ "and concept_id = :conceptId and voided = 0 order by obs_id desc for update")
+		return sessionFactory.getCurrentSession()
+				.createQuery("from Obs o where o.encounter.encounterId = :encounterId and o.order.orderId = :orderId "
+						+ "and o.concept = :concept and o.voided = false order by o.obsId desc")
 				.setInteger("encounterId", encounter.getEncounterId())
 				.setInteger("orderId", order.getOrderId())
-				.setInteger("conceptId", concept.getConceptId())
+				.setParameter("concept", concept)
 				.list();
-		List<Obs> ret = new ArrayList<>();
-		for (Number id : ids) {
-			Obs obs = (Obs) sessionFactory.getCurrentSession().get(Obs.class, id.intValue());
-			refreshWithMembers(obs);
-			ret.add(obs);
-		}
-		return ret;
-	}
-
-	private void refreshWithMembers(Obs obs) {
-		sessionFactory.getHibernateSessionFactory().getCurrentSession().refresh(obs);
-		if (obs.getGroupMembers(true) != null) {
-			for (Obs member : obs.getGroupMembers(true)) {
-				refreshWithMembers(member);
-			}
-		}
-	}
-
-	/**
-	 * Makes the given new results of a completed order released: amended when they replace a result, else final.  An
-	 * edited result takes the status of the copy the request loaded, which can be from before the order was locked:
-	 * preliminary although a validation completed the order in the meantime
-	 */
-	private void releaseNewResults(Set<Integer> obsIds) {
-		ImmutableObsInterceptor interceptor = Context.getRegisteredComponents(ImmutableObsInterceptor.class).get(0);
-		try {
-			interceptor.addMutablePropertiesForThread("status");
-			for (Integer obsId : obsIds) {
-				Obs obs = (Obs) sessionFactory.getCurrentSession().get(Obs.class, obsId);
-				if (obs != null && obs.getStatus() == Obs.Status.PRELIMINARY) {
-					obs.setStatus(obs.getPreviousVersion() != null ? Obs.Status.AMENDED : Obs.Status.FINAL);
-				}
-			}
-			sessionFactory.getCurrentSession().flush();
-		}
-		finally {
-			interceptor.removeMutablePropertiesForThread();
-		}
 	}
 
 	/**
@@ -938,17 +862,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				requireNewObs(member);
 			}
 		}
-	}
-
-	/**
-	 * @return the orders sorted by id, new ones last: orders are locked in this order, so that two transactions
-	 * locking the same orders do not deadlock
-	 */
-	private List<Order> byId(List<Order> orders) {
-		List<Order> ret = new ArrayList<>(orders);
-		ret.sort((a, b) -> a.getOrderId() == null ? (b.getOrderId() == null ? 0 : 1)
-				: b.getOrderId() == null ? -1 : a.getOrderId().compareTo(b.getOrderId()));
-		return ret;
 	}
 
 	private void voidWithMembers(Obs obs, String reason) {
@@ -987,7 +900,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (orders.isEmpty()) {
 			return;
 		}
-		Map<Order, OrderFulfillmentEventType> latestEvents = lockLatestValidationEventTypes(orders);
+		Map<Order, OrderFulfillmentEventType> latestEvents = getLatestValidationEventTypes(orders);
 		for (Order order : orders) {
 			if (latestEvents.get(order) == OrderFulfillmentEventType.RESULTS_SUBMITTED) {
 				saveValidationEvent(order, OrderFulfillmentEventType.RESULTS_WITHDRAWN, null);
@@ -1139,8 +1052,8 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		checkCanValidateLabResults(orders);
 		Map<Order, Map<Integer, String>> resultObs = new HashMap<>();
 		for (Order order : orders) {
-			// The results validated must be those the validator reviewed, as committed: they may have changed since
-			Map<Integer, String> current = lockSavedResultObs(order, getLabResultConcepts(order));
+			// The results validated must be those the validator reviewed: they may have changed since
+			Map<Integer, String> current = getSavedResultObs(order, getLabResultConcepts(order));
 			Collection<String> reviewed = reviewedResults.get(order);
 			if (reviewed == null || !new HashSet<>(current.values()).equals(new HashSet<>(reviewed))) {
 				throw new APIException("pihapps.labResultValidation.error.resultsChanged", new Object[] { order.getOrderNumber() });
@@ -1154,7 +1067,6 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			for (Order order : orders) {
 				for (Integer obsId : resultObs.get(order).keySet()) {
 					Obs obs = (Obs) sessionFactory.getCurrentSession().get(Obs.class, obsId);
-					sessionFactory.getHibernateSessionFactory().getCurrentSession().refresh(obs);
 					if (obs.getStatus() == Obs.Status.PRELIMINARY) {
 						obs.setStatus(Obs.Status.FINAL);
 					}
@@ -1183,8 +1095,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	/**
-	 * Locks the orders, then checks that the current user can validate the results of every one, before anything is
-	 * changed
+	 * Checks that the current user can validate the results of every order, before anything is changed
 	 * @throws APIException naming the first order that cannot be validated
 	 */
 	private void checkCanValidateLabResults(List<Order> orders) {
@@ -1194,13 +1105,8 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (orders == null || orders.isEmpty() || new HashSet<>(orders).size() != orders.size()) {
 			throw new IllegalArgumentException("The orders to validate or return must be given, each once");
 		}
-		// Lock the orders, and read them again, so that their results cannot be saved, validated or returned by
-		// another user between these checks and the changes that follow them
-		for (Order order : byId(orders)) {
-			sessionFactory.getHibernateSessionFactory().getCurrentSession().refresh(order, new LockOptions(LockMode.PESSIMISTIC_WRITE));
-		}
 		User user = Context.getAuthenticatedUser();
-		Map<Order, OrderFulfillmentEventType> latestEvents = lockLatestValidationEventTypes(orders);
+		Map<Order, OrderFulfillmentEventType> latestEvents = getLatestValidationEventTypes(orders);
 		for (Order order : orders) {
 			if (!isAwaitingValidation(order, latestEvents.get(order))) {
 				throw new APIException("pihapps.labResultValidation.error.notAwaitingValidation", new Object[] { order.getOrderNumber() });

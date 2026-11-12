@@ -194,9 +194,8 @@ not result obs and stay `FINAL`.
 
 **Validating.** `validateLabResults` and `returnLabResultsForCorrection` require the
 `Task: pihapps.labs.validateResults` privilege (`LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS`). Validators also need
-core `Edit Orders`, as validating calls `OrderService.updateOrderFulfillerStatus`. Both lock
-the orders (`SELECT ... FOR UPDATE`, read again), so that two validators, or a validator and the lab, cannot act on an
-order at once, and check every order before changing anything. They throw an `APIException` naming the first order
+core `Edit Orders`, as validating calls `OrderService.updateOrderFulfillerStatus`. Both check
+every order before changing anything. They throw an `APIException` naming the first order
 that:
 - is not awaiting validation (not `IN_PROGRESS`, or its latest validation event is not `RESULTS_SUBMITTED`), or
 - has results the current user entered, changed or removed, or submitted (`getLabResultEditors`): the creators and
