@@ -304,8 +304,9 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         order = saveWithGroupResult(encounter, order, Order.FulfillerStatus.COMPLETED, panelGroup(60.0, 300.0));
         Obs existing = groupResult(order);
         Order completed = order;
-        assertThrows(IllegalArgumentException.class, () -> saveWithGroupResult(
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> saveWithGroupResult(
                 Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), completed, Order.FulfillerStatus.COMPLETED, existing));
+        assertThat(e.getMessage().contains("must be new obs"), equalTo(true));
         Context.clearSession();
         assertThat(groupResult(order(ORDER_9201)).getUuid(), equalTo(existing.getUuid()));
     }

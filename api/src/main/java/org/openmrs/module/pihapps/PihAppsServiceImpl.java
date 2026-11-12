@@ -66,6 +66,7 @@ import org.openmrs.module.pihapps.orders.PatientWithOrders;
 import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
 import org.openmrs.util.OpenmrsUtil;
 import org.openmrs.util.PrivilegeConstants;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -420,7 +421,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	@Override
-	@Transactional
+	// READ_COMMITTED: what is read after the orders are locked must be what other transactions committed, not
+	// MySQL's REPEATABLE_READ snapshot from before the lock
+	@Transactional(isolation = Isolation.READ_COMMITTED)
 	@Authorized(PrivilegeConstants.ADD_ENCOUNTERS)
 	public EncounterFulfillingOrders saveEncounterFulfillingOrders(EncounterFulfillingOrders encounterFulfillingOrders) {
 		// We need to ensure that the session does not flush when we retrieve this configuration, to avoid errors with
@@ -458,12 +461,15 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		try {
 			sessionFactory.getCurrentSession().setFlushMode(FlushMode.MANUAL);
 			if (requireResultValidation && encounterFulfillingOrders.getOrders() != null) {
-				for (Order order : encounterFulfillingOrders.getOrders()) {
-					// Locked first, so that the state read is not changed by a validation before this save completes
+				// Locked first, in order of id as validation does, so that the state read is not changed by a validation
+				// before this save completes
+				for (Order order : byId(encounterFulfillingOrders.getOrders())) {
 					if (order.getOrderId() != null) {
 						sessionFactory.getHibernateSessionFactory().getCurrentSession()
 								.buildLockRequest(new LockOptions(LockMode.PESSIMISTIC_WRITE)).lock(order);
 					}
+				}
+				for (Order order : encounterFulfillingOrders.getOrders()) {
 					Order.FulfillerStatus persistedStatus = getSavedFulfillerStatus(order);
 					persistedStatuses.put(order, persistedStatus);
 					resultConcepts.put(order, getLabResultConcepts(order));
@@ -823,11 +829,22 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		if (obs.getObsId() != null) {
 			throw new IllegalArgumentException("An obs group result must be new obs, without uuids of existing obs: " + obs.getUuid());
 		}
-		if (obs.getGroupMembers() != null) {
-			for (Obs member : obs.getGroupMembers()) {
+		if (obs.getGroupMembers(true) != null) {
+			for (Obs member : obs.getGroupMembers(true)) {
 				requireNewObs(member);
 			}
 		}
+	}
+
+	/**
+	 * @return the orders sorted by id, new ones last: orders are locked in this order, so that two transactions
+	 * locking the same orders do not deadlock
+	 */
+	private List<Order> byId(List<Order> orders) {
+		List<Order> ret = new ArrayList<>(orders);
+		ret.sort((a, b) -> a.getOrderId() == null ? (b.getOrderId() == null ? 0 : 1)
+				: b.getOrderId() == null ? -1 : a.getOrderId().compareTo(b.getOrderId()));
+		return ret;
 	}
 
 	private void voidWithMembers(Obs obs, String reason) {
@@ -1024,7 +1041,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	@Override
-	@Transactional
+	// READ_COMMITTED: what is read after the orders are locked must be what other transactions committed, not
+	// MySQL's REPEATABLE_READ snapshot from before the lock
+	@Transactional(isolation = Isolation.READ_COMMITTED)
 	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
 	public void validateLabResults(List<Order> orders, Map<Order, ? extends Collection<String>> reviewedResults, String comment) {
 		if (reviewedResults == null) {
@@ -1065,7 +1084,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	@Override
-	@Transactional
+	// READ_COMMITTED: what is read after the orders are locked must be what other transactions committed, not
+	// MySQL's REPEATABLE_READ snapshot from before the lock
+	@Transactional(isolation = Isolation.READ_COMMITTED)
 	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
 	public void returnLabResultsForCorrection(List<Order> orders, String reason) {
 		if (StringUtils.isBlank(reason)) {
@@ -1091,7 +1112,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		}
 		// Lock the orders, and read them again, so that their results cannot be saved, validated or returned by
 		// another user between these checks and the changes that follow them
-		for (Order order : orders) {
+		for (Order order : byId(orders)) {
 			sessionFactory.getHibernateSessionFactory().getCurrentSession().refresh(order, new LockOptions(LockMode.PESSIMISTIC_WRITE));
 		}
 		User user = Context.getAuthenticatedUser();
