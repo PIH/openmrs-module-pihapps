@@ -72,9 +72,9 @@ public class LabResultsRestController {
                                @RequestParam(value = "onOrBefore", required = false) String onOrBefore,
                                @RequestParam(value = "onOrAfter", required = false) String onOrAfter,
                                @RequestParam(value = "status", required = false) List<String> statuses,
-                                @RequestParam(value = "sortBy", required = false) List<String> sortBy,
-                                @RequestParam(value = "renderedGroup", required = false) List<String> renderedGroups
-                               ) throws ResponseException {
+                               @RequestParam(value = "sortBy", required = false) List<String> sortBy,
+                               @RequestParam(value = "renderedGroup", required = false) List<String> renderedGroups
+    ) throws ResponseException {
 
         try {
             RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
@@ -129,7 +129,7 @@ public class LabResultsRestController {
             }
             if (sortCriteriaList.isEmpty()) {
                 // The results of an order, and the members of an obs group, are kept together.  Obs of the order that
-                // are not in a group come after its group: nulls sort last in descending order.
+                // are not in a group come after its group where nulls sort last in descending order, as in MySQL.
                 sortCriteriaList.add(new SortCriteria("obsDatetime", SortCriteria.Direction.DESC));
                 sortCriteriaList.add(new SortCriteria("order", SortCriteria.Direction.ASC));
                 sortCriteriaList.add(new SortCriteria("obsGroup", SortCriteria.Direction.DESC));

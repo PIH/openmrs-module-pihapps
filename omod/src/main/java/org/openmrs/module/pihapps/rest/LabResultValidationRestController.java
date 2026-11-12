@@ -2,6 +2,7 @@ package org.openmrs.module.pihapps.rest;
 
 import lombok.Data;
 import org.apache.commons.lang.StringUtils;
+import org.openmrs.Obs;
 import org.openmrs.Order;
 import org.openmrs.User;
 import org.openmrs.api.APIAuthenticationException;
@@ -30,6 +31,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +51,8 @@ public class LabResultValidationRestController {
 
     /**
      * @return for each order, by uuid: its latest validation event, who entered its results, whether the current user
-     * is one of them or may validate them, and the history of its validation events
+     * is one of them or may validate them, the history of its validation events (amendments included), and the uuids
+     * of its current results, which a request to validate them sends back
      */
     @RequestMapping(value = "/rest/v1/pihapps/labResultValidation", method = RequestMethod.GET)
     @ResponseBody
@@ -70,6 +74,13 @@ public class LabResultValidationRestController {
                     history.add(toSimpleObject(event));
                     latest = event; // events are in chronological order
                 }
+                else if (event.getEventType() == OrderFulfillmentEventType.RESULTS_AMENDED) {
+                    history.add(toSimpleObject(event));
+                }
+            }
+            List<String> results = new ArrayList<>();
+            for (Obs obs : pihAppsService.getLabResultObs(order)) {
+                results.add(obs.getUuid());
             }
             SimpleObject o = new SimpleObject();
             o.put("eventType", latest == null ? null : latest.getEventType().name());
@@ -79,6 +90,7 @@ public class LabResultValidationRestController {
             o.put("canValidate", Context.hasPrivilege(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
                     && pihAppsService.canValidateLabResults(order, user));
             o.put("history", history);
+            o.put("results", results);
             ret.put(order.getUuid(), o);
         }
         return ret;
@@ -89,8 +101,20 @@ public class LabResultValidationRestController {
     @ResponseBody
     public ResponseEntity<?> decide(@RequestBody ValidationRequest request) {
         List<Order> orders = getOrders(request.getOrders());
+        if (orders.isEmpty() || new HashSet<>(orders).size() != orders.size()) {
+            return ResponseEntity.badRequest().body(error("Orders must be given, each once"));
+        }
         if ("VALIDATE".equals(request.getAction())) {
-            pihAppsService.validateLabResults(orders, request.getComment());
+            // The results reviewed, by order uuid: validation fails if they are no longer the order's results
+            Map<Order, List<String>> reviewed = new HashMap<>();
+            for (Order order : orders) {
+                List<String> results = request.getResults() == null ? null : request.getResults().get(order.getUuid());
+                if (results == null) {
+                    return ResponseEntity.badRequest().body(error("The results reviewed are required for order " + order.getUuid()));
+                }
+                reviewed.put(order, results);
+            }
+            pihAppsService.validateLabResults(orders, reviewed, request.getComment());
         }
         else if ("RETURN".equals(request.getAction())) {
             pihAppsService.returnLabResultsForCorrection(orders, request.getComment());
@@ -169,5 +193,6 @@ public class LabResultValidationRestController {
         private List<String> orders;
         private String action;
         private String comment;
+        private Map<String, List<String>> results; // VALIDATE: the uuids of the results reviewed, by order uuid
     }
 }

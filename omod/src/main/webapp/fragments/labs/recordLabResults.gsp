@@ -49,6 +49,7 @@
             removeResult: '${ ui.encodeJavaScript(ui.message("pihapps.removeResult")) }',
             addAnotherResult: '${ ui.encodeJavaScript(ui.message("pihapps.addAnotherResult")) }',
             submitForValidation: '${ ui.encodeJavaScript(ui.message("pihapps.submitForValidation")) }',
+            unableToSave: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.unableToSave")) }',
             unableToLoadResultEntry: '${ ui.encodeJavaScript(ui.message("pihapps.unableToLoadResultEntry")) }',
         };
 
@@ -279,28 +280,29 @@
                     const showSaveError = (xhr) => {
                         parentElement.find(".action-button").removeAttr("disabled");
                         const error = xhr?.responseJSON?.error ?? xhr?.responseJSON;
-                        const message = error?.translatedMessage ?? error?.message ?? error ?? xhr;
-                        parentElement.find(".errors-section").text(String(message));
+                        const message = error?.translatedMessage ?? error?.message ?? (typeof error === "string" ? error : null) ?? messages.unableToSave;
+                        parentElement.find(".errors-section").text(message);
                     };
 
-                    // The results entered with obs group editors first, in the same encounter: if they fail, nothing else
-                    // is saved, and saving again does not record the other results twice
-                    const payload = { encounter: encounterToSubmit, orders: ordersToSubmit };
-                    PihAppsLabResultFields.saveEditors(editors, encounterToSubmit.uuid).then(() => {
-                        jq.ajax({
-                            url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
-                            type: "POST",
-                            contentType: "application/json; charset=utf-8",
-                            data: JSON.stringify(payload),
-                            dataType: "json",
-                            success: () => {
-                                parentElement.find(".action-button").removeAttr("disabled");
-                                resetForm();
-                                onSuccessFunction();
-                            },
-                            error: showSaveError
-                        });
-                    }).catch(showSaveError);
+                    // The results entered with obs group editors are saved with the others, in one request
+                    const payload = {
+                        encounter: encounterToSubmit,
+                        orders: ordersToSubmit,
+                        obsGroupResults: PihAppsLabResultFields.getObsGroupResults(editors)
+                    };
+                    jq.ajax({
+                        url: openmrsContextPath + "/ws/rest/v1/encounterFulfillingOrders/" + encounterToSubmit.uuid,
+                        type: "POST",
+                        contentType: "application/json; charset=utf-8",
+                        data: JSON.stringify(payload),
+                        dataType: "json",
+                        success: () => {
+                            parentElement.find(".action-button").removeAttr("disabled");
+                            resetForm();
+                            onSuccessFunction();
+                        },
+                        error: showSaveError
+                    });
                 });
 
                 formLoaded();

@@ -1,4 +1,4 @@
-package org.openmrs.module.pihapps.page.controller.labs;
+package org.openmrs.module.pihapps.labs;
 
 import org.openmrs.module.appframework.domain.Extension;
 import org.openmrs.module.appframework.service.AppFrameworkService;

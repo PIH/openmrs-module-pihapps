@@ -5,6 +5,7 @@
     ui.includeJavascript("pihapps", "pagingDataTable.js")
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
+    ui.includeJavascript("pihapps", "labs/labResultFields.js")
     ui.includeCss("pihapps", "labs/labs.css")
 
     def now = new Date()
@@ -42,12 +43,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),order:(uuid),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",effectiveReferenceRange,creator:(display,person:(display))"
 
             // Obs groups whose result an extension renders, by concept uuid: they are returned as one obs, the group
-            const obsGroupRenderers = {};
-            obsGroupRendererExtensions.forEach(ext => {
-                if (ext.extensionParams?.concept && typeof window[ext.extensionParams.jsFunction] === 'function') {
-                    obsGroupRenderers[ext.extensionParams.concept] = ext;
-                }
-            });
+            const obsGroupRenderers = PihAppsLabResultFields.getObsGroupRenderers(obsGroupRendererExtensions);
             const getObsGroupRenderer = (obs) => obsGroupRenderers[obs.concept.uuid];
 
             const patientUtils = new PihAppsPatientUtils(jq);
@@ -110,7 +106,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     const ext = getObsGroupRenderer(obs);
                     if (!ext) return;
                     const container = jq(tableRowData[index]).find(".obs-group-rendered");
-                    Promise.resolve(window[ext.extensionParams.jsFunction](obs, ext.extensionParams)).then(content => {
+                    PihAppsLabResultFields.renderObsGroup(jq, ext, obs.uuid).then(content => {
                         container.empty().append(content);
                     }).catch(error => console.warn("Unable to render the result with " + ext.id, error));
                 });

@@ -3,32 +3,47 @@
  * Shared by the single order results form and by results forms that enter several orders on one page.
  * Requires formHelper.js and an initialized FormHelper whose encounter holds any existing results.
  *
- * A result recorded as an obs group, such as the organisms a culture isolated and their antibiotic susceptibility,
- * can be entered with an implementation's own editor: an extension of
- * org.openmrs.module.pihapps.labResults.obsGroupEditors whose extensionParams.concept is the group's concept (a member
- * of the ordered panel) and whose extensionParams.jsFunction names a function, on window, that is given
- * (context, extensionParams) and returns, or resolves to, an editor.
- *   context: { jq, order, concept, orderable, container, idPrefix, onChange }
+ * Results recorded as obs groups, such as the organisms a culture isolated and their antibiotic susceptibility, can be
+ * shown and entered by an implementation's own JavaScript, registered as extensions whose extensionParams.concept is
+ * the group's concept and whose extensionParams.jsFunction names a function on window.
+ *
+ * org.openmrs.module.pihapps.patientLabResults.obsGroupRenderers: jsFunction(obsGroup, extensionParams) returns, or
+ * resolves to, the content shown for a result group, on the patient lab results page and when validating results.
+ *   obsGroup - the group as loaded with renderObsGroup: uuid, concept, values, status, order and groupMembers, at
+ *   every level (see obsGroupRep)
+ *
+ * org.openmrs.module.pihapps.labResults.obsGroupEditors: jsFunction(context, extensionParams) returns, or resolves to,
+ * an editor of the group, on the results forms.  Only the direct members of the ordered panel can have an editor.
+ *   context: { jq, order, concept, orderable, obsGroup, container, idPrefix, onChange }
  *     order - the order, with its fulfillerEncounter; concept - the group concept; orderable - the ordered concept;
+ *     obsGroup - the order's existing group of the concept in the encounter, as given to renderers, or null;
  *     container - the element holding the order's result rows, each a .result-row with data-concept-uuid;
  *     onChange - to call when the editor's value changes
- *   editor: { element, hasValue(), isChanged(), clear(), save(encounterUuid) }
- *     element - shown as the result of the row; save - records the value in the encounter fulfilling the order and
- *     returns a promise. Forms call save, for changed editors only, before saving the order's other results, so that
- *     a failed save leaves nothing half saved; saving again must replace what an earlier save recorded.
- * The editor saves its own obs. They are results of the order, so the editor links them to the order and gives them
- * the status PihAppsService.getNewLabResultStatus returns, for them to be validated with the order's other results.
- * A result that replaces a FINAL or AMENDED one is AMENDED, with the replaced obs as its previous version.
- * Only the direct members of the ordered panel can have an editor, not the members of a panel within it.
+ *   editor: { element, hasValue(), isChanged(), clear(), getObs() }
+ *     element - shown as the result of the row; getObs - the group to record, in the representation the obs resource
+ *     accepts ({ concept, groupMembers: [{ concept, value, groupMembers }] }), or null to remove the result
+ * The editor does not save anything: the form sends the groups of changed editors with the order's other results, in
+ * one request (EncounterFulfillingOrders.obsGroupResults).  The server replaces the order's existing group of the
+ * concept with it, links its obs to the order, and gives them the status of the order's other new results: preliminary
+ * when they await validation, and amended, with the replaced group as previous version, when they replace a final one.
  */
 class PihAppsLabResultFields {
-
-    static get OBS_GROUP_EDITORS_EXTENSION_POINT() { return "org.openmrs.module.pihapps.labResults.obsGroupEditors"; }
 
     /**
      * @return the obs group editor extensions whose function is defined, by concept uuid
      */
     static getObsGroupEditors(extensions) {
+        return PihAppsLabResultFields.byConcept(extensions, "Obs group editor");
+    }
+
+    /**
+     * @return the obs group renderer extensions whose function is defined, by concept uuid
+     */
+    static getObsGroupRenderers(extensions) {
+        return PihAppsLabResultFields.byConcept(extensions, "Obs group renderer");
+    }
+
+    static byConcept(extensions, kind) {
         const ret = {};
         (extensions || []).forEach(ext => {
             const params = ext.extensionParams || {};
@@ -36,29 +51,58 @@ class PihAppsLabResultFields {
                 ret[params.concept] = ext;
             }
             else {
-                console.warn("Obs group editor " + ext.id + " needs extensionParams.concept and a function named by extensionParams.jsFunction");
+                console.warn(kind + " " + ext.id + " needs extensionParams.concept and a function named by extensionParams.jsFunction");
             }
         });
         return ret;
     }
 
     /**
-     * Saves the changed editors, one after the other, in the encounter
-     * @return a promise
+     * The representation of a result obs group given to renderers: its members at every level, up to four
      */
-    static saveEditors(editors, encounterUuid) {
-        return (editors || []).reduce((previous, editor) => previous.then(() => editor.save(encounterUuid)), Promise.resolve());
+    static get obsGroupRep() {
+        const obsRep = "uuid,concept:(uuid,display,displayStringForLab),value,valueCoded:(uuid,display,displayStringForLab)," +
+            "valueNumeric,valueText,valueDatetime,comment,status,obsDatetime,order:(uuid)";
+        let rep = obsRep;
+        for (let i = 0; i < 4; i++) {
+            rep = obsRep + ",groupMembers:(" + rep + ")";
+        }
+        return rep;
+    }
+
+    /**
+     * Loads the obs group and renders it with the renderer extension
+     * @return a promise of the content
+     */
+    static renderObsGroup(jq, extension, obsGroupUuid) {
+        return PihAppsLabResultFields.loadObsGroup(jq, obsGroupUuid)
+            .then(group => window[extension.extensionParams.jsFunction](group, extension.extensionParams));
+    }
+
+    /**
+     * @return a promise of the obs group, in obsGroupRep
+     */
+    static loadObsGroup(jq, obsGroupUuid) {
+        return new Promise((resolve, reject) => jq.getJSON(openmrsContextPath + "/ws/rest/v1/obs/" + obsGroupUuid
+            + "?v=custom:(" + PihAppsLabResultFields.obsGroupRep + ")").done(resolve).fail(reject));
+    }
+
+    /**
+     * @return the results of the changed editors, for EncounterFulfillingOrders.obsGroupResults
+     */
+    static getObsGroupResults(editors) {
+        return (editors || []).map(editor => editor.getResult()).filter(result => result);
     }
 
     /**
      * Creates the editor of an obs group result in the widget section of its row
      * @return an editor that can be used before the extension's editor is ready: until then it has no value
      */
-    static createObsGroupEditor(jq, extension, context, widgetSection, messages) {
+    static createObsGroupEditor(jq, extension, context, existingGroupUuid, widgetSection, messages) {
         let editor = null;
         let clearWhenReady = false;  // cleared, eg by marking the test not performed, before the editor was ready
-        const ready = Promise.resolve()
-            .then(() => window[extension.extensionParams.jsFunction](context, extension.extensionParams))
+        const ready = (existingGroupUuid ? PihAppsLabResultFields.loadObsGroup(jq, existingGroupUuid) : Promise.resolve(null))
+            .then(group => window[extension.extensionParams.jsFunction](Object.assign({}, context, { obsGroup: group }), extension.extensionParams))
             .then(created => {
                 editor = created;
                 widgetSection.append(editor.element);
@@ -85,7 +129,10 @@ class PihAppsLabResultFields {
                     clearWhenReady = true;
                 }
             },
-            save: (encounterUuid) => ready.then(e => (e && e.isChanged()) ? e.save(encounterUuid) : null)
+            // The result to send for a changed editor: { order, concept, obs }, else null
+            getResult: () => (editor && editor.isChanged())
+                ? { order: context.order.uuid, concept: context.concept.uuid, obs: editor.getObs() }
+                : null
         };
     }
 
@@ -215,6 +262,7 @@ class PihAppsLabResultFields {
             const editorExtension = isPanel ? obsGroupEditors[concept.uuid] : null;
             if (editorExtension) {
                 orderableRow.addClass("obs-group-editor-row");
+                const existingGroup = formHelper.initialObs.find(o => o.concept.uuid === concept.uuid && o.order?.uuid === order.uuid && o.groupMembers);
                 const editor = PihAppsLabResultFields.createObsGroupEditor(jq, editorExtension, {
                     jq: jq,
                     order: order,
@@ -223,7 +271,7 @@ class PihAppsLabResultFields {
                     container: config.container,
                     idPrefix: id,
                     onChange: () => { if (config.onChange) { config.onChange(); } }
-                }, widgetSection, messages);
+                }, existingGroup?.uuid, widgetSection, messages);
                 if (config.editors) {
                     config.editors.push(editor);
                 }

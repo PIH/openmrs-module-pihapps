@@ -1,5 +1,6 @@
 package org.openmrs.module.pihapps.page.controller.labs;
 
+import org.openmrs.module.pihapps.labs.LabExtensions;
 import org.openmrs.Patient;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.appframework.service.AppFrameworkService;

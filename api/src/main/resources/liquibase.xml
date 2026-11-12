@@ -117,4 +117,27 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="RWA-1089-index-pihapps-order-fulfillment-event-by-datetime" author="mseaton">
+        <preConditions onFail="MARK_RAN">
+            <not><indexExists indexName="pihapps_order_fulfillment_event_order_datetime"/></not>
+        </preConditions>
+        <comment>
+            RWA-1089: Indexes the events of an order in the order they are read: by event datetime, then id.  The new
+            index also serves the order foreign key, so the index it replaces can be dropped
+        </comment>
+        <createIndex indexName="pihapps_order_fulfillment_event_order_datetime" tableName="pihapps_order_fulfillment_event">
+            <column name="order_id"/>
+            <column name="event_datetime"/>
+            <column name="order_fulfillment_event_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="RWA-1089-drop-pihapps-order-fulfillment-event-order-index" author="mseaton">
+        <preConditions onFail="MARK_RAN">
+            <indexExists indexName="pihapps_order_fulfillment_event_order"/>
+        </preConditions>
+        <comment>RWA-1089: Drops the index replaced by pihapps_order_fulfillment_event_order_datetime</comment>
+        <dropIndex tableName="pihapps_order_fulfillment_event" indexName="pihapps_order_fulfillment_event_order"/>
+    </changeSet>
+
 </databaseChangeLog>

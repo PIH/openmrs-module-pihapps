@@ -30,17 +30,20 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -184,7 +187,199 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         assertThat(obsByConcept.get(CD4_COUNT).getStatus(), equalTo(Obs.Status.AMENDED));
         assertThat(obsByConcept.get(WEIGHT).getStatus(), equalTo(Obs.Status.FINAL));
         assertThat(order.getFulfillerStatus(), equalTo(Order.FulfillerStatus.COMPLETED));
-        assertThat(pihAppsService.getOrderFulfillmentEvents(order), empty());
+        // The change is recorded, without changing whether the order awaits validation
+        assertThat(eventTypes(order), contains(OrderFulfillmentEventType.RESULTS_AMENDED));
+        assertThat(latestValidationEvent(order), nullValue());
+
+        // Saving the completed order again without changing its results records nothing more
+        save(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order, order.getFulfillerStatus());
+        assertThat(eventTypes(order(ORDER_6)), contains(OrderFulfillmentEventType.RESULTS_AMENDED));
+    }
+
+    @Test
+    public void validate_shouldRejectResultsChangedSinceTheValidatorReviewedThem() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_7);
+        Obs result = resultObs(order, CD4_COUNT, 300.0);
+        Encounter encounter = encounter(order, result);
+        order = save(encounter, order, Order.FulfillerStatus.COMPLETED);
+        List<String> reviewed = pihAppsService.getLabResultObs(order).stream().map(Obs::getUuid).collect(Collectors.toList());
+
+        // The lab corrects the result while it awaits validation
+        order = order(ORDER_7);
+        encounter = Context.getEncounterService().getEncounterByUuid(encounter.getUuid());
+        encounter.getAllObs(false).stream().filter(o -> o.getConcept().getConceptId() == CD4_COUNT).findFirst().get().setValueNumeric(30.0);
+        order = save(encounter, order, Order.FulfillerStatus.COMPLETED);
+
+        becomeValidator();
+        Order awaiting = order;
+        APIException e = assertThrows(APIException.class, () -> pihAppsService.validateLabResults(Collections.singletonList(awaiting),
+                Collections.singletonMap(awaiting, reviewed), null));
+        assertThat(e.getMessage().contains(awaiting.getOrderNumber()), equalTo(true));
+        Context.flushSession();
+        Context.clearSession();
+        assertThat(order(ORDER_7).getFulfillerStatus(), equalTo(Order.FulfillerStatus.IN_PROGRESS));
+
+        // Reviewing the corrected result, it can be validated
+        validate(Collections.singletonList(order(ORDER_7)), null);
+        Context.flushSession();
+        Context.clearSession();
+        assertThat(order(ORDER_7).getFulfillerStatus(), equalTo(Order.FulfillerStatus.COMPLETED));
+    }
+
+    @Test
+    public void submittedResults_shouldBeWithdrawnWhenTheOrderLeavesInProgress() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_7);
+        Encounter encounter = encounter(order, resultObs(order, CD4_COUNT, 300.0));
+        order = save(encounter, order, Order.FulfillerStatus.COMPLETED);
+
+        // Not performed, then in progress again: the old submission does not await validation
+        order = save(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order, Order.FulfillerStatus.EXCEPTION);
+        assertThat(latestValidationEvent(order).getEventType(), equalTo(OrderFulfillmentEventType.RESULTS_WITHDRAWN));
+        order = save(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order, Order.FulfillerStatus.IN_PROGRESS);
+        assertThat(order.getFulfillerStatus(), equalTo(Order.FulfillerStatus.IN_PROGRESS));
+        assertThat(orderUuids(OrderFulfillmentStatus.AWAITING_VALIDATION), empty());
+        assertThat(pihAppsService.canValidateLabResults(order, validator()), equalTo(false));
+
+        // Submitted again, it awaits validation
+        save(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order, Order.FulfillerStatus.COMPLETED);
+        assertThat(orderUuids(OrderFulfillmentStatus.AWAITING_VALIDATION), containsInAnyOrder(ORDER_7));
+    }
+
+    @Test
+    public void submittedResults_shouldBeWithdrawnWhenMarkedNotPerformedOrReverted() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_7);
+        order = save(order, Order.FulfillerStatus.COMPLETED, resultObs(order, CD4_COUNT, 300.0));
+        pihAppsService.markOrdersAsNotFulfilled(Collections.singletonList(order), null);
+        Context.flushSession();
+        assertThat(latestValidationEvent(order(ORDER_7)).getEventType(), equalTo(OrderFulfillmentEventType.RESULTS_WITHDRAWN));
+
+        order = order(ORDER_9201);
+        order = save(order, Order.FulfillerStatus.COMPLETED, resultObs(order, WEIGHT, 60.0));
+        pihAppsService.revertOrdersToOrdered(Collections.singletonList(order));
+        Context.flushSession();
+        assertThat(latestValidationEvent(order(ORDER_9201)).getEventType(), equalTo(OrderFulfillmentEventType.RESULTS_WITHDRAWN));
+    }
+
+    @Test
+    public void canValidate_shouldBeFalseForTheUserWhoSubmittedResultsSomeoneElseEntered() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        User admin = Context.getAuthenticatedUser();
+        // Another user entered a result, eg a lab machine's user, left in progress
+        User enteredBy = validator();
+        Order order = order(ORDER_7);
+        Obs result = resultObs(order, CD4_COUNT, 300.0);
+        result.setCreator(enteredBy);
+        Encounter encounter = encounter(order, result);
+        save(encounter, order, Order.FulfillerStatus.IN_PROGRESS);
+
+        // Admin submits it without changing it
+        order = order(ORDER_7);
+        order = save(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order, Order.FulfillerStatus.COMPLETED);
+
+        assertThat(pihAppsService.getLabResultEditors(order), containsInAnyOrder(enteredBy, admin));
+        assertThat(pihAppsService.canValidateLabResults(order, admin), equalTo(false));
+    }
+
+    @Test
+    public void saveOrderFulfillmentEvent_shouldRequireTheValidatePrivilegeToValidateOrReturn() {
+        Order order = order(ORDER_7);
+        User user = Context.getUserService().getUser(VALIDATOR_USER); // without the validator role in this test
+        Context.becomeUser(user.getSystemId());
+        Context.addProxyPrivilege(PrivilegeConstants.EDIT_ORDERS);
+        for (OrderFulfillmentEventType type : Arrays.asList(OrderFulfillmentEventType.RESULTS_VALIDATED, OrderFulfillmentEventType.RESULTS_RETURNED)) {
+            OrderFulfillmentEvent event = new OrderFulfillmentEvent();
+            event.setOrder(order);
+            event.setEventType(type);
+            assertThrows(APIAuthenticationException.class, () -> pihAppsService.saveOrderFulfillmentEvent(event));
+        }
+        OrderFulfillmentEvent submitted = new OrderFulfillmentEvent();
+        submitted.setOrder(order);
+        submitted.setEventType(OrderFulfillmentEventType.RESULTS_SUBMITTED);
+        pihAppsService.saveOrderFulfillmentEvent(submitted);
+    }
+
+    @Test
+    public void saveObsGroupResult_shouldSaveTheGroupAsResultsOfTheOrder() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_9201);
+        Encounter encounter = encounter(order);
+        order = saveWithGroupResult(encounter, order, Order.FulfillerStatus.COMPLETED, panelGroup(60.0, 300.0));
+
+        Obs group = groupResult(order);
+        assertThat(group.getGroupMembers(), hasSize(2));
+        for (Obs obs : Arrays.asList(group, group.getGroupMembers().iterator().next())) {
+            assertThat(obs.getOrder(), equalTo(order));
+            assertThat(obs.getEncounter().getUuid(), equalTo(encounter.getUuid()));
+            assertThat(obs.getStatus(), equalTo(Obs.Status.PRELIMINARY));
+        }
+        assertThat(orderUuids(OrderFulfillmentStatus.AWAITING_VALIDATION), hasItem(ORDER_9201));
+
+        // Validated with the order's other results
+        becomeValidator();
+        validate(Collections.singletonList(order), null);
+        Context.flushSession();
+        Context.clearSession();
+        assertThat(groupResult(order(ORDER_9201)).getGroupMembers().stream().allMatch(o -> o.getStatus() == Obs.Status.FINAL), equalTo(true));
+    }
+
+    @Test
+    public void saveObsGroupResult_shouldReplaceTheGroupAndAmendAFinalOne() {
+        Order order = order(ORDER_9201);
+        Encounter encounter = encounter(order);
+        order = saveWithGroupResult(encounter, order, Order.FulfillerStatus.COMPLETED, panelGroup(60.0, 300.0));
+        Obs first = groupResult(order);
+        assertThat(first.getStatus(), equalTo(Obs.Status.FINAL));
+
+        order = saveWithGroupResult(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order,
+                Order.FulfillerStatus.COMPLETED, panelGroup(61.0, 310.0));
+        Obs second = groupResult(order);
+        assertThat(second.getUuid().equals(first.getUuid()), equalTo(false));
+        assertThat(second.getPreviousVersion().getUuid(), equalTo(first.getUuid()));
+        assertThat(second.getStatus(), equalTo(Obs.Status.AMENDED));
+        Obs voided = Context.getObsService().getObsByUuid(first.getUuid());
+        assertThat(voided.getVoided(), equalTo(true));
+        assertThat(voided.getGroupMembers(true).stream().allMatch(Obs::getVoided), equalTo(true));
+
+        // No obs removes it
+        order = saveWithGroupResult(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order,
+                Order.FulfillerStatus.COMPLETED, null);
+        assertThat(groupResult(order), nullValue());
+    }
+
+    @Test
+    public void saveObsGroupResult_shouldReplaceTheGroupWhenTheEncounterGivenDoesNotHoldIt() {
+        Order order = order(ORDER_9201);
+        Encounter encounter = encounter(order);
+        order = saveWithGroupResult(encounter, order, Order.FulfillerStatus.COMPLETED, panelGroup(60.0, 300.0));
+        Obs first = groupResult(order);
+
+        // As a request converted to an encounter that only holds the obs it sends
+        Encounter given = Context.getEncounterService().getEncounterByUuid(encounter.getUuid());
+        given.setObs(new java.util.LinkedHashSet<>());
+        order = saveWithGroupResult(given, order, Order.FulfillerStatus.COMPLETED, panelGroup(61.0, 310.0));
+
+        List<Obs> groups = pihAppsService.getLabResultObs(order).stream()
+                .filter(o -> o.getConcept().getConceptId() == PANEL).collect(Collectors.toList());
+        assertThat(groups, hasSize(1));
+        assertThat(groups.get(0).getPreviousVersion().getUuid(), equalTo(first.getUuid()));
+        assertThat(groups.get(0).getStatus(), equalTo(Obs.Status.AMENDED));
+    }
+
+    @Test
+    public void saveObsGroupResult_shouldRejectAConceptThatIsNotAResultOfTheOrder() {
+        Order order = order(ORDER_7);
+        EncounterFulfillingOrders encounterFulfillingOrders = new EncounterFulfillingOrders();
+        encounterFulfillingOrders.setEncounter(encounter(order));
+        encounterFulfillingOrders.setOrders(Collections.singletonList(order));
+        EncounterFulfillingOrders.ObsGroupResult result = new EncounterFulfillingOrders.ObsGroupResult();
+        result.setOrder(order);
+        result.setConcept(Context.getConceptService().getConcept(PANEL));
+        result.setObs(panelGroup(60.0, 300.0));
+        encounterFulfillingOrders.setObsGroupResults(Collections.singletonList(result));
+        assertThrows(IllegalArgumentException.class, () -> pihAppsService.saveEncounterFulfillingOrders(encounterFulfillingOrders));
     }
 
     @Test
@@ -301,7 +496,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         Integer resultId = Context.getObsService().getObsByUuid(result.getUuid()).getObsId();
 
         User validator = becomeValidator();
-        pihAppsService.validateLabResults(Collections.singletonList(order(ORDER_7)), "Looks right");
+        validate(Collections.singletonList(order(ORDER_7)), "Looks right");
         Context.flushSession();
         Context.clearSession();
 
@@ -330,7 +525,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         save(order, Order.FulfillerStatus.COMPLETED, panel, receivedDate);
 
         becomeValidator();
-        pihAppsService.validateLabResults(Collections.singletonList(order(ORDER_9201)), null);
+        validate(Collections.singletonList(order(ORDER_9201)), null);
         Context.flushSession();
         Context.clearSession();
 
@@ -360,7 +555,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         assertThat(savedStatus(nonMember), equalTo(Obs.Status.PRELIMINARY));
 
         becomeValidator();
-        pihAppsService.validateLabResults(Collections.singletonList(order(ORDER_9201)), null);
+        validate(Collections.singletonList(order(ORDER_9201)), null);
         Context.flushSession();
         Context.clearSession();
         assertThat(savedStatus(nonMember), equalTo(Obs.Status.FINAL));
@@ -389,7 +584,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         // The authenticated user entered the results
         assertThat(pihAppsService.canValidateLabResults(order(ORDER_7), Context.getAuthenticatedUser()), equalTo(false));
         assertThrows(APIException.class,
-                () -> pihAppsService.validateLabResults(Collections.singletonList(order(ORDER_7)), null));
+                () -> validate(Collections.singletonList(order(ORDER_7)), null));
         assertAwaitingWithPreliminaryResult(result);
     }
 
@@ -407,26 +602,28 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         assertThat(pihAppsService.getLabResultEditors(order(ORDER_7)), hasItem(validator));
         becomeValidator();
         assertThrows(APIException.class,
-                () -> pihAppsService.validateLabResults(Collections.singletonList(order(ORDER_7)), null));
+                () -> validate(Collections.singletonList(order(ORDER_7)), null));
         assertAwaitingWithPreliminaryResult(result);
     }
 
     @Test
-    public void validate_shouldRejectUserWhoLastSavedTheEncounter() {
+    public void validate_shouldAllowUserWhoOnlyLastSavedTheEncounter() {
         setGlobalProperty("pihapps.labs.requireResultValidation", "true");
         Order order = order(ORDER_7);
         Obs result = resultObs(order, CD4_COUNT, 300.0);
         Encounter encounter = encounter(order, result);
         save(encounter, order, Order.FulfillerStatus.COMPLETED);
+        // Eg the specimen collection was edited: that is not entering the results
         User validator = validator();
         executeSql("update encounter set changed_by = " + validator.getUserId() + ", date_changed = now() "
                 + "where uuid = '" + encounter.getUuid() + "'");
 
-        assertThat(pihAppsService.getLabResultEditors(order(ORDER_7)), hasItem(validator));
+        assertThat(pihAppsService.getLabResultEditors(order(ORDER_7)).contains(validator), equalTo(false));
         becomeValidator();
-        assertThrows(APIException.class,
-                () -> pihAppsService.validateLabResults(Collections.singletonList(order(ORDER_7)), null));
-        assertAwaitingWithPreliminaryResult(result);
+        validate(Collections.singletonList(order(ORDER_7)), null);
+        Context.flushSession();
+        Context.clearSession();
+        assertThat(order(ORDER_7).getFulfillerStatus(), equalTo(Order.FulfillerStatus.COMPLETED));
     }
 
     @Test
@@ -447,7 +644,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         for (String uuid : Arrays.asList(ORDER_7, ORDER_9201, ORDER_6)) {
             assertThat(uuid, pihAppsService.canValidateLabResults(order(uuid), validator), equalTo(false));
             APIException e = assertThrows(APIException.class,
-                    () -> pihAppsService.validateLabResults(Collections.singletonList(order(uuid)), null));
+                    () -> validate(Collections.singletonList(order(uuid)), null));
             assertThat(e.getMessage().contains(order(uuid).getOrderNumber()), equalTo(true));
         }
     }
@@ -462,7 +659,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         User validator = becomeValidator();
         assertThat(pihAppsService.canValidateLabResults(order(ORDER_7), validator), equalTo(true));
         assertThrows(APIException.class,
-                () -> pihAppsService.validateLabResults(Arrays.asList(order(ORDER_7), order(ORDER_6)), null));
+                () -> validate(Arrays.asList(order(ORDER_7), order(ORDER_6)), null));
         assertAwaitingWithPreliminaryResult(result);
     }
 
@@ -475,7 +672,7 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
 
         Context.becomeUser(Context.getUserService().getUser(VALIDATOR_USER).getSystemId());
         assertThrows(APIAuthenticationException.class,
-                () -> pihAppsService.validateLabResults(Collections.singletonList(awaiting), null));
+                () -> validate(Collections.singletonList(awaiting), null));
         assertThrows(APIAuthenticationException.class,
                 () -> pihAppsService.returnLabResultsForCorrection(Collections.singletonList(awaiting), "Wrong"));
     }
@@ -548,6 +745,49 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         return order(order.getUuid());
     }
 
+    private Order saveWithGroupResult(Encounter encounter, Order order, Order.FulfillerStatus status, Obs group) {
+        order.setFulfillerStatus(status);
+        EncounterFulfillingOrders encounterFulfillingOrders = new EncounterFulfillingOrders();
+        encounterFulfillingOrders.setEncounter(encounter);
+        encounterFulfillingOrders.setOrders(Collections.singletonList(order));
+        EncounterFulfillingOrders.ObsGroupResult result = new EncounterFulfillingOrders.ObsGroupResult();
+        result.setOrder(order);
+        result.setConcept(Context.getConceptService().getConcept(PANEL));
+        result.setObs(group);
+        encounterFulfillingOrders.setObsGroupResults(Collections.singletonList(result));
+        pihAppsService.saveEncounterFulfillingOrders(encounterFulfillingOrders);
+        Context.flushSession();
+        Context.clearSession();
+        return order(order.getUuid());
+    }
+
+    /**
+     * @return a new panel obs group as an editor would give it: concepts and values only
+     */
+    private Obs panelGroup(Double weight, Double cd4) {
+        Obs group = new Obs();
+        group.setConcept(Context.getConceptService().getConcept(PANEL));
+        for (Object[] member : new Object[][] { { WEIGHT, weight }, { CD4_COUNT, cd4 } }) {
+            Obs obs = new Obs();
+            obs.setConcept(Context.getConceptService().getConcept((Integer) member[0]));
+            obs.setValueNumeric((Double) member[1]);
+            group.addGroupMember(obs);
+        }
+        return group;
+    }
+
+    /**
+     * @return the order's non-voided panel obs group, or null
+     */
+    private Obs groupResult(Order order) {
+        return pihAppsService.getLabResultObs(order).stream()
+                .filter(o -> o.getConcept().getConceptId() == PANEL).findFirst().orElse(null);
+    }
+
+    private List<OrderFulfillmentEventType> eventTypes(Order order) {
+        return pihAppsService.getOrderFulfillmentEvents(order).stream().map(OrderFulfillmentEvent::getEventType).collect(Collectors.toList());
+    }
+
     private Encounter encounter(Order order, Obs... obs) {
         Encounter encounter = new Encounter();
         encounter.setPatient(order.getPatient());
@@ -587,6 +827,17 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     private OrderFulfillmentEvent latestValidationEvent(Order order) {
         return pihAppsService.getLatestOrderFulfillmentEvents(Collections.singletonList(order),
                 OrderFulfillmentEventType.RESULT_VALIDATION).get(order);
+    }
+
+    /**
+     * Validates the orders' results as they are now, as a validator who reviewed them would
+     */
+    private void validate(List<Order> orders, String comment) {
+        Map<Order, List<String>> reviewed = new HashMap<>();
+        for (Order order : orders) {
+            reviewed.put(order, pihAppsService.getLabResultObs(order).stream().map(Obs::getUuid).collect(Collectors.toList()));
+        }
+        pihAppsService.validateLabResults(orders, reviewed, comment);
     }
 
     private List<String> orderUuids(OrderFulfillmentStatus status) {

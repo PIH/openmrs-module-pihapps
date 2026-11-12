@@ -1,5 +1,6 @@
 package org.openmrs.module.pihapps.page.controller.labs;
 
+import org.openmrs.module.pihapps.labs.LabExtensions;
 import org.openmrs.Patient;
 import org.openmrs.module.appframework.service.AppFrameworkService;
 import org.openmrs.module.emrapi.patient.PatientDomainWrapper;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 public class PatientLabResultsPageController {
 
-    public static final String OBS_GROUP_RENDERERS_EXTENSION_POINT = LabExtensions.OBS_GROUP_RENDERERS;
 
     public void get(PageModel model, UiUtils ui,
                       @InjectBeans PatientDomainWrapper patientDomainWrapper,
@@ -23,7 +23,7 @@ public class PatientLabResultsPageController {
         patientDomainWrapper.setPatient(patient);
         model.addAttribute("patient", patientDomainWrapper);
         model.addAttribute("pihAppsConfig", pihAppsConfig);
-        model.addAttribute("obsGroupRendererExtensions", LabExtensions.getExtensions(appFrameworkService, OBS_GROUP_RENDERERS_EXTENSION_POINT));
+        model.addAttribute("obsGroupRendererExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.OBS_GROUP_RENDERERS));
     }
 
 }

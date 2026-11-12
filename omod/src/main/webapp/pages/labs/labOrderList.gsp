@@ -280,7 +280,7 @@
                             .attr({ "data-order-uuid": order.uuid, "title": resultsTitle })
                     );
                     if (canValidateResults && status === 'AWAITING_VALIDATION') {
-                        actions.append(validateResultsAction(order.patient.uuid, order.accessionNumber));
+                        actions.append(validateResultsAction(order.patient.uuid, order.accessionNumber?.trim()));
                     }
                 } else if (status === 'AWAITING' || status === 'ORPHANED') {
                     // An orphaned order can still be expired, in which case it can be marked not performed but not collected

@@ -70,7 +70,8 @@ public interface PihAppsService extends OpenmrsService {
 	Set<Concept> getLabResultConcepts(Order order);
 
 	/**
-	 * Saves the given event, setting its event datetime to now if it has none
+	 * Saves the given event, setting its event datetime to now if it has none.  Saving a RESULTS_VALIDATED or
+	 * RESULTS_RETURNED event also requires {@link LabOrderConfig#PRIVILEGE_VALIDATE_RESULTS}
 	 */
 	@Authorized(PrivilegeConstants.EDIT_ORDERS)
 	OrderFulfillmentEvent saveOrderFulfillmentEvent(OrderFulfillmentEvent event);
@@ -97,10 +98,16 @@ public interface PihAppsService extends OpenmrsService {
 	Obs.Status getNewLabResultStatus(Order order);
 
 	/**
-	 * @return the users who entered, changed or removed any result of the given order: the creators and voiders of
-	 * the order's result obs, voided ones included, and the user who last saved the encounter of each.  Result obs are
-	 * those linked to the order whose concept is one of {@link #getLabResultConcepts(Order)}, and the members of their
-	 * obs groups
+	 * @return the non-voided results of the given order: obs linked to the order whose concept is one of
+	 * {@link #getLabResultConcepts(Order)}, and the members of their obs groups
+	 */
+	@Authorized(PrivilegeConstants.GET_OBS)
+	List<Obs> getLabResultObs(Order order);
+
+	/**
+	 * @return the users who entered, changed or removed any result of the given order, or submitted its results: the
+	 * creators and voiders of the order's result obs (see {@link #getLabResultObs(Order)}), voided ones included, and
+	 * the creators of its RESULTS_SUBMITTED events since its results were last validated
 	 */
 	@Authorized(PrivilegeConstants.GET_OBS)
 	Set<User> getLabResultEditors(Order order);
@@ -109,16 +116,19 @@ public interface PihAppsService extends OpenmrsService {
 	 * @return whether the given user may validate the results of the given order: validation is required, the order
 	 * is in progress and awaiting validation, and the user is not one of {@link #getLabResultEditors(Order)}
 	 */
-	@Authorized(PrivilegeConstants.GET_ORDERS)
+	@Authorized(value = { PrivilegeConstants.GET_ORDERS, PrivilegeConstants.GET_OBS }, requireAll = true)
 	boolean canValidateLabResults(Order order, User user);
 
 	/**
 	 * Validates the results of the given orders: their preliminary results become final and each order is completed.
-	 * Nothing is changed if the current user cannot validate any one of the orders.
+	 * The orders are locked while this is done.  Nothing is changed if the current user cannot validate any one of
+	 * the orders, or if the results of any order are not those the validator reviewed.
+	 * @param reviewedResults for each order, the uuids of the results the validator reviewed, which must be its
+	 * current non-voided results (see {@link #getLabResultObs(Order)})
 	 * @param comment an optional note from the validator
 	 */
 	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
-	void validateLabResults(List<Order> orders, String comment);
+	void validateLabResults(List<Order> orders, Map<Order, ? extends Collection<String>> reviewedResults, String comment);
 
 	/**
 	 * Returns the results of the given orders to the lab for correction: each order stays in progress with its results

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.openmrs.Order;
+import org.openmrs.Obs;
 import org.openmrs.TestOrder;
 import org.openmrs.User;
 import org.openmrs.api.APIException;
@@ -114,7 +115,11 @@ public class LabResultValidationRestTest {
     public void getShouldReturnLatestEventHistoryAndCanValidate() {
         OrderFulfillmentEvent submitted = event(OrderFulfillmentEventType.RESULTS_SUBMITTED, null);
         OrderFulfillmentEvent returned = event(OrderFulfillmentEventType.RESULTS_RETURNED, "recheck");
-        when(pihAppsService.getOrderFulfillmentEvents(order)).thenReturn(Arrays.asList(submitted, returned));
+        OrderFulfillmentEvent amended = event(OrderFulfillmentEventType.RESULTS_AMENDED, null);
+        when(pihAppsService.getOrderFulfillmentEvents(order)).thenReturn(Arrays.asList(submitted, returned, amended));
+        Obs result = new Obs();
+        result.setUuid("obs-1");
+        when(pihAppsService.getLabResultObs(order)).thenReturn(Collections.singletonList(result));
         when(pihAppsService.getLabResultEditors(order)).thenReturn(Collections.emptySet());
         when(pihAppsService.canValidateLabResults(any(), any())).thenReturn(true);
 
@@ -125,7 +130,8 @@ public class LabResultValidationRestTest {
         assertThat(o.get("comment"), is("recheck"));
         assertThat(o.get("enteredByCurrentUser"), is(false));
         assertThat(o.get("canValidate"), is(true));
-        assertThat(((List<?>) o.get("history")).size(), is(2));
+        assertThat(((List<?>) o.get("history")).size(), is(3)); // the amendment is in the history, not the latest event
+        assertThat(o.get("results"), equalTo(Collections.singletonList("obs-1")));
         assertThat(((Map<?, ?>) ((List<?>) o.get("history")).get(0)).get("eventDatetime"), instanceOf(String.class));
     }
 
@@ -176,9 +182,11 @@ public class LabResultValidationRestTest {
         request.setOrders(Collections.singletonList("order-1"));
         request.setAction("VALIDATE");
         request.setComment("ok");
+        request.setResults(Collections.singletonMap("order-1", Collections.singletonList("obs-1")));
         ResponseEntity<?> response = controller.decide(request);
         assertThat(response.getStatusCode(), is(HttpStatus.OK));
-        verify(pihAppsService).validateLabResults(Collections.singletonList(order), "ok");
+        verify(pihAppsService).validateLabResults(Collections.singletonList(order),
+                Collections.singletonMap(order, Collections.singletonList("obs-1")), "ok");
 
         request.setAction("RETURN");
         request.setComment("bad");
@@ -199,12 +207,30 @@ public class LabResultValidationRestTest {
         response = postDecision("missing", "VALIDATE");
         assertThat(response.getStatusCode(), is(HttpStatus.BAD_REQUEST));
         assertThat((String) body(response).get("message"), containsString("missing"));
-        verify(pihAppsService, never()).validateLabResults(any(), any());
+        verify(pihAppsService, never()).validateLabResults(any(), any(), any());
+    }
+
+    @Test
+    public void postShouldReturn400WithoutReviewedResultsOrWithEmptyOrDuplicateOrders() throws Exception {
+        LabResultValidationRestController.ValidationRequest request = new LabResultValidationRestController.ValidationRequest();
+        request.setOrders(Collections.singletonList("order-1"));
+        request.setAction("VALIDATE");
+        assertThat(handle(() -> controller.decide(request)).getStatusCode(), is(HttpStatus.BAD_REQUEST));
+
+        request.setOrders(Collections.emptyList());
+        assertThat(handle(() -> controller.decide(request)).getStatusCode(), is(HttpStatus.BAD_REQUEST));
+
+        request.setOrders(Arrays.asList("order-1", "order-1"));
+        request.setAction("RETURN");
+        request.setComment("bad");
+        assertThat(handle(() -> controller.decide(request)).getStatusCode(), is(HttpStatus.BAD_REQUEST));
+        verify(pihAppsService, never()).validateLabResults(any(), any(), any());
+        verify(pihAppsService, never()).returnLabResultsForCorrection(any(), any());
     }
 
     @Test
     public void postShouldReturn403WhenPrivilegeMissing() throws Exception {
-        doThrow(new org.openmrs.api.APIAuthenticationException("no")).when(pihAppsService).validateLabResults(any(), any());
+        doThrow(new org.openmrs.api.APIAuthenticationException("no")).when(pihAppsService).validateLabResults(any(), any(), any());
         ResponseEntity<?> response = postDecision("order-1", "VALIDATE");
         assertThat(response.getStatusCode(), is(HttpStatus.FORBIDDEN));
         assertThat(body(response).get("success"), is(false));
@@ -218,6 +244,7 @@ public class LabResultValidationRestTest {
         LabResultValidationRestController.ValidationRequest request = new LabResultValidationRestController.ValidationRequest();
         request.setOrders(Collections.singletonList(orderUuid));
         request.setAction(action);
+        request.setResults(Collections.singletonMap(orderUuid, Collections.emptyList()));
         return handle(() -> controller.decide(request));
     }
 

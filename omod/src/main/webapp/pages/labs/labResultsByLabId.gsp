@@ -75,6 +75,7 @@
     .lr-not-performed .lr-panel-members { display: none; }
     .lr-reason { margin: 0 0 6px 212px; }
     .lr-note { color: #b26a00; font-size: 0.85em; margin: 0 0 4px 212px; }
+    .lr-note-top { color: #b26a00; margin: 0 0 12px; }
     .lr-hidden { display: none; }
 
     /* Result fields: the same width for each kind of field, so that units and comments line up */
@@ -130,12 +131,7 @@
         // Results recorded as obs groups that an implementation's own editor enters (see labResultFields.js), and
         // that its renderer shows (as on the patient lab results page), by concept uuid
         const obsGroupEditors = PihAppsLabResultFields.getObsGroupEditors(${ ui.toJson(obsGroupEditorExtensions) });
-        const obsGroupRenderers = {};
-        ${ ui.toJson(obsGroupRendererExtensions) }.forEach(ext => {
-            if (ext.extensionParams?.concept && typeof window[ext.extensionParams.jsFunction] === 'function') {
-                obsGroupRenderers[ext.extensionParams.concept] = ext;
-            }
-        });
+        const obsGroupRenderers = PihAppsLabResultFields.getObsGroupRenderers(${ ui.toJson(obsGroupRendererExtensions) });
         const locale = window.sessionContext?.locale ?? 'en';
         moment.locale(locale);
 
@@ -189,6 +185,8 @@
             selectTestsToReturn: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.selectTestsToReturn")) }',
             resultsValidated: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.resultsValidated")) }',
             resultsReturned: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.resultsReturned")) }',
+            nothingToSave: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.nothingToSave")) }',
+            moreOrdersThanShown: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.moreOrdersThanShown")) }',
         };
         // Replaces {0}, {1}... in a message
         const format = (message, ...args) => message.replace(/[{]([0-9]+)[}]/g, (match, i) => args[i] ?? match);
@@ -248,17 +246,21 @@
 
             const statuses = validateMode ? ["AWAITING_VALIDATION"]
                 : (requireResultValidation ? ["IN_FULFILLMENT", "AWAITING_VALIDATION"] : ["IN_FULFILLMENT"]);
+            const maxOrders = 100;
             const orderQuery = jq.param({
                 patient: patientUuid,
                 orderType: labConfig.labTestOrderType?.uuid,
                 orderFulfillmentStatus: statuses,
-                limit: 100,
+                limit: maxOrders,
                 v: "custom:(" + orderRep + ")"
             }, true);
 
             return getJson(rest + "pihapps/labOrder?" + orderQuery).then(data => {
                 const orders = (data.results || []).filter(o => o.fulfillerEncounter && !o.dateStopped)
                     .filter(o => !validateMode || isAwaitingValidation(o));
+                if ((data.links || []).some(link => link.rel === "next")) {
+                    jq("#lr-content").append(jq("<div>").addClass("lr-note-top").text(format(messages.moreOrdersThanShown, maxOrders)));
+                }
                 if (orders.length === 0) {
                     jq("#lr-loading").hide();
                     jq("#lr-content").append(jq("<div>").addClass("lr-empty")
@@ -467,14 +469,22 @@
                     if (resultDate && moment(resultDate).isAfter(moment())) {
                         problems.push(messages.resultDateCannotBeFuture);
                     }
-                    specimenForms.forEach(form => {
+                    // Only the tests the user changed are saved: the others, eg on hold or already submitted, are left as they are
+                    const changedForms = specimenForms.filter(form => !form.saved)
+                        .map(form => Object.assign({}, form, { changedBlocks: form.blocks.filter(b => b.isChanged()) }))
+                        .filter(form => form.changedBlocks.length > 0);
+                    if (changedForms.length === 0) {
+                        showErrors(page, [messages.nothingToSave]);
+                        return;
+                    }
+                    changedForms.forEach(form => {
                         // Compare calendar dates only, as the single order results form does
                         if (resultDate && form.specimen.encounter.encounterDatetime.substring(0, 10) > resultDate.substring(0, 10)
-                            && form.blocks.some(b => b.status() === 'COMPLETED')) {
+                            && form.changedBlocks.some(b => b.status() === 'COMPLETED')) {
                             problems.push(messages.resultDateCannotBeBeforeSpecimenDate);
                         }
                     });
-                    blocks.forEach(b => {
+                    changedForms.flatMap(form => form.changedBlocks).forEach(b => {
                         if (b.status() === 'EXCEPTION' && !b.reasonValue()) {
                             problems.push(b.order.concept.displayStringForLab + ": " + messages.reasonRequired);
                         }
@@ -487,23 +497,22 @@
                         return;
                     }
 
-                    blocks.forEach(b => b.prepareForSave(resultDate));
+                    changedForms.forEach(form => form.changedBlocks.forEach(b => b.prepareForSave(resultDate)));
                     saveButton.attr("disabled", "disabled");
-                    // Each specimen is saved with its own encounter, one after the other. If one fails, those already
-                    // saved are shown as saved and left out when saving again, as their form no longer matches what
-                    // is saved.
-                    specimenForms.filter(form => !form.saved).reduce((previous, form) => previous.then(() => {
+                    // Each specimen is saved with its own encounter, in one request with its obs group results, one
+                    // after the other. If one fails, those already saved are shown as saved and left out when saving
+                    // again, as their form no longer matches what is saved.
+                    changedForms.reduce((previous, form) => previous.then(() => {
                         const payload = {
                             encounter: form.formHelper.constructEncounterPayload(),
-                            orders: form.blocks.map(b => ({ uuid: b.order.uuid, fulfillerStatus: b.status() }))
+                            orders: form.changedBlocks.map(b => ({ uuid: b.order.uuid, fulfillerStatus: b.status() })),
+                            obsGroupResults: PihAppsLabResultFields.getObsGroupResults(form.changedBlocks.flatMap(b => b.editors))
                         };
-                        // The results entered with obs group editors first, in the same encounter: if they fail, nothing
-                        // else of the specimen is saved
-                        return PihAppsLabResultFields.saveEditors(form.blocks.flatMap(b => b.editors), form.specimen.encounterUuid)
-                            .then(() => postJson(rest + "encounterFulfillingOrders/" + form.specimen.encounterUuid, payload))
+                        return postJson(rest + "encounterFulfillingOrders/" + form.specimen.encounterUuid, payload)
                             .then(() => {
-                                form.saved = true;
-                                form.card.addClass("lr-saved").find(":input").prop("disabled", true);
+                                const original = specimenForms.find(f => f.specimen === form.specimen);
+                                original.saved = true;
+                                original.card.addClass("lr-saved").find(":input").prop("disabled", true);
                             });
                     }), Promise.resolve()).then(() => {
                         dirty = false;
@@ -573,11 +582,12 @@
             function renderEntryOrder(order, orderable, formHelper, obsFor, idPrefix) {
                 const element = jq("<div>").addClass("lr-order");
                 const isPanel = orderable.setMembers.length > 0;
+                let changed = false;  // whether the user changed anything of the test: only changed tests are saved
 
                 // Results awaiting validation open as completed, without "In progress": the server can't tell that
                 // choice from re-saving the specimen, so the order would stay awaiting validation
                 const awaitingValidation = isAwaitingValidation(order);
-                const initialStatus = order.fulfillerStatus === 'EXCEPTION' ? 'EXCEPTION' : (awaitingValidation ? 'COMPLETED' : 'IN_PROGRESS');
+                const initialStatus = awaitingValidation ? 'COMPLETED' : 'IN_PROGRESS';
                 const statusOptions = (awaitingValidation ? ["COMPLETED", "EXCEPTION"] : ["IN_PROGRESS", "COMPLETED", "EXCEPTION"])
                     .map(s => ({ value: s, display: statusLabel(s) }));
                 const statusWidget = formHelper.createSelectWidget({
@@ -607,7 +617,7 @@
                     messages: messages,
                     obsGroupEditors: obsGroupEditors,
                     editors: editors,
-                    onChange: () => { dirty = true; }
+                    onChange: () => { dirty = true; changed = true; }
                 });
                 results.find(".comment-toggle, .multi-value-add, .multi-value-remove").attr("tabindex", -1);
 
@@ -657,7 +667,8 @@
                     element.toggleClass("lr-not-performed", status() === 'EXCEPTION');
                     reasonSection.toggle(status() === 'EXCEPTION');
                 };
-                statusWidget.on("change", () => { dirty = true; applyStatus(); });
+                statusWidget.on("change", () => { dirty = true; changed = true; applyStatus(); });
+                element.on("change input", ":input", () => { changed = true; });
                 applyStatus();
 
                 const resultFields = () => results.find(".result-value-field");
@@ -668,6 +679,7 @@
                     setStatus: (value) => statusCell.find(".select-buttons button[data-value='" + value + "']").click(),
                     reasonValue: () => reasonSection.find(".result-value-field").val(),
                     editors: editors,
+                    isChanged: () => changed,
                     hasResults: () => resultFields().filter((i, e) => jq(e).is(":checkbox") ? jq(e).is(":checked") : !!jq(e).val()).length > 0
                         || editors.some(e => e.hasValue()),
                     prepareForSave: (resultDate) => {
@@ -745,7 +757,7 @@
                                             const valueCell = jq("<span>").addClass("lr-value").css("grid-column", "2 / -1");
                                             members.append(jq("<div>").addClass("lr-row")
                                                 .append(jq("<span>").addClass("test-name").text(concept.displayStringForLab)).append(valueCell));
-                                            Promise.resolve(window[renderer.extensionParams.jsFunction](group, renderer.extensionParams))
+                                            PihAppsLabResultFields.renderObsGroup(jq, renderer, group.uuid)
                                                 .then(content => valueCell.empty().append(content))
                                                 .catch(error => console.warn("Unable to render the result with " + renderer.id, error));
                                         }
@@ -801,7 +813,12 @@
                         return;
                     }
                     page.find(".lr-actions button").attr("disabled", "disabled");
-                    postJson(rest + "pihapps/labResultValidation", { orders: selected, action: action, comment: action === "RETURN" ? reason.val() : null }).then(() => {
+                    // The results shown are sent with a validation: it fails if they have changed since
+                    const results = {};
+                    selected.forEach(uuid => { results[uuid] = validation[uuid]?.results ?? []; });
+                    postJson(rest + "pihapps/labResultValidation", {
+                        orders: selected, action: action, comment: action === "RETURN" ? reason.val() : null, results: results
+                    }).then(() => {
                         emr.successMessage(action === "VALIDATE" ? messages.resultsValidated : messages.resultsReturned);
                         window.location.reload();
                     }).catch(xhr => {
