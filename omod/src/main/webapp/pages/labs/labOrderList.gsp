@@ -280,7 +280,7 @@
                             .attr({ "data-order-uuid": order.uuid, "title": resultsTitle })
                     );
                     if (canValidateResults && status === 'AWAITING_VALIDATION') {
-                        actions.append(validateResultsAction(order.patient.uuid));
+                        actions.append(validateResultsAction(order.patient.uuid, order.accessionNumber));
                     }
                 } else if (status === 'AWAITING' || status === 'ORPHANED') {
                     // An orphaned order can still be expired, in which case it can be marked not performed but not collected
@@ -306,17 +306,22 @@
 
             const getActions = (order) => buildOrderActions(order).html();
 
-            // Validating opens a page for all the patient's results awaiting validation, so it is offered on each order
-            // and on the patient row. Bound once, for every table, by the document-level handler below.
-            const validateResultsAction = (patientUuid) => {
+            // Validating opens the page of the patient's results awaiting validation, so it is offered on each order,
+            // where it opens the order's Lab ID, and on the patient row. Bound once, for every table, by the
+            // document-level handler below.
+            const validateResultsAction = (patientUuid, labId) => {
                 return jq("<i>").addClass("fas fa-fw fa-check-double lab-action-icon validate-results-action")
-                    .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.encodeJavaScript(ui.message('pihapps.labResultsByLabId.validateResults')) }" });
+                    .attr({ "data-patient-uuid": patientUuid, "data-lab-id": labId ?? "",
+                        "title": "${ ui.encodeJavaScript(ui.message('pihapps.labResultsByLabId.validateResults')) }" });
             };
             jq(document).on("click", ".validate-results-action", (event) => {
                 event.stopPropagation();
-                const patientUuid = jq(event.currentTarget).data("patientUuid");
-                window.location.href = openmrsContextPath + "/pihapps/labs/labResultsByLabId.page?patient="
-                    + encodeURIComponent(patientUuid) + "&mode=validate";
+                const target = jq(event.currentTarget);
+                const params = { patient: target.attr("data-patient-uuid"), mode: "validate" };
+                if (target.attr("data-lab-id")) {
+                    params.labId = target.attr("data-lab-id");
+                }
+                window.location.href = openmrsContextPath + "/pihapps/labs/labResultsByLabId.page?" + jq.param(params);
             });
 
             const getFilterParameterValues = function() {

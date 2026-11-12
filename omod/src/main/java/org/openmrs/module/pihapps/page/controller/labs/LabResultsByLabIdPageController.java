@@ -10,10 +10,11 @@ import org.openmrs.util.PrivilegeConstants;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * Enters or validates the lab results of a patient on one page: every collected test that is not completed (in
- * validate mode, every test awaiting validation), grouped by Lab ID, with a section for each lab test category.
- * The single order results form on the lab order list (fragment labs/recordLabResults) enters or edits the results of
- * one order, including completed ones.
+ * Enters or validates the lab results of a patient by Lab ID: the collected tests of one Lab ID that are not completed
+ * (in validate mode, those awaiting validation), with a section for each lab test category.  When the patient has
+ * several such Lab IDs, the page offers a choice between them; labId selects one.  The single order results form on
+ * the lab order list (fragment labs/recordLabResults) enters or edits the results of one order, including completed
+ * ones.
  */
 public class LabResultsByLabIdPageController {
 
@@ -23,6 +24,7 @@ public class LabResultsByLabIdPageController {
     public void get(PageModel model,
                     @RequestParam("patient") Patient patient,
                     @RequestParam(value = "mode", required = false) String mode,
+                    @RequestParam(value = "labId", required = false) String labId,
                     @SpringBean AppFrameworkService appFrameworkService) {
         boolean validate = MODE_VALIDATE.equals(mode);
         boolean authorized = validate ? Context.hasPrivilege(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
@@ -30,6 +32,7 @@ public class LabResultsByLabIdPageController {
         model.addAttribute("authorized", authorized);
         model.addAttribute("patient", patient);
         model.addAttribute("mode", validate ? MODE_VALIDATE : MODE_ENTER);
+        model.addAttribute("labId", labId);
         model.addAttribute("obsGroupEditorExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.OBS_GROUP_EDITORS));
         model.addAttribute("obsGroupRendererExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.OBS_GROUP_RENDERERS));
     }

@@ -33,6 +33,14 @@
     .lr-patient { color: #455a64; font-size: 1.05em; }
     .lr-hint { color: #607d8b; font-size: 0.9em; margin: 4px 0 12px; }
 
+    /* Choice between the Lab IDs of the patient */
+    .lr-groups { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
+    .lr-group-choice { border: 1px solid #cfd8dc; border-radius: 6px; padding: 6px 10px; background: #fff; color: #37474f;
+                       text-decoration: none; max-width: 380px; line-height: 1.3; }
+    .lr-group-choice:hover { border-color: #00473f; text-decoration: none; }
+    .lr-group-choice.lr-current { border-color: #00473f; box-shadow: inset 0 0 0 1px #00473f; background: #f1f8f6; }
+    .lr-group-choice small { display: block; color: #607d8b; }
+
     .lr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
     .lr-toolbar .lr-label { color: #455a64; font-weight: bold; }
 
@@ -109,6 +117,7 @@
     <div class="lr-empty">${ ui.message(validateMode ? "pihapps.labResultsByLabId.notAuthorizedToValidate" : "pihapps.labResultsByLabId.notAuthorizedToEnter") }</div>
     <a class="button" href="${ labOrderListLink }">${ ui.message("pihapps.labResultsByLabId.backToLabOrders") }</a>
 <% } else { %>
+    <div id="lr-groups" class="lr-groups"></div>
     <div id="lr-loading"><i class="icon-spinner icon-spin icon-2x"></i></div>
     <div id="lr-content"></div>
 <% } %>
@@ -119,6 +128,7 @@
     jq(function() {
         const validateMode = ${ validateMode };
         const patientUuid = '${ patient.uuid }';
+        const requestedLabId = '${ ui.encodeJavaScript(labId ?: "") }';
         const labOrderListLink = '${ ui.encodeJavaScript(labOrderListLink) }';
 
         // Results recorded as obs groups that an implementation's own editor enters (see labResultFields.js), and
@@ -261,9 +271,10 @@
                     return;
                 }
 
-                // Every order of the patient on one page, grouped by Lab ID: STAT first, then the oldest. Results are
-                // saved in the specimen collection encounter, so a Lab ID recorded for two collections shows each of
-                // them. Orders without a Lab ID are grouped by their specimen collection encounter.
+                // The orders are grouped by Lab ID, STAT first and then the oldest, and the page shows one Lab ID: the
+                // one requested, or the first. Results are saved in the specimen collection encounter, so a Lab ID
+                // recorded for two collections shows each of them. Orders without a Lab ID are grouped by their
+                // specimen collection encounter.
                 const labIdGroups = [];
                 orders.forEach(order => {
                     const key = order.accessionNumber?.trim() || ("encounter:" + order.fulfillerEncounter.uuid);
@@ -285,7 +296,8 @@
                     g.stat = g.orders.some(o => o.urgency === 'STAT');
                 });
                 labIdGroups.sort((a, b) => (b.stat - a.stat) || (a.orderedOn < b.orderedOn ? -1 : a.orderedOn > b.orderedOn ? 1 : 0));
-                const group = { orders: orders, specimens: labIdGroups.flatMap(g => g.specimens) };
+                const group = labIdGroups.find(g => g.key === requestedLabId) ?? labIdGroups[0];
+                renderLabIdChoice(labIdGroups, group);
 
                 const conceptUuids = [...new Set(group.orders.map(o => o.concept.uuid))];
                 const orderables = {};
@@ -320,6 +332,23 @@
             });
 
             // ---- Shared ----
+
+            function renderLabIdChoice(labIdGroups, current) {
+                if (labIdGroups.length < 2) {
+                    return;
+                }
+                labIdGroups.forEach(g => {
+                    const tests = g.orders.map(o => o.concept.displayStringForLab);
+                    const href = "?" + jq.param({ patient: patientUuid, mode: validateMode ? "validate" : "enter", labId: g.key });
+                    const choice = jq("<a>").addClass("lr-group-choice").attr("href", href)
+                        .toggleClass("lr-current", g === current)
+                        .append(jq("<strong>").html((g.stat ? '<i class="fas fa-fw fa-exclamation" style="color:red;"></i>' : '')
+                            + escapeHtml(messages.labId + " " + (g.orders[0].accessionNumber?.trim() || "-"))))
+                        .append(jq("<small>").text(dateUtils.formatAsDateWithoutTime(g.orderedOn) + " · "
+                            + tests.slice(0, 4).join(", ") + (tests.length > 4 ? " +" + (tests.length - 4) : "")));
+                    jq("#lr-groups").append(choice);
+                });
+            }
 
             function groupByCategory(orders) {
                 const groups = {};
@@ -361,7 +390,7 @@
                 errors.forEach(e => container.find(".lr-errors").first().append(jq("<div>").text(e)));
             }
 
-            // ---- Entering results: every test on one form, saved together ----
+            // ---- Entering results: every test of the Lab ID on one form, saved together ----
 
             function renderEntry(group, orderables) {
                 const page = jq("<div>");

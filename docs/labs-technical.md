@@ -321,10 +321,11 @@ a global resource.
 
 **labResultsByLabId.gsp** — Opened from the lab order list for a patient: by the `pihappsLabEnterResults` patient
 action, and in validate mode by the built-in validate action. Loads every collected order of the patient that is not
-completed (in validate mode, every order awaiting validation) and shows them on one page, grouped by Lab ID (the
-order's accession number), STAT first and then the oldest. Each Lab ID shows its specimen collection encounter, or each
-of them if the same Lab ID was recorded for more than one, with a section per lab test category. Orders without a Lab
-ID are grouped by specimen collection encounter. In enter mode, one result date applies to the page and each specimen
+completed (in validate mode, every order awaiting validation) and groups them by Lab ID (the order's accession
+number), STAT first and then the oldest. The page shows one Lab ID: the `labId` parameter, or the first; when there are
+several, a row of choices at the top switches between them. The validate action on an order opens its Lab ID. A Lab ID
+shows its specimen collection encounter, or each of them if the same Lab ID was recorded for more than one, with a
+section per lab test category. Orders without a Lab ID are grouped by specimen collection encounter. In enter mode, one result date applies to the page and each specimen
 collection encounter is saved in turn through `POST /encounterFulfillingOrders`; if one fails, those already saved are
 marked as saved and left out when saving again. In validate mode, results are read only, and the selected orders are
 validated or returned for correction together. Unlike the single order form (`recordLabResults.gsp`), it does not
