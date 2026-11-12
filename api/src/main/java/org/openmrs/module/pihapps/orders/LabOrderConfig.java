@@ -33,6 +33,8 @@ public class LabOrderConfig {
 
     public static final String PRIVILEGE_VALIDATE_RESULTS = "Task: pihapps.labs.validateResults";
 
+    public static final String GP_REQUIRE_RESULT_VALIDATION = "pihapps.labs.requireResultValidation";
+
     @Setter
     ConceptService conceptService;
 
@@ -497,7 +499,7 @@ public class LabOrderConfig {
     // and the results stay PRELIMINARY until a validator makes them FINAL.
 
     public String getRequireResultValidationReference() {
-        return ConfigUtil.getProperty("pihapps.labs.requireResultValidation", "false");
+        return ConfigUtil.getProperty(GP_REQUIRE_RESULT_VALIDATION, "false");
     }
 
     public boolean getRequireResultValidation() {
