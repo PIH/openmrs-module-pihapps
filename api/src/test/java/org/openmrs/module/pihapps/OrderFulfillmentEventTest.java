@@ -12,6 +12,8 @@ import org.openmrs.test.jupiter.BaseModuleContextSensitiveTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -109,6 +111,55 @@ public class OrderFulfillmentEventTest extends BaseModuleContextSensitiveTest {
         List<String> uuids = pihAppsService.getOrderFulfillmentEvents(order(ORDER_7)).stream()
                 .map(OrderFulfillmentEvent::getUuid).collect(Collectors.toList());
         assertThat(uuids, contains(submitted.getUuid(), resubmitted.getUuid()));
+    }
+
+    @Test
+    public void getLatestOrderFulfillmentEvents_shouldUseEventDatetimeRatherThanTheOrderSaved() {
+        save(ORDER_7, RESULTS_SUBMITTED, date("2026-11-02 10:00:00"));
+        save(ORDER_7, RESULTS_RETURNED, date("2026-11-01 10:00:00"));
+
+        Map<Order, OrderFulfillmentEvent> latest = pihAppsService.getLatestOrderFulfillmentEvents(
+                Arrays.asList(order(ORDER_7)), RESULT_VALIDATION);
+        assertThat(latest.get(order(ORDER_7)).getEventType(), equalTo(RESULTS_SUBMITTED));
+    }
+
+    @Test
+    public void getLatestOrderFulfillmentEvents_shouldUseTheLastSavedOfEventsAtTheSameTime() {
+        save(ORDER_7, RESULTS_SUBMITTED, date("2026-11-01 10:00:00"));
+        save(ORDER_7, RESULTS_RETURNED, date("2026-11-01 10:00:00"));
+
+        Map<Order, OrderFulfillmentEvent> latest = pihAppsService.getLatestOrderFulfillmentEvents(
+                Arrays.asList(order(ORDER_7)), RESULT_VALIDATION);
+        assertThat(latest.get(order(ORDER_7)).getEventType(), equalTo(RESULTS_RETURNED));
+    }
+
+    @Test
+    public void getOrderFulfillmentEvents_shouldOrderByEventDatetime() {
+        OrderFulfillmentEvent later = save(ORDER_7, RESULTS_SUBMITTED, date("2026-11-02 10:00:00"));
+        OrderFulfillmentEvent earlier = save(ORDER_7, RESULTS_RETURNED, date("2026-11-01 10:00:00"));
+
+        List<String> uuids = pihAppsService.getOrderFulfillmentEvents(order(ORDER_7)).stream()
+                .map(OrderFulfillmentEvent::getUuid).collect(Collectors.toList());
+        assertThat(uuids, contains(earlier.getUuid(), later.getUuid()));
+    }
+
+    private OrderFulfillmentEvent save(String orderUuid, OrderFulfillmentEventType type, Date eventDatetime) {
+        OrderFulfillmentEvent event = new OrderFulfillmentEvent();
+        event.setOrder(order(orderUuid));
+        event.setEventType(type);
+        event.setEventDatetime(eventDatetime);
+        OrderFulfillmentEvent saved = pihAppsService.saveOrderFulfillmentEvent(event);
+        Context.flushSession();
+        return saved;
+    }
+
+    private Date date(String value) {
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(value);
+        }
+        catch (ParseException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     private OrderFulfillmentEvent save(String orderUuid, OrderFulfillmentEventType type) {

@@ -292,7 +292,10 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		later.add(Restrictions.eqProperty("later.order.orderId", "this.orderId"));
 		later.add(Restrictions.eq("later.voided", false));
 		later.add(Restrictions.in("later.eventType", OrderFulfillmentEventType.RESULT_VALIDATION));
-		later.add(Restrictions.gtProperty("later.orderFulfillmentEventId", "submitted.orderFulfillmentEventId"));
+		later.add(Restrictions.or(
+				Restrictions.gtProperty("later.eventDatetime", "submitted.eventDatetime"),
+				Restrictions.and(Restrictions.eqProperty("later.eventDatetime", "submitted.eventDatetime"),
+						Restrictions.gtProperty("later.orderFulfillmentEventId", "submitted.orderFulfillmentEventId"))));
 		submitted.add(Subqueries.notExists(later.setProjection(Projections.id())));
 		return Subqueries.exists(submitted.setProjection(Projections.id()));
 	}
@@ -763,9 +766,10 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			return result;
 		}
 		List<OrderFulfillmentEvent> events = sessionFactory.getHibernateSessionFactory().getCurrentSession()
-				.createQuery("from OrderFulfillmentEvent e where e.orderFulfillmentEventId in ("
-						+ "select max(l.orderFulfillmentEventId) from OrderFulfillmentEvent l "
-						+ "where l.voided = false and l.order in (:orders) and l.eventType in (:types) group by l.order)")
+				.createQuery("from OrderFulfillmentEvent e where e.voided = false and e.order in (:orders) and e.eventType in (:types) "
+						+ "and not exists (from OrderFulfillmentEvent l where l.voided = false and l.order = e.order and l.eventType in (:types) "
+						+ "and (l.eventDatetime > e.eventDatetime or (l.eventDatetime = e.eventDatetime "
+						+ "and l.orderFulfillmentEventId > e.orderFulfillmentEventId)))")
 				.setParameterList("orders", orders)
 				.setParameterList("types", types)
 				.list();
@@ -783,6 +787,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 		Criteria c = sessionFactory.getHibernateSessionFactory().getCurrentSession().createCriteria(OrderFulfillmentEvent.class);
 		c.add(eq("voided", false));
 		c.add(eq("order", order));
+		c.addOrder(asc("eventDatetime"));
 		c.addOrder(asc("orderFulfillmentEventId"));
 		return c.list();
 	}

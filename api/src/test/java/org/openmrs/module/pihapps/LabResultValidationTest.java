@@ -234,6 +234,21 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
+    public void getOrders_shouldKeepOrdersAwaitingValidationWhenAnEarlierEventIsRecordedAfterTheSubmission() {
+        setGlobalProperty("pihapps.labs.requireResultValidation", "true");
+        Order order = order(ORDER_7);
+        order = save(order, Order.FulfillerStatus.COMPLETED, resultObs(order, CD4_COUNT, 300.0));
+        OrderFulfillmentEvent returned = new OrderFulfillmentEvent();
+        returned.setOrder(order);
+        returned.setEventType(OrderFulfillmentEventType.RESULTS_RETURNED);
+        returned.setEventDatetime(new Date(latestValidationEvent(order).getEventDatetime().getTime() - 60000));
+        pihAppsService.saveOrderFulfillmentEvent(returned);
+        Context.flushSession();
+
+        assertThat(orderUuids(OrderFulfillmentStatus.AWAITING_VALIDATION), containsInAnyOrder(ORDER_7));
+    }
+
+    @Test
     public void getOrders_shouldIgnoreVoidedSubmission() {
         setGlobalProperty("pihapps.labs.requireResultValidation", "true");
         Order order = order(ORDER_7);
