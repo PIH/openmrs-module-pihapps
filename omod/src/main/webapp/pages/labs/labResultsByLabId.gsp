@@ -423,10 +423,11 @@
 
                     groupByCategory(specimen.orders).forEach(categoryGroup => {
                         const section = jq("<div>").addClass("lr-category");
+                        // Marking all only when there is more than one test: otherwise the test's own status does the same
                         const markAllCompleted = jq("<button>").attr({ type: "button", tabindex: -1 }).text(format(messages.markAll, statusLabel("COMPLETED")));
                         section.append(jq("<div>").addClass("lr-category-header")
                             .append(jq("<h4>").text(categoryGroup.category.displayStringForLab.toLowerCase()))
-                            .append(markAllCompleted));
+                            .append(categoryGroup.orders.length > 1 ? markAllCompleted : null));
                         section.append(columnsRow(messages.status));
 
                         const categoryBlocks = [];
