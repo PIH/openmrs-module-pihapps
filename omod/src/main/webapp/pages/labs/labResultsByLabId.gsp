@@ -94,7 +94,15 @@
     .lr-value.lr-abnormal { color: #e65100; font-weight: bold; }
     .lr-value.lr-critical { color: #c62828; font-weight: bold; }
     .lr-entered-by { color: #607d8b; font-size: 0.85em; }
-    .lr-select { margin-right: 6px; }
+    .lr-validate .lr-row { grid-template-columns: 200px 250px 220px 150px minmax(0, 1fr); }
+    .lr-validate .lr-entered-by { color: #607d8b; font-size: 0.85em; }
+    .lr-cannot-decide { color: #b26a00; font-size: 0.85em; text-align: right; display: inline-block; max-width: 260px; }
+    .lr-return-reason { margin: 2px 0 8px 212px; }
+    .lr-return-reason label { display: block; color: #455a64; font-size: 0.9em; }
+    .lr-return-reason textarea { width: 480px; max-width: 100%; }
+    .lr-reason-required { display: block; color: #c62828; font-size: 0.85em; font-weight: bold; }
+    .lr-decision-summary { color: #455a64; align-self: center; }
+    .lr-order.lr-saved { opacity: 0.6; }
 
     .lr-errors { color: #c62828; margin: 8px 0; }
     .lr-reminder { border: 1px solid #ffb74d; background: #fff8e1; border-radius: 6px; padding: 10px 12px; margin: 8px 0; }
@@ -178,13 +186,14 @@
             unableToLoadResultEntry: '${ ui.encodeJavaScript(ui.message("pihapps.unableToLoadResultEntry")) }',
             enteredBy: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.enteredBy")) }',
             enteredByCurrentUser: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.enteredByCurrentUser")) }',
-            validateSelected: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.validateSelected")) }',
-            returnSelected: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.returnSelected")) }',
-            returnReasonPlaceholder: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.returnReasonPlaceholder")) }',
-            selectTestsToValidate: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.selectTestsToValidate")) }',
-            selectTestsToReturn: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.selectTestsToReturn")) }',
-            resultsValidated: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.resultsValidated")) }',
-            resultsReturned: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.resultsReturned")) }',
+            decision: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.decision")) }',
+            decisionValidate: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.decisionValidate")) }',
+            decisionReturn: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.decisionReturn")) }',
+            returnReason: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.returnReason")) }',
+            decisionSummary: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.decisionSummary")) }',
+            decisionsSaved: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.decisionsSaved")) }',
+            alreadyRecorded: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.alreadyRecorded")) }',
+            validated: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.validated")) }',
             nothingToSave: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.nothingToSave")) }',
             moreOrdersThanShown: '${ ui.encodeJavaScript(ui.message("pihapps.labResultsByLabId.moreOrdersThanShown")) }',
         };
@@ -700,10 +709,17 @@
                 };
             }
 
-            // ---- Validating results: read only, validated or returned for correction together ----
+            // ---- Validating results: read only, a decision for each test (validate or return), saved together ----
 
             function renderValidation(group, orderables, validation) {
-                const page = jq("<div>");
+                const page = jq("<div>").addClass("lr-validate");
+                const decisions = [];  // the tests this user can decide on
+                const updateSummary = () => {
+                    const pending = decisions.filter(d => !d.done);
+                    summary.text(format(messages.decisionSummary,
+                        pending.filter(d => d.value() === "VALIDATE").length, pending.filter(d => d.value() === "RETURN").length));
+                };
+
                 group.specimens.forEach(specimen => {
                     const encounter = specimen.encounter;
                     const allObs = (encounter.obs || []).flatMap(o => o.groupMembers ? [o, ...o.groupMembers] : [o]);
@@ -712,21 +728,25 @@
 
                     groupByCategory(specimen.orders).forEach(categoryGroup => {
                         const section = jq("<div>").addClass("lr-category");
-                        const selectAll = jq("<input>").attr("type", "checkbox").addClass("lr-select").prop("checked", true);
-                        section.append(jq("<div>").addClass("lr-category-header")
-                            .append(jq("<h4>").append(selectAll).append(document.createTextNode(categoryGroup.category.displayStringForLab.toLowerCase()))));
-                        selectAll.on("change", () => section.find(".lr-select-order:enabled").prop("checked", selectAll.prop("checked")));
-                        section.append(columnsRow(messages.enteredBy));
+                        const header = jq("<div>").addClass("lr-category-header")
+                            .append(jq("<h4>").text(categoryGroup.category.displayStringForLab.toLowerCase()));
+                        section.append(header);
+                        section.append(jq("<div>").addClass("lr-row lr-columns")
+                            .append(jq("<span>").text(messages.labTest))
+                            .append(jq("<span>").text(messages.result))
+                            .append(jq("<span>").text(messages.normalRange))
+                            .append(jq("<span>").text(messages.enteredBy))
+                            .append(jq("<span>").addClass("lr-status-cell").text(messages.decision)));
 
+                        const categoryDecisions = [];
                         categoryGroup.orders.forEach(order => {
                             const info = validation[order.uuid] || {};
                             const orderable = orderables[order.concept.uuid];
                             const isPanel = orderable.setMembers.length > 0;
                             const tests = isPanel ? orderable.setMembers : [orderable];
-                            const checkbox = jq("<input>").attr("type", "checkbox").addClass("lr-select lr-select-order")
-                                .attr("data-order-uuid", order.uuid).prop("checked", !!info.canValidate).prop("disabled", !info.canValidate);
-                            const nameCell = jq("<span>").addClass("lr-name").attr("title", order.orderNumber).append(checkbox).append(testName(order));
-                            const enteredBy = jq("<span>").addClass("lr-status-cell lr-entered-by").text((info.enteredBy || []).join(", "));
+                            const nameCell = jq("<span>").addClass("lr-name").attr("title", order.orderNumber).html(testName(order));
+                            const enteredBy = jq("<span>").addClass("lr-entered-by").text((info.enteredBy || []).join(", "));
+                            const decisionCell = jq("<span>").addClass("lr-status-cell");
                             const element = jq("<div>").addClass("lr-order");
 
                             const valueRow = (concept, nameContent) => {
@@ -736,9 +756,14 @@
                                 if (concept.datatype.name === 'Numeric' && values.length > 0) {
                                     PihAppsLabResultFields.fetchReferenceRange(jq, order, concept, (refRange) => {
                                         rangeCell.text(PihAppsLabResultFields.formatReferenceRange(refRange));
-                                        const flag = values.map(o => PihAppsLabResultFields.validateNumericResult(messages, concept, refRange, o.valueNumeric)).find(f => f);
+                                        // Flagged as on entry: the most severe of the values, beside the range
+                                        const flags = values.map(o => PihAppsLabResultFields.validateNumericResult(messages, concept, refRange, o.valueNumeric)).filter(f => f);
+                                        const flag = flags.find(f => f.type !== "abnormal") ?? flags[0];
                                         if (flag) {
-                                            valueCell.addClass(flag.type === 'critical' ? "lr-critical" : "lr-abnormal").attr("title", flag.message);
+                                            const type = flag.type === "abnormal" ? "abnormal" : "critical";
+                                            valueCell.addClass(type === "critical" ? "lr-critical" : "lr-abnormal");
+                                            rangeCell.append(jq("<span>").addClass("result-flag result-flag-" + type)
+                                                .append(jq("<i>").addClass("fas fa-fw fa-exclamation-triangle")).append(document.createTextNode(flag.message)));
                                         }
                                     });
                                 }
@@ -746,7 +771,8 @@
                             };
 
                             if (isPanel) {
-                                element.append(jq("<div>").addClass("lr-row").append(nameCell).append(jq("<span>")).append(jq("<span>")).append(enteredBy));
+                                element.append(jq("<div>").addClass("lr-row").append(nameCell).append(jq("<span>")).append(jq("<span>"))
+                                    .append(enteredBy).append(decisionCell));
                                 const members = jq("<div>").addClass("lr-panel-members");
                                 tests.forEach(concept => {
                                     const renderer = obsGroupRenderers[concept.uuid];
@@ -783,52 +809,145 @@
                                 element.append(members);
                             }
                             else {
-                                element.append(valueRow(tests[0], nameCell).row.append(enteredBy));
+                                element.append(valueRow(tests[0], nameCell).row.append(enteredBy).append(decisionCell));
                             }
-                            if (info.enteredByCurrentUser) {
-                                element.append(jq("<div>").addClass("lr-note").text(messages.enteredByCurrentUser));
+
+                            if (info.canValidate) {
+                                const decision = renderDecision(order, element, decisionCell, updateSummary);
+                                decisions.push(decision);
+                                categoryDecisions.push(decision);
+                            }
+                            else if (info.enteredByCurrentUser) {
+                                decisionCell.append(jq("<span>").addClass("lr-cannot-decide").text(messages.enteredByCurrentUser));
                             }
                             section.append(element);
                         });
+
+                        if (categoryDecisions.length > 1) {
+                            const markAll = jq("<button>").attr({ type: "button", tabindex: -1 }).text(format(messages.markAll, messages.decisionValidate));
+                            markAll.on("click", () => categoryDecisions.filter(d => !d.done).forEach(d => d.set("VALIDATE")));
+                            header.append(markAll);
+                        }
                         card.append(section);
                     });
                     page.append(card);
                 });
 
                 const errors = jq("<div>").addClass("lr-errors");
-                const validateButton = jq("<button>").addClass("confirm").text(messages.validateSelected);
-                const reason = jq("<textarea>").attr({ rows: 2, placeholder: messages.returnReasonPlaceholder });
-                const returnButton = jq("<button>").text(messages.returnSelected);
+                const summary = jq("<span>").addClass("lr-decision-summary");
+                const saveButton = jq("<button>").addClass("confirm").text(messages.save);
                 const backLink = jq("<a>").addClass("button").attr("href", labOrderListLink).text(messages.backToLabOrders);
-                page.append(errors).append(jq("<div>").addClass("lr-actions").append(validateButton).append(reason).append(returnButton).append(backLink));
+                const actions = jq("<div>").addClass("lr-actions");
+                if (decisions.length > 0) {
+                    actions.append(saveButton).append(summary);
+                }
+                page.append(errors).append(actions.append(backLink));
+                updateSummary();
 
-                const decide = (action) => {
-                    const selected = page.find(".lr-select-order:checked").map((i, e) => jq(e).attr("data-order-uuid")).get();
-                    if (selected.length === 0) {
-                        showErrors(page, [action === "VALIDATE" ? messages.selectTestsToValidate : messages.selectTestsToReturn]);
-                        return;
-                    }
-                    if (action === "RETURN" && !reason.val().trim()) {
+                saveButton.on("click", () => {
+                    const pending = decisions.filter(d => !d.done);
+                    const toValidate = pending.filter(d => d.value() === "VALIDATE");
+                    const toReturn = pending.filter(d => d.value() === "RETURN");
+                    // Each test returned needs its reason
+                    let reasonsMissing = false;
+                    toReturn.forEach(d => {
+                        const missing = !d.reason();
+                        d.showReasonRequired(missing);
+                        reasonsMissing = reasonsMissing || missing;
+                    });
+                    if (reasonsMissing) {
                         showErrors(page, [messages.reasonRequired]);
                         return;
                     }
-                    page.find(".lr-actions button").attr("disabled", "disabled");
-                    // The results shown are sent with a validation: it fails if they have changed since
-                    const results = {};
-                    selected.forEach(uuid => { results[uuid] = validation[uuid]?.results ?? []; });
-                    postJson(rest + "pihapps/labResultValidation", {
-                        orders: selected, action: action, comment: action === "RETURN" ? reason.val() : null, results: results
-                    }).then(() => {
-                        emr.successMessage(action === "VALIDATE" ? messages.resultsValidated : messages.resultsReturned);
+                    showErrors(page, []);
+                    saveButton.attr("disabled", "disabled");
+
+                    // The tests validated together, with the results shown (the validation fails if they have changed
+                    // since), then each test returned with its own reason. Each request is recorded on its own: if one
+                    // fails, the tests already recorded are shown as done and left out when saving again.
+                    const requests = [];
+                    if (toValidate.length > 0) {
+                        const results = {};
+                        toValidate.forEach(d => { results[d.order.uuid] = validation[d.order.uuid]?.results ?? []; });
+                        requests.push({ decisions: toValidate, body: { orders: toValidate.map(d => d.order.uuid), action: "VALIDATE", results: results } });
+                    }
+                    toReturn.forEach(d => requests.push({ decisions: [d], body: { orders: [d.order.uuid], action: "RETURN", comment: d.reason() } }));
+
+                    requests.reduce((previous, request) => previous.then(() =>
+                        postJson(rest + "pihapps/labResultValidation", request.body).then(() => request.decisions.forEach(d => d.markDone()))
+                    ), Promise.resolve()).then(() => {
+                        emr.successMessage(format(messages.decisionsSaved, toValidate.length, toReturn.length));
                         window.location.reload();
                     }).catch(xhr => {
-                        page.find(".lr-actions button").removeAttr("disabled");
-                        showErrors(page, [errorMessage(xhr)]);
+                        saveButton.removeAttr("disabled");
+                        updateSummary();
+                        const done = decisions.filter(d => d.done && pending.includes(d)).map(d => d.order.concept.displayStringForLab);
+                        showErrors(page, [errorMessage(xhr)].concat(done.length > 0 ? [format(messages.alreadyRecorded, done.join(", "))] : []));
                     });
-                };
-                validateButton.on("click", () => decide("VALIDATE"));
-                returnButton.on("click", () => decide("RETURN"));
+                });
                 return page;
+            }
+
+            // The decision on one test: validate (the default) or return, with a reason, for correction
+            function renderDecision(order, element, decisionCell, onChange) {
+                let value = "VALIDATE";
+                let done = false;
+                const button = (decision, label) => jq("<button>").attr({ type: "button", tabindex: -1, "data-value": decision })
+                    .addClass("btn btn-outline-secondary btn-sm").text(label);
+                const validateButton = button("VALIDATE", messages.decisionValidate);
+                const returnButton = button("RETURN", messages.decisionReturn);
+                decisionCell.append(jq("<span>").addClass("select-buttons lr-decision").append(validateButton).append(returnButton));
+
+                const reasonField = jq("<textarea>").attr({ rows: 2, maxlength: 1000 });
+                const reasonRequired = jq("<span>").addClass("lr-reason-required").text(messages.reasonRequired).hide();
+                const reasonSection = jq("<div>").addClass("lr-return-reason")
+                    .append(jq("<label>").text(messages.returnReason)).append(reasonField).append(reasonRequired).hide();
+                element.append(reasonSection);
+                const doneNote = jq("<div>").addClass("lr-note lr-done-note").hide();
+                element.append(doneNote);
+
+                const set = (decision) => {
+                    if (done) {
+                        return;
+                    }
+                    value = decision;
+                    validateButton.toggleClass("active", decision === "VALIDATE");
+                    returnButton.toggleClass("active", decision === "RETURN");
+                    reasonSection.toggle(decision === "RETURN");
+                    if (decision === "RETURN") {
+                        reasonField.focus();
+                    }
+                    else {
+                        reasonRequired.hide();
+                    }
+                    onChange();
+                };
+                validateButton.on("click", () => set("VALIDATE"));
+                returnButton.on("click", () => set("RETURN"));
+                reasonField.on("input", () => {
+                    if (reasonField.val().trim()) {
+                        reasonRequired.hide();
+                        if (element.closest(".lr-validate").find(".lr-reason-required:visible").length === 0) {
+                            element.closest(".lr-validate").find(".lr-errors").first().empty();
+                        }
+                    }
+                });
+                validateButton.addClass("active");
+
+                return {
+                    order: order,
+                    value: () => value,
+                    set: set,
+                    reason: () => reasonField.val().trim(),
+                    showReasonRequired: (show) => reasonRequired.toggle(show),
+                    get done() { return done; },
+                    markDone: () => {
+                        done = true;
+                        element.addClass("lr-saved");
+                        element.find("button, textarea").prop("disabled", true);
+                        doneNote.text(value === "VALIDATE" ? messages.validated : messages.returnedForCorrection).show();
+                    }
+                };
             }
 
             function displayValue(obs, concept) {
