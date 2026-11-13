@@ -73,7 +73,7 @@ public class LabResultsRestController {
                                @RequestParam(value = "onOrAfter", required = false) String onOrAfter,
                                @RequestParam(value = "status", required = false) List<String> statuses,
                                @RequestParam(value = "sortBy", required = false) List<String> sortBy,
-                               @RequestParam(value = "renderedGroup", required = false) List<String> renderedGroups
+                               @RequestParam(value = "renderedConcept", required = false) List<String> renderedConcepts
     ) throws ResponseException {
 
         try {
@@ -106,7 +106,7 @@ public class LabResultsRestController {
                 concepts = getSetMembersRecursively(labOrderConfig.getLabResultCategoriesConceptSet());
             }
 
-            searchCriteria.setConcepts(collapseRenderedGroups(concepts, getConcepts(renderedGroups)));
+            searchCriteria.setConcepts(collapseRenderedConcepts(concepts, getConcepts(renderedConcepts)));
             searchCriteria.setStatuses(getStatuses(statuses));
             searchCriteria.setOnOrBefore(getDate(onOrBefore));
             searchCriteria.setOnOrAfter(getDate(onOrAfter));
@@ -157,16 +157,16 @@ public class LabResultsRestController {
     }
 
     /**
-     * Obs groups whose concept is rendered as one result, by an extension of the patient lab results page, are returned
-     * as one obs, the group, rather than as the obs of their members
-     * @return the concepts, where the members of each rendered group among them are replaced by the group
+     * Results whose concept is rendered as one result, by an extension of the patient lab results page, are returned
+     * as one obs: for an obs group, the group rather than the obs of its members
+     * @return the concepts, where the members of each rendered concept among them are replaced by the concept
      */
-    List<Concept> collapseRenderedGroups(List<Concept> concepts, List<Concept> renderedGroups) {
-        if (concepts == null || renderedGroups.isEmpty()) {
+    List<Concept> collapseRenderedConcepts(List<Concept> concepts, List<Concept> renderedConcepts) {
+        if (concepts == null || renderedConcepts.isEmpty()) {
             return concepts;
         }
         List<Concept> ret = new ArrayList<>(concepts);
-        for (Concept group : renderedGroups) {
+        for (Concept group : renderedConcepts) {
             List<Concept> members = getSetMembersRecursively(group);
             if (ret.removeAll(members) && !ret.contains(group)) {
                 ret.add(group);

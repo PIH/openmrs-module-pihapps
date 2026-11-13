@@ -23,7 +23,7 @@ public class PatientLabResultsPageController {
         patientDomainWrapper.setPatient(patient);
         model.addAttribute("patient", patientDomainWrapper);
         model.addAttribute("pihAppsConfig", pihAppsConfig);
-        model.addAttribute("obsGroupRendererExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.OBS_GROUP_RENDERERS));
+        model.addAttribute("resultRendererExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.RESULT_RENDERERS));
     }
 
 }

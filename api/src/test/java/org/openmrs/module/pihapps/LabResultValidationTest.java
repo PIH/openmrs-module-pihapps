@@ -379,6 +379,39 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     @Test
+    public void saveEditorResult_shouldSaveAndReplaceASingleObs() {
+        Order order = order(ORDER_7);
+        Encounter encounter = encounter(order);
+        order = saveWithEditorResult(encounter, order, Order.FulfillerStatus.COMPLETED, CD4_COUNT, cd4(300.0));
+        List<Obs> results = cd4Results(order);
+        assertThat(results, hasSize(1));
+        Obs first = results.get(0);
+        assertThat(first.getValueNumeric(), equalTo(300.0));
+        assertThat(first.getOrder(), equalTo(order));
+        assertThat(first.getStatus(), equalTo(Obs.Status.FINAL));
+
+        order = saveWithEditorResult(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order,
+                Order.FulfillerStatus.COMPLETED, CD4_COUNT, cd4(310.0));
+        results = cd4Results(order);
+        assertThat(results, hasSize(1));
+        assertThat(results.get(0).getValueNumeric(), equalTo(310.0));
+        assertThat(results.get(0).getPreviousVersion().getUuid(), equalTo(first.getUuid()));
+        assertThat(results.get(0).getStatus(), equalTo(Obs.Status.AMENDED));
+    }
+
+    private Obs cd4(Double value) {
+        Obs obs = new Obs();
+        obs.setConcept(Context.getConceptService().getConcept(CD4_COUNT));
+        obs.setValueNumeric(value);
+        return obs;
+    }
+
+    private List<Obs> cd4Results(Order order) {
+        return pihAppsService.getLabResultObs(order).stream()
+                .filter(o -> o.getConcept().getConceptId() == CD4_COUNT).collect(Collectors.toList());
+    }
+
+    @Test
     public void saveEditorResult_shouldRejectAConceptThatIsNotAResultOfTheOrder() {
         Order order = order(ORDER_7);
         EncounterFulfillingOrders encounterFulfillingOrders = new EncounterFulfillingOrders();
@@ -756,14 +789,18 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
     }
 
     private Order saveWithGroupResult(Encounter encounter, Order order, Order.FulfillerStatus status, Obs group) {
+        return saveWithEditorResult(encounter, order, status, PANEL, group);
+    }
+
+    private Order saveWithEditorResult(Encounter encounter, Order order, Order.FulfillerStatus status, Integer conceptId, Obs obs) {
         order.setFulfillerStatus(status);
         EncounterFulfillingOrders encounterFulfillingOrders = new EncounterFulfillingOrders();
         encounterFulfillingOrders.setEncounter(encounter);
         encounterFulfillingOrders.setOrders(Collections.singletonList(order));
         EncounterFulfillingOrders.EditorResult result = new EncounterFulfillingOrders.EditorResult();
         result.setOrder(order);
-        result.setConcept(Context.getConceptService().getConcept(PANEL));
-        result.setObs(group);
+        result.setConcept(Context.getConceptService().getConcept(conceptId));
+        result.setObs(obs);
         encounterFulfillingOrders.setEditorResults(Collections.singletonList(result));
         pihAppsService.saveEncounterFulfillingOrders(encounterFulfillingOrders);
         Context.flushSession();

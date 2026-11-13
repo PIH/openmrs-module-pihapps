@@ -787,9 +787,10 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	}
 
 	/**
-	 * Applies the results recorded as obs groups: for each, voids the order's existing non-voided obs of its concept in
-	 * the encounter, with their members, and adds the new group, if any, with its members linked to the order.  A new
-	 * group that replaces a final or amended one is amended, with the replaced group as its previous version; with
+	 * Applies the results of editors, each a single obs or an obs group: for each, voids the order's existing non-voided
+	 * obs of its concept in the encounter, with their members, and adds the new obs, if any, with its members, linked to
+	 * the order.  A new result that replaces a final or amended one is amended, with the replaced one as its previous
+	 * version; with
 	 * validation required, {@link #markNewResultsPreliminary} later makes the new results of an order that is not
 	 * completed preliminary.
 	 */
@@ -807,28 +808,28 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 			if (!getLabResultConcepts(order).contains(concept)) {
 				throw new IllegalArgumentException(concept.getUuid() + " is not a result concept of order " + order.getUuid());
 			}
-			// The existing groups are read from the database: the encounter given may not hold all its obs, eg when
+			// The existing results are read from the database: the encounter given may not hold all its obs, eg when
 			// converted from a request that only sends the obs it changes
 			Obs replaced = null;
-			for (Obs existing : getSavedObsGroups(encounter, order, concept)) {
+			for (Obs existing : getSavedResults(encounter, order, concept)) {
 				replaced = replaced == null ? existing : replaced;
 				voidWithMembers(existing, "Replaced by pihAppsService.saveEncounterFulfillingOrders");
 			}
-			Obs group = result.getObs();
-			if (group != null) {
-				if (!concept.equals(group.getConcept())) {
-					throw new IllegalArgumentException("The obs group of a result must be of the result's concept");
+			Obs obs = result.getObs();
+			if (obs != null) {
+				if (!concept.equals(obs.getConcept())) {
+					throw new IllegalArgumentException("The obs of an editor result must be of the result's concept");
 				}
-				requireNewObs(group);
+				requireNewObs(obs);
 				Obs.Status status = Obs.Status.FINAL;
 				if (replaced != null) {
-					group.setPreviousVersion(replaced);
+					obs.setPreviousVersion(replaced);
 					if (replaced.getStatus() == Obs.Status.FINAL || replaced.getStatus() == Obs.Status.AMENDED) {
 						status = Obs.Status.AMENDED;
 					}
 				}
-				prepareNewObs(group, encounter, order, status);
-				encounter.addObs(group);
+				prepareNewObs(obs, encounter, order, status);
+				encounter.addObs(obs);
 			}
 		}
 	}
@@ -837,7 +838,7 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	 * @return the non-voided obs of the concept linked to the order in the encounter, as saved, most recent first
 	 */
 	@SuppressWarnings("unchecked")
-	private List<Obs> getSavedObsGroups(Encounter encounter, Order order, Concept concept) {
+	private List<Obs> getSavedResults(Encounter encounter, Order order, Concept concept) {
 		if (encounter.getEncounterId() == null || order.getOrderId() == null) {
 			return Collections.emptyList();
 		}

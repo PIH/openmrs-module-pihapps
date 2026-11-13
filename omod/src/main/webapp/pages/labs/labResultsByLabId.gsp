@@ -138,8 +138,8 @@
 
         // Results recorded as obs groups that an implementation's own editor enters (see labResultFields.js), and
         // that its renderer shows (as on the patient lab results page), by concept uuid
-        const obsGroupEditors = PihAppsLabResultFields.getObsGroupEditors(${ ui.toJson(obsGroupEditorExtensions) });
-        const obsGroupRenderers = PihAppsLabResultFields.getObsGroupRenderers(${ ui.toJson(obsGroupRendererExtensions) });
+        const resultEditors = PihAppsLabResultFields.getResultEditors(${ ui.toJson(resultEditorExtensions) });
+        const resultRenderers = PihAppsLabResultFields.getResultRenderers(${ ui.toJson(resultRendererExtensions) });
         const locale = window.sessionContext?.locale ?? 'en';
         moment.locale(locale);
 
@@ -545,7 +545,7 @@
 
             function renderEntryOrder(order, orderable, formHelper, obsFor, idPrefix) {
                 const element = jq("<div>").addClass("lr-order");
-                const isPanel = orderable.setMembers.length > 0;
+                const isPanel = PihAppsLabResultFields.isPanel(orderable, resultEditors);
                 let changed = false;  // whether the user changed anything of the test: only changed tests are saved
 
                 // Results awaiting validation open as completed, without "In progress": the server can't tell that
@@ -574,7 +574,7 @@
                     idPrefix: idPrefix + "-",
                     collectResultComments: labConfig.collectResultComments,
                     messages: messages,
-                    obsGroupEditors: obsGroupEditors,
+                    resultEditors: resultEditors,
                     editors: editors,
                     onChange: () => { dirty = true; changed = true; }
                 });
@@ -691,12 +691,26 @@
                         categoryGroup.orders.forEach(order => {
                             const info = validation[order.uuid] || {};
                             const orderable = orderables[order.concept.uuid];
-                            const isPanel = orderable.setMembers.length > 0;
+                            const isPanel = PihAppsLabResultFields.isPanel(orderable, Object.assign({}, resultEditors, resultRenderers));
                             const tests = isPanel ? orderable.setMembers : [orderable];
                             const nameCell = jq("<span>").addClass("lr-name").attr("title", order.orderNumber).html(testName(order));
                             const enteredBy = jq("<span>").addClass("lr-entered-by").text((info.enteredBy || []).join(", "));
                             const decisionCell = jq("<span>").addClass("lr-status-cell");
                             const element = jq("<div>").addClass("lr-order");
+
+                            // The result of the concept shown by its renderer extension, or null if the order has none
+                            const renderedValue = (concept, gridColumn) => {
+                                const obs = PihAppsLabResultFields.findResult(allObs, concept, order);
+                                if (!obs) {
+                                    return null;
+                                }
+                                const renderer = resultRenderers[concept.uuid];
+                                const valueCell = jq("<span>").addClass("lr-value").css("grid-column", gridColumn);
+                                PihAppsLabResultFields.renderResult(jq, renderer, obs.uuid)
+                                    .then(content => valueCell.empty().append(content))
+                                    .catch(error => console.warn("Unable to render the result with " + renderer.id, error));
+                                return valueCell;
+                            };
 
                             const valueRow = (concept, nameContent) => {
                                 const values = allObs.filter(o => o.concept.uuid === concept.uuid && o.order?.uuid === order.uuid && !o.groupMembers);
@@ -724,21 +738,15 @@
                                     .append(enteredBy).append(decisionCell));
                                 const members = jq("<div>").addClass("lr-panel-members");
                                 tests.forEach(concept => {
-                                    const renderer = obsGroupRenderers[concept.uuid];
-                                    if (renderer) {
-                                        const group = (encounter.obs || []).concat((encounter.obs || []).flatMap(o => o.groupMembers || []))
-                                            .find(o => o.concept.uuid === concept.uuid && o.order?.uuid === order.uuid && o.groupMembers);
-                                        if (group) {
-                                            const valueCell = jq("<span>").addClass("lr-value").css("grid-column", "2 / -1");
+                                    if (resultRenderers[concept.uuid]) {
+                                        const valueCell = renderedValue(concept, "2 / -1");
+                                        if (valueCell) {
                                             members.append(jq("<div>").addClass("lr-row")
                                                 .append(jq("<span>").addClass("test-name").text(concept.displayStringForLab)).append(valueCell));
-                                            PihAppsLabResultFields.renderObsGroup(jq, renderer, group.uuid)
-                                                .then(content => valueCell.empty().append(content))
-                                                .catch(error => console.warn("Unable to render the result with " + renderer.id, error));
                                         }
                                         return;
                                     }
-                                    const nestedPanel = PihAppsLabResultFields.isNestedPanel(concept, obsGroupEditors) ? concept : null;
+                                    const nestedPanel = PihAppsLabResultFields.isNestedPanel(concept, resultEditors) ? concept : null;
                                     if (nestedPanel) {
                                         const lines = nestedPanel.setMembers.map(m => valueRow(m, jq("<span>").addClass("test-name").text(m.displayStringForLab)))
                                             .filter(line => line.hasValues);
@@ -756,6 +764,10 @@
                                     }
                                 });
                                 element.append(members);
+                            }
+                            else if (resultRenderers[tests[0].uuid]) {
+                                const valueCell = renderedValue(tests[0], "span 2") || jq("<span>").css("grid-column", "span 2");
+                                element.append(jq("<div>").addClass("lr-row").append(nameCell).append(valueCell).append(enteredBy).append(decisionCell));
                             }
                             else {
                                 element.append(valueRow(tests[0], nameCell).row.append(enteredBy).append(decisionCell));

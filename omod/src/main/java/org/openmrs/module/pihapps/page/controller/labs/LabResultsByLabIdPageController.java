@@ -34,7 +34,7 @@ public class LabResultsByLabIdPageController {
         model.addAttribute("patient", patient);
         model.addAttribute("mode", validate ? MODE_VALIDATE : MODE_ENTER);
         model.addAttribute("labId", labId);
-        model.addAttribute("obsGroupEditorExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.OBS_GROUP_EDITORS));
-        model.addAttribute("obsGroupRendererExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.OBS_GROUP_RENDERERS));
+        model.addAttribute("resultEditorExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.RESULT_EDITORS));
+        model.addAttribute("resultRendererExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.RESULT_RENDERERS));
     }
 }

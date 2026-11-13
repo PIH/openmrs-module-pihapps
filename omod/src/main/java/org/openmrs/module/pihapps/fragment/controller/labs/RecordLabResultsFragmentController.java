@@ -11,6 +11,6 @@ import org.openmrs.ui.framework.fragment.FragmentModel;
 public class RecordLabResultsFragmentController {
 
     public void controller(FragmentModel model, @SpringBean AppFrameworkService appFrameworkService) {
-        model.addAttribute("obsGroupEditorExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.OBS_GROUP_EDITORS));
+        model.addAttribute("resultEditorExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.RESULT_EDITORS));
     }
 }

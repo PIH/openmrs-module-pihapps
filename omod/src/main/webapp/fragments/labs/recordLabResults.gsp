@@ -54,7 +54,7 @@
         };
 
         // Results recorded as obs groups that an implementation's own editor enters (see labResultFields.js)
-        const obsGroupEditors = PihAppsLabResultFields.getObsGroupEditors(${ ui.toJson(obsGroupEditorExtensions) });
+        const resultEditors = PihAppsLabResultFields.getResultEditors(${ ui.toJson(resultEditorExtensions) });
         const editors = [];
 
         if (!order || !order.fulfillerEncounter) {
@@ -210,7 +210,7 @@
                     idPrefix: id,
                     collectResultComments: pihAppsConfig.labOrderConfig.collectResultComments,
                     messages: messages,
-                    obsGroupEditors: obsGroupEditors,
+                    resultEditors: resultEditors,
                     editors: editors
                 });
 

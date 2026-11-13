@@ -51,19 +51,19 @@ public class LabResultsRestControllerTest {
     public void shouldReplaceTheMembersOfARenderedGroupByTheGroup() {
         List<Concept> concepts = controller.getSetMembersRecursively(category);
         assertThat(concepts, containsInAnyOrder(culture, organism, antibiotic, otherTest));
-        List<Concept> collapsed = controller.collapseRenderedGroups(concepts, Collections.singletonList(susceptibility));
+        List<Concept> collapsed = controller.collapseRenderedConcepts(concepts, Collections.singletonList(susceptibility));
         assertThat(collapsed, containsInAnyOrder(culture, susceptibility, otherTest));
     }
 
     @Test
     public void shouldNotAddARenderedGroupWhoseMembersAreNotSearched() {
-        List<Concept> collapsed = controller.collapseRenderedGroups(Arrays.asList(culture, otherTest), Collections.singletonList(susceptibility));
+        List<Concept> collapsed = controller.collapseRenderedConcepts(Arrays.asList(culture, otherTest), Collections.singletonList(susceptibility));
         assertThat(collapsed, containsInAnyOrder(culture, otherTest));
     }
 
     @Test
     public void shouldSearchAllConceptsWhenNoConceptsAreGiven() {
-        assertThat(controller.collapseRenderedGroups(null, Collections.singletonList(susceptibility)), nullValue());
+        assertThat(controller.collapseRenderedConcepts(null, Collections.singletonList(susceptibility)), nullValue());
     }
 
     @Test

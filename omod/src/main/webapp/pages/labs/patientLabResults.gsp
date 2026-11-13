@@ -16,7 +16,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 <script type="text/javascript">
 
     const patientUuid = '${patient.patient.uuid}';
-    const obsGroupRendererExtensions = ${ ui.toJson(obsGroupRendererExtensions) };
+    const resultRendererExtensions = ${ ui.toJson(resultRendererExtensions) };
 
     const breadcrumbs = [
         { icon: "icon-home", link: '/' + OPENMRS_CONTEXT_PATH + '/index.htm' },
@@ -43,8 +43,8 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),order:(uuid),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",effectiveReferenceRange,creator:(display,person:(display))"
 
             // Obs groups whose result an extension renders, by concept uuid: they are returned as one obs, the group
-            const obsGroupRenderers = PihAppsLabResultFields.getObsGroupRenderers(obsGroupRendererExtensions);
-            const getObsGroupRenderer = (obs) => obsGroupRenderers[obs.concept.uuid];
+            const resultRenderers = PihAppsLabResultFields.getResultRenderers(resultRendererExtensions);
+            const getResultRenderer = (obs) => resultRenderers[obs.concept.uuid];
 
             const patientUtils = new PihAppsPatientUtils(jq);
             const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat)
@@ -60,7 +60,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     "onOrBefore": jq("#onOrBefore-filter-field").val(),
                     // Clinicians only see results a validator has released
                     ...(pihAppsConfig.labOrderConfig.requireResultValidation ? { "status": ["FINAL", "AMENDED"] } : {}),
-                    "renderedGroup": Object.keys(obsGroupRenderers)
+                    "renderedConcept": Object.keys(resultRenderers)
                 }
             }
 
@@ -69,15 +69,15 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
             }
 
             const getLabTest = (obs) => {
-                if (getObsGroupRenderer(obs)) {
+                if (getResultRenderer(obs)) {
                     return jq("<span>").html(obs.concept.displayStringForLab).prop("outerHTML");
                 }
                 return jq("<a>").attr("href", "#").addClass("lab-trends-link").html(obs.concept.displayStringForLab).prop("outerHTML");
             }
 
             const getResults = (obs) => {
-                if (getObsGroupRenderer(obs)) {
-                    return jq("<div>").addClass("obs-group-rendered").prop("outerHTML");
+                if (getResultRenderer(obs)) {
+                    return jq("<div>").addClass("result-rendered").prop("outerHTML");
                 }
                 return patientUtils.formatObsValue(obs, dateUtils);
             }
@@ -103,10 +103,10 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
 
                 // Obs groups rendered by an extension
                 tableRowObjects.forEach((obs, index) => {
-                    const ext = getObsGroupRenderer(obs);
+                    const ext = getResultRenderer(obs);
                     if (!ext) return;
-                    const container = jq(tableRowData[index]).find(".obs-group-rendered");
-                    PihAppsLabResultFields.renderObsGroup(jq, ext, obs.uuid).then(content => {
+                    const container = jq(tableRowData[index]).find(".result-rendered");
+                    PihAppsLabResultFields.renderResult(jq, ext, obs.uuid).then(content => {
                         container.empty().append(content);
                     }).catch(error => console.warn("Unable to render the result with " + ext.id, error));
                 });
