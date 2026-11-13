@@ -19,7 +19,7 @@ public class LabExtensions {
      * to, the html or element to show as its result.  Used by the patient lab results page, and to show results being
      * validated
      */
-    public static final String RESULT_RENDERERS = "org.openmrs.module.pihapps.patientLabResults.resultRenderers";
+    public static final String RESULT_RENDERERS = "org.openmrs.module.pihapps.labResults.resultRenderers";
 
     /**
      * Extensions whose extensionParams.concept is a result concept, the ordered test or a member of the ordered panel,

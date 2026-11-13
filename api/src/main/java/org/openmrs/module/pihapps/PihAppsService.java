@@ -122,7 +122,7 @@ public interface PihAppsService extends OpenmrsService {
 
 	/**
 	 * Validates the results of the given orders: their preliminary results become final and each order is completed.
-	 * The orders are locked while this is done.  Nothing is changed if the current user cannot validate any one of
+	 * Nothing is changed if the current user cannot validate any one of
 	 * the orders, or if the results of any order are not those the validator reviewed.
 	 * @param reviewedResults for each order, the uuids of the results the validator reviewed, which must be its
 	 * current non-voided results (see {@link #getLabResultObs(Order)})

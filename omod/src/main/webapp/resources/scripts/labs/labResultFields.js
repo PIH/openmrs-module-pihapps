@@ -6,9 +6,10 @@
  * A result can be shown and entered by an implementation's own JavaScript instead of the standard fields, such as the
  * organisms a culture isolated and their antibiotic susceptibility, recorded as an obs group.  The JavaScript is
  * registered as extensions whose extensionParams.concept is the result concept and whose extensionParams.jsFunction
- * names a function on window.  The result can be a single obs or an obs group.
+ * names a function on window.  The result can be a single obs or an obs group.  An editor of a result recorded as an obs
+ * group needs a renderer too: without one, the validate view and the patient lab results page do not show the group.
  *
- * org.openmrs.module.pihapps.patientLabResults.resultRenderers: jsFunction(obs, extensionParams) returns, or resolves
+ * org.openmrs.module.pihapps.labResults.resultRenderers: jsFunction(obs, extensionParams) returns, or resolves
  * to, the content shown for the result, on the patient lab results page and when validating results.
  *   obs - the result as loaded with renderResult: uuid, concept, values, status, order and, for a group, groupMembers
  *   at every level (see resultRep)
