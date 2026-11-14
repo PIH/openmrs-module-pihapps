@@ -14,6 +14,8 @@ import org.openmrs.api.OrderService;
 import org.openmrs.module.pihapps.PihAppsService;
 import org.openmrs.module.pihapps.SortCriteria;
 import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentEvent;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentEventType;
 import org.openmrs.module.pihapps.orders.OrderFulfillmentStatus;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
@@ -43,6 +45,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +75,14 @@ public class LabOrderRestController {
         this.orderService = orderService;
         this.conceptService = conceptService;
         this.restService = restService;
+    }
+
+    // With validation off there are no events to look up, so no query is made
+    private Map<Order, OrderFulfillmentEvent> getLatestValidationEvents(List<Order> orders) {
+        if (!labOrderConfig.getRequireResultValidation()) {
+            return Collections.emptyMap();
+        }
+        return pihAppsService.getLatestOrderFulfillmentEvents(orders, OrderFulfillmentEventType.RESULT_VALIDATION);
     }
 
     @RequestMapping(value = "/rest/v1/pihapps/labOrder", method = RequestMethod.GET)
@@ -125,15 +136,12 @@ public class LabOrderRestController {
 
             OrderSearchResult result = pihAppsService.getOrders(searchCriteria);
 
-            boolean hasMoreResults = false;
-            if (limit != null) {
-                int recordsProcessed = startIndex + limit + 1;
-                hasMoreResults = recordsProcessed < result.getTotalCount();
-            }
+            boolean hasMoreResults = PihAppsRestSupport.hasMoreResults(startIndex, limit, result.getTotalCount());
 
             // Resolve fulfillerEncounter for the whole page in one query
             Map<Order, Encounter> fulfillerEncounters = pihAppsService.getFulfillerEncountersForOrders(result.getOrders());
             OrderWithFulfillerDetailsResource.primeFulfillerEncounterCache(fulfillerEncounters);
+            OrderWithFulfillerDetailsResource.primeLabResultValidationCache(getLatestValidationEvents(result.getOrders()));
 
             Converter<Order> orderConverter = (Converter<Order>) restService.getResourceByName(RestConstants.VERSION_1 + "/order");
             AlreadyPaged<Order> alreadyPaged = new AlreadyPaged<>(requestContext, result.getOrders(), hasMoreResults, result.getTotalCount());
@@ -145,6 +153,7 @@ public class LabOrderRestController {
         }
         finally {
             OrderWithFulfillerDetailsResource.clearFulfillerEncounterCache();
+            OrderWithFulfillerDetailsResource.clearLabResultValidationCache();
         }
     }
 
@@ -199,11 +208,7 @@ public class LabOrderRestController {
 
             PatientWithOrdersSearchResult result = pihAppsService.getPatientsWithOrders(searchCriteria);
 
-            boolean hasMoreResults = false;
-            if (limit != null) {
-                int recordsProcessed = startIndex + limit + 1;
-                hasMoreResults = recordsProcessed < result.getTotalCount();
-            }
+            boolean hasMoreResults = PihAppsRestSupport.hasMoreResults(startIndex, limit, result.getTotalCount());
 
             // Same batching as getLabOrders, flattened across all patients on this page since the orders
             // being serialized are nested inside each PatientWithOrders rather than a single flat list.
@@ -213,6 +218,7 @@ public class LabOrderRestController {
             }
             Map<Order, Encounter> fulfillerEncounters = pihAppsService.getFulfillerEncountersForOrders(allOrders);
             OrderWithFulfillerDetailsResource.primeFulfillerEncounterCache(fulfillerEncounters);
+            OrderWithFulfillerDetailsResource.primeLabResultValidationCache(getLatestValidationEvents(allOrders));
 
             Converter<PatientWithOrders> patientConverter = ConversionUtil.getConverter(PatientWithOrders.class);
             AlreadyPaged<PatientWithOrders> alreadyPaged = new AlreadyPaged<>(requestContext, result.getPatients(), hasMoreResults, result.getTotalCount());
@@ -224,6 +230,7 @@ public class LabOrderRestController {
         }
         finally {
             OrderWithFulfillerDetailsResource.clearFulfillerEncounterCache();
+            OrderWithFulfillerDetailsResource.clearLabResultValidationCache();
         }
     }
 

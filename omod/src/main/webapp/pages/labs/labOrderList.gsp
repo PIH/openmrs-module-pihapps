@@ -6,6 +6,7 @@
     ui.includeJavascript("pihapps", "patientUtils.js")
     ui.includeJavascript("pihapps", "specimenCollection.js")
     ui.includeJavascript("pihapps", "dateUtils.js")
+    ui.includeJavascript("pihapps", "labs/labResultActions.js")
     ui.includeCss("pihapps", "labs/labs.css")
 
     def now = new Date()
@@ -22,19 +23,21 @@
     const visitLocationUuid = '${ visitLocationUuid }';
     const visitLocationName = '${ visitLocationForSessionLocation ? ui.encodeJavaScript(visitLocationForSessionLocation.name) : "" }';
     const patientGroupActionExtensions = ${ ui.toJson(patientGroupActionExtensions) };
+    const orderBadgeExtensions = ${ ui.toJson(orderBadgeExtensions) };
+    const canValidateResults = ${ canValidateResults ? "true" : "false" };
 
     const patientRep = "(uuid,display,person:(display,gender,birthdate,birthdateEstimated),identifiers:(identifier,preferred,identifierType:(uuid,display,auditInfo:(dateCreated))))";
     const conceptRep = "(id,uuid,allowDecimal,display,displayStringForLab)";
-    const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep
+    const orderRep = "id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,fulfillerStatus,labResultValidation,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep
 
-    const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display)," + PihAppsSpecimenCollection.getConfigRep() + ",resultsDateQuestion:(uuid,datatype:(name)),reasonTestNotPerformedQuestion:(uuid,datatype:(name),answers:(uuid,display)),collectResultComments,defaultOrderedFromLookbackDays)";
+    const labOrderConfigRep = "(labTestOrderType:(uuid),availableLabTestsByCategory:(category:" + conceptRep + ",labTests:" + conceptRep + "),orderStatusOptions:(status,display),fulfillerStatusOptions:(status,display),orderFulfillmentStatusOptions:(status,display)," + PihAppsSpecimenCollection.getConfigRep() + ",resultsDateQuestion:(uuid,datatype:(name)),reasonTestNotPerformedQuestion:(uuid,datatype:(name),answers:(uuid,display)),collectResultComments,requireResultValidation,defaultOrderedFromLookbackDays)";
     const pihAppsConfigRep = "dateFormat,dateTimeFormat,primaryIdentifierType:(uuid),labOrderConfig:" + labOrderConfigRep;
 
     moment.locale(window.sessionContext?.locale ?? 'en');
 
     const pagingDataTable = new PagingDataTable(jq);
     const patientPagingDataTable = new PagingDataTable(jq);
-    const patientOrderRep = "id,uuid,orderNumber,dateActivated,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),accessionNumber,urgency,action,patient:" + patientRep + ",concept:(id,uuid,allowDecimal,display,displayStringForLab)";
+    const patientOrderRep = "id,uuid,orderNumber,dateActivated,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,labResultValidation,encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),accessionNumber,urgency,action,patient:" + patientRep + ",concept:(id,uuid,allowDecimal,display,displayStringForLab)";
     const patientUtils = new PihAppsPatientUtils(jq);
 
     const specimenCollection = new PihAppsSpecimenCollection({
@@ -196,18 +199,69 @@
                 if (awaiting && order.autoExpireDate && moment(order.autoExpireDate).isBefore(new Date())) return 'EXPIRED';
                 if (order.fulfillerStatus === 'EXCEPTION') return 'NOT_PERFORMED';
                 if (order.fulfillerStatus === 'COMPLETED') return 'COMPLETED';
+                if (order.fulfillerStatus === 'IN_PROGRESS' && order.labResultValidation?.eventType === 'RESULTS_SUBMITTED') return 'AWAITING_VALIDATION';
                 if (order.fulfillerEncounter) return 'COLLECTED';
                 if (!awaiting) return 'ORPHANED';
                 return 'AWAITING';
             };
 
+            // Results a validator has returned to the lab for correction, with the validator's comment as the title
+            const getReturnedBadge = (order) => {
+                if (order.fulfillerStatus !== 'IN_PROGRESS' || order.labResultValidation?.eventType !== 'RESULTS_RETURNED') return '';
+                return jq("<span>").addClass("badge badge-warning lab-ext-badge")
+                    .attr("title", order.labResultValidation.comment || "")
+                    .text('${ ui.encodeJavaScript(ui.message("pihapps.orderFulfillmentEventType.RESULTS_RETURNED")) }')[0].outerHTML;
+            };
+
             const getOrderFulfillmentStatus = (order) => {
                 const statusDisplay = patientUtils.getOrderFulfillmentStatusOption(order, orderFulfillmentStatusOptions).display;
+                const badges = getReturnedBadge(order) + '<span class="lab-ext-order-badges" data-order-uuid="' + order.uuid + '"></span>';
                 if (getOrderStatus(order) === 'ORPHANED') {
                     return '<span class="orphaned-order-status" title="${ ui.message("pihapps.orphanedOrderWarning") }">'
-                        + '<i class="fas fa-fw fa-exclamation-triangle"></i> ' + statusDisplay + '</span>';
+                        + '<i class="fas fa-fw fa-exclamation-triangle"></i> ' + statusDisplay + '</span>' + badges;
                 }
-                return statusDisplay;
+                return statusDisplay + badges;
+            };
+
+            // ---- Badges from extensions, such as payment status, shown beside the order status ----
+
+            const orderBadges = {};  // order uuid -> badges from each extension
+
+            const badgeHtml = (badge) => jq("<span>").addClass("badge lab-ext-badge " + (badge.cssClass || "badge-secondary"))
+                .attr("title", badge.title || "").text(badge.text)[0].outerHTML;
+
+            const renderOrderBadges = () => {
+                jq(".lab-ext-order-badges").each(function() {
+                    jq(this).html((orderBadges[jq(this).attr("data-order-uuid")] || []).map(badgeHtml).join(""));
+                });
+                jq(".lab-ext-patient-badges").each(function() {
+                    const patientUuid = jq(this).attr("data-patient-uuid");
+                    const patientWithOrders = patientPagingDataTable.getRowObjects().find(p => p.patient.uuid === patientUuid);
+                    const shown = {};
+                    (patientWithOrders?.orders || []).forEach(order => {
+                        (orderBadges[order.uuid] || []).filter(b => b.showOnPatientRow !== false).forEach(b => { shown[b.text] = b; });
+                    });
+                    const returnedOrder = (patientWithOrders?.orders || []).find(order => getReturnedBadge(order));
+                    jq(this).html((returnedOrder ? getReturnedBadge(returnedOrder) : "") + Object.values(shown).map(badgeHtml).join(""));
+                });
+            };
+
+            const loadOrderBadges = (orders) => {
+                renderOrderBadges();
+                if (orders.length === 0) return;
+                orderBadgeExtensions.forEach(ext => {
+                    const fn = window[ext.extensionParams?.jsFunction];
+                    if (typeof fn !== 'function') return;
+                    // A synchronous throw becomes a rejection, so one bad extension can't stop the table's handlers attaching
+                    new Promise(resolve => resolve(fn(orders, ext.extensionParams))).then(badges => {
+                        orders.forEach(order => {
+                            const others = (orderBadges[order.uuid] || []).filter(b => b.extensionId !== ext.id);
+                            const badge = badges ? badges[order.uuid] : null;
+                            orderBadges[order.uuid] = badge ? others.concat([{ ...badge, extensionId: ext.id }]) : others;
+                        });
+                        renderOrderBadges();
+                    }).catch(error => console.warn("Unable to load badges from " + ext.id, error));
+                });
             };
 
             const buildOrderActions = (order) => {
@@ -218,13 +272,16 @@
                         jq("<i>").addClass("fas fa-fw fa-vial lab-action-icon collect-specimen-action")
                             .attr({ "data-order-uuid": order.uuid, "title": "${ ui.message('pihapps.editSpecimenCollection') }" })
                     );
-                    const resultsTitle = status === 'COMPLETED'
+                    const resultsTitle = (status === 'COMPLETED' || status === 'AWAITING_VALIDATION')
                         ? "${ ui.message('pihapps.editResults') }"
                         : "${ ui.message('pihapps.recordResults') }";
                     actions.append(
                         jq("<i>").addClass("fas fa-fw fa-clipboard-list lab-action-icon enter-results-action")
                             .attr({ "data-order-uuid": order.uuid, "title": resultsTitle })
                     );
+                    if (canValidateResults && status === 'AWAITING_VALIDATION') {
+                        actions.append(validateResultsAction(order.patient.uuid, order.accessionNumber?.trim()));
+                    }
                 } else if (status === 'AWAITING' || status === 'ORPHANED') {
                     // An orphaned order can still be expired, in which case it can be marked not performed but not collected
                     if (PihAppsSpecimenCollection.isCollectable(order)) {
@@ -248,6 +305,24 @@
             };
 
             const getActions = (order) => buildOrderActions(order).html();
+
+            // Validating opens the page of the patient's results awaiting validation, so it is offered on each order,
+            // where it opens the order's Lab ID, and on the patient row. Bound once, for every table, by the
+            // document-level handler below.
+            const validateResultsAction = (patientUuid, labId) => {
+                return jq("<i>").addClass("fas fa-fw fa-check-double lab-action-icon validate-results-action")
+                    .attr({ "data-patient-uuid": patientUuid, "data-lab-id": labId ?? "",
+                        "title": "${ ui.encodeJavaScript(ui.message('pihapps.labResultsByLabId.validateResults')) }" });
+            };
+            jq(document).on("click", ".validate-results-action", (event) => {
+                event.stopPropagation();
+                const target = jq(event.currentTarget);
+                const params = { patient: target.attr("data-patient-uuid"), mode: "validate" };
+                if (target.attr("data-lab-id")) {
+                    params.labId = target.attr("data-lab-id");
+                }
+                window.location.href = openmrsContextPath + "/pihapps/labs/labResultsByLabId.page?" + jq.param(params);
+            });
 
             const getFilterParameterValues = function() {
                 return {
@@ -298,6 +373,7 @@
             }
 
             const orderTableUpdated = function() {
+                loadOrderBadges(pagingDataTable.getRowObjects());
                 jq(".enter-results-action").off("click").on("click", (event) => {
                     const orderUuid = jq(event.target).data().orderUuid;
                     const order = getOrderFromTable(orderUuid);
@@ -367,13 +443,15 @@
                     'AWAITING':      { cls: 'badge-warning',   key: '${ui.encodeJavaScript(ui.message("pihapps.allAwaiting"))}' },
                     'COLLECTED':     { cls: 'badge-info',      key: '${ui.encodeJavaScript(ui.message("pihapps.allCollected"))}' },
                     'COMPLETED':     { cls: 'badge-success',   key: '${ui.encodeJavaScript(ui.message("pihapps.allCompleted"))}' },
+                    'AWAITING_VALIDATION': { cls: 'badge-primary', key: '${ui.encodeJavaScript(ui.message("pihapps.allAwaitingValidation"))}' },
                     'EXPIRED':       { cls: 'badge-dark',      key: '${ui.encodeJavaScript(ui.message("pihapps.allExpired"))}' },
                     'CANCELED':      { cls: 'badge-dark',      key: '${ui.encodeJavaScript(ui.message("pihapps.allCanceled"))}' },
                     'NOT_PERFORMED': { cls: 'badge-secondary', key: '${ui.encodeJavaScript(ui.message("pihapps.allNotPerformed"))}' },
                     'MIXED':         { cls: 'badge-secondary', key: '${ui.encodeJavaScript(ui.message("pihapps.mixedStatus"))}' }
                 };
                 const label = labels[status] || labels['MIXED'];
-                return '<span class="badge ' + label.cls + '">' + label.key + '</span>';
+                return '<span class="badge ' + label.cls + '">' + label.key + '</span>'
+                    + '<span class="lab-ext-patient-badges" data-patient-uuid="' + patientWithOrders.patient.uuid + '"></span>';
             };
 
             const getPatientGroupActions = (patientWithOrders) => {
@@ -392,7 +470,15 @@
                             .attr({ "data-patient-uuid": patientUuid, "title": "${ ui.message('pihapps.markNotPerformed') }" })
                     );
                 }
+                if (canValidateResults && patientWithOrders.orders.some(o => getOrderStatus(o) === 'AWAITING_VALIDATION')) {
+                    actions.append(validateResultsAction(patientUuid));
+                }
                 patientGroupActionExtensions.forEach(ext => {
+                    // An action can be limited to patients with at least one order in one of the given statuses
+                    const visibleForOrderStatuses = ext.extensionParams?.visibleForOrderStatuses ? [].concat(ext.extensionParams.visibleForOrderStatuses) : null;
+                    if (visibleForOrderStatuses && !patientWithOrders.orders.some(o => visibleForOrderStatuses.includes(getOrderStatus(o)))) {
+                        return;
+                    }
                     const iconClass = (ext.extensionParams && ext.extensionParams.iconClass) || 'fas fa-fw fa-cog';
                     actions.append(
                         jq("<i>").addClass(iconClass + " lab-action-icon lab-ext-group-action")
@@ -440,6 +526,7 @@
                         subRow.insertAfter(insertAfter);
                         insertAfter = subRow;
                     });
+                    renderOrderBadges();
 
                     // Attach click handlers to newly inserted sub-rows
                     patientWithOrders.orders.forEach(order => {
@@ -483,6 +570,7 @@
             };
 
             const patientTableUpdated = function() {
+                loadOrderBadges(patientPagingDataTable.getRowObjects().flatMap(p => p.orders));
                 jq("#patients-table tbody tr").each(function() {
                     const patientUuid = jq(this).find("[data-patient-uuid]").first().attr("data-patient-uuid");
                     if (patientUuid) {
@@ -527,7 +615,8 @@
                         if (ext && ext.extensionParams && ext.extensionParams.jsFunction) {
                             const fn = window[ext.extensionParams.jsFunction];
                             if (typeof fn === 'function') {
-                                fn(patientWithOrders, ext.extensionParams);
+                                new Promise(resolve => resolve(fn(patientWithOrders, ext.extensionParams)))
+                                    .catch(error => console.warn("Error in action " + ext.id, error));
                             }
                         }
                     }
@@ -563,8 +652,8 @@
             });
             updateOrderFulfillmentStatusSummary();
 
-            // Apply initial status filter: URL param(s) if present, otherwise default to Ordered + Collected
-            const defaultFulfillmentStatuses = ["AWAITING_FULFILLMENT", "IN_FULFILLMENT"];
+            // Apply initial status filter: URL param(s) if present, otherwise default to Ordered + Collected (+ Awaiting validation)
+            const defaultFulfillmentStatuses = ["AWAITING_FULFILLMENT", "IN_FULFILLMENT", "AWAITING_VALIDATION"];
             const statusesToApply = initialStatuses.length > 0 ? initialStatuses : defaultFulfillmentStatuses;
             jq(".orderFulfillmentStatus-checkbox").prop("checked", function() {
                 return statusesToApply.includes(jq(this).val());
@@ -575,7 +664,7 @@
                 tableSelector: "#orders-table",
                 tableInfoSelector: "#orders-table-info-and-paging",
                 endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labOrder",
-                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
+                representation: "custom:(id,uuid,display,orderNumber,dateActivated,scheduledDate,dateStopped,autoExpireDate,orderer:(display),fulfillerStatus,labResultValidation,orderType:(id,uuid,display,name),encounter:(id,uuid,display,encounterDatetime,location:(uuid,display)),fulfillerEncounter:(id,uuid,display,encounterDatetime),careSetting:(uuid,name,careSettingType,display),accessionNumber,urgency,action,patient:" + patientRep + ",concept:" + conceptRep + ")",
                 parameters: { ...getFilterParameterValues() },
                 columnTransformFunctions: [
                     getEmrId, getPatientName, getOrderNumber, getOrderDate, getOrderLocation, getSpecimenDate, getAccessionNumber, getOrderFulfillmentStatus, getLabTest, getActions
@@ -766,6 +855,9 @@
         cursor: pointer;
         padding: 0 4px;
         color: #495057;
+    }
+    .lab-ext-badge {
+        margin-left: 4px;
     }
     .lab-action-icon:hover {
         color: #0056b3;

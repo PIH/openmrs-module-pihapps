@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--
+  Supplemental test data for LabResultValidationTest, loaded on top of the standard OpenMRS test dataset.
+
+  concept 9110: a panel (set) whose members are 5089 and 5497
+  order 9201:   patient 2, test order for panel 9110, fulfiller_status=RECEIVED
+-->
+<dataset>
+    <concept concept_id="9110" retired="false" datatype_id="4" class_id="8" is_set="true" creator="1"
+             date_created="2026-10-19 00:00:00.0" uuid="9110aaaa-0000-4000-8000-000000009110"/>
+    <concept_name concept_name_id="9110" concept_id="9110" name="TEST PANEL" locale="en" locale_preferred="1"
+                  concept_name_type="FULLY_SPECIFIED" creator="1" date_created="2026-10-19 00:00:00.0" voided="false"
+                  uuid="9110bbbb-0000-4000-8000-000000009110"/>
+    <concept_set concept_set_id="9111" concept_id="5089" concept_set="9110" sort_weight="1.0" creator="1"
+                 date_created="2026-10-19 00:00:00.0" uuid="9111aaaa-0000-4000-8000-000000009111"/>
+    <concept_set concept_set_id="9112" concept_id="5497" concept_set="9110" sort_weight="2.0" creator="1"
+                 date_created="2026-10-19 00:00:00.0" uuid="9112aaaa-0000-4000-8000-000000009112"/>
+
+    <orders order_id="9201"
+            order_type_id="2"
+            order_number="ORD-9201"
+            urgency="ROUTINE"
+            order_action="NEW"
+            concept_id="9110"
+            orderer="1"
+            fulfiller_status="RECEIVED"
+            date_activated="2009-01-15 08:00:00.0"
+            creator="1"
+            date_created="2009-01-15 08:00:00.0"
+            voided="false"
+            patient_id="2"
+            uuid="9201aaaa-0000-4000-8000-000000009201"
+            care_setting="1"
+            encounter_id="6" />
+    <test_order order_id="9201" />
+</dataset>

@@ -71,8 +71,10 @@ public class LabResultsRestController {
                                @RequestParam(value = "category", required = false) Concept category,
                                @RequestParam(value = "onOrBefore", required = false) String onOrBefore,
                                @RequestParam(value = "onOrAfter", required = false) String onOrAfter,
-                                @RequestParam(value = "sortBy", required = false) List<String> sortBy
-                               ) throws ResponseException {
+                               @RequestParam(value = "status", required = false) List<String> statuses,
+                               @RequestParam(value = "sortBy", required = false) List<String> sortBy,
+                               @RequestParam(value = "renderedConcept", required = false) List<String> renderedConcepts
+    ) throws ResponseException {
 
         try {
             RequestContext requestContext = RestUtil.getRequestContext(request, response, Representation.REF);
@@ -104,7 +106,8 @@ public class LabResultsRestController {
                 concepts = getSetMembersRecursively(labOrderConfig.getLabResultCategoriesConceptSet());
             }
 
-            searchCriteria.setConcepts(concepts);
+            searchCriteria.setConcepts(collapseRenderedConcepts(concepts, getConcepts(renderedConcepts)));
+            searchCriteria.setStatuses(getStatuses(statuses));
             searchCriteria.setOnOrBefore(getDate(onOrBefore));
             searchCriteria.setOnOrAfter(getDate(onOrAfter));
             searchCriteria.setStartIndex(requestContext.getStartIndex());
@@ -125,7 +128,11 @@ public class LabResultsRestController {
                 }
             }
             if (sortCriteriaList.isEmpty()) {
+                // The results of an order, and the members of an obs group, are kept together.  Obs of the order that
+                // are not in a group come after its group where nulls sort last in descending order, as in MySQL.
                 sortCriteriaList.add(new SortCriteria("obsDatetime", SortCriteria.Direction.DESC));
+                sortCriteriaList.add(new SortCriteria("order", SortCriteria.Direction.ASC));
+                sortCriteriaList.add(new SortCriteria("obsGroup", SortCriteria.Direction.DESC));
                 sortCriteriaList.add(new SortCriteria("concept", SortCriteria.Direction.ASC));
                 sortCriteriaList.add(new SortCriteria("obsId", SortCriteria.Direction.DESC));
             }
@@ -133,11 +140,7 @@ public class LabResultsRestController {
 
             ObsSearchResult result = pihAppsService.getObs(searchCriteria);
 
-            boolean hasMoreResults = false;
-            if (limit != null) {
-                int recordsProcessed = startIndex + limit + 1;
-                hasMoreResults = recordsProcessed < result.getTotalCount();
-            }
+            boolean hasMoreResults = PihAppsRestSupport.hasMoreResults(startIndex, limit, result.getTotalCount());
 
             Converter<Obs> obsConverter = (Converter<Obs>) restService.getResourceByName(RestConstants.VERSION_1 + "/obs");
             AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
@@ -147,6 +150,38 @@ public class LabResultsRestController {
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return RestUtil.wrapErrorResponse(e, e.getLocalizedMessage());
         }
+    }
+
+    /**
+     * Results whose concept is rendered as one result, by an extension of the patient lab results page, are returned
+     * as one obs: for an obs group, the group rather than the obs of its members
+     * @return the concepts, where the members of each rendered concept among them are replaced by the concept
+     */
+    List<Concept> collapseRenderedConcepts(List<Concept> concepts, List<Concept> renderedConcepts) {
+        if (concepts == null || renderedConcepts.isEmpty()) {
+            return concepts;
+        }
+        List<Concept> ret = new ArrayList<>(concepts);
+        for (Concept group : renderedConcepts) {
+            List<Concept> members = getSetMembersRecursively(group);
+            if (ret.removeAll(members) && !ret.contains(group)) {
+                ret.add(group);
+            }
+        }
+        return ret;
+    }
+
+    List<Concept> getConcepts(List<String> uuids) {
+        List<Concept> ret = new ArrayList<>();
+        if (uuids != null) {
+            for (String uuid : uuids) {
+                Concept concept = StringUtils.isBlank(uuid) ? null : conceptService.getConceptByUuid(uuid.trim());
+                if (concept != null) {
+                    ret.add(concept);
+                }
+            }
+        }
+        return ret;
     }
 
     List<Concept> getSetMembersRecursively(Concept concept) {
@@ -171,6 +206,25 @@ public class LabResultsRestController {
             ret.addAll(concept.getSetMembers());
         }
         ret.remove(concept);
+        return ret;
+    }
+
+    /**
+     * @return the obs statuses named, or null to match any status if none are named
+     */
+    List<Obs.Status> getStatuses(List<String> statuses) {
+        if (statuses == null || statuses.isEmpty()) {
+            return null;
+        }
+        List<Obs.Status> ret = new ArrayList<>();
+        for (String status : statuses) {
+            try {
+                ret.add(Obs.Status.valueOf(status.trim().toUpperCase()));
+            }
+            catch (Exception e) {
+                throw new IllegalArgumentException("Invalid obs status: " + status);
+            }
+        }
         return ret;
     }
 

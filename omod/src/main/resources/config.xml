@@ -46,6 +46,13 @@
         </require_module>
     </require_modules>
 
+    <packagesWithMappedClasses>org.openmrs.module.pihapps.orders</packagesWithMappedClasses>
+
+    <privilege>
+        <name>Task: pihapps.labs.validateResults</name>
+        <description>Validate or return lab results entered by another user</description>
+    </privilege>
+
     <activator>${project.parent.groupId}.${project.parent.artifactId}.PihAppsActivator</activator>
 
     <filter>

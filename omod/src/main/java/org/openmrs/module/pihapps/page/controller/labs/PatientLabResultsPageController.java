@@ -1,6 +1,8 @@
 package org.openmrs.module.pihapps.page.controller.labs;
 
+import org.openmrs.module.pihapps.labs.LabExtensions;
 import org.openmrs.Patient;
+import org.openmrs.module.appframework.service.AppFrameworkService;
 import org.openmrs.module.emrapi.patient.PatientDomainWrapper;
 import org.openmrs.module.pihapps.PihAppsConfig;
 import org.openmrs.ui.framework.UiUtils;
@@ -11,13 +13,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 public class PatientLabResultsPageController {
 
+
     public void get(PageModel model, UiUtils ui,
                       @InjectBeans PatientDomainWrapper patientDomainWrapper,
                       @RequestParam(value = "patient") Patient patient,
-                      @SpringBean("pihAppsConfig") PihAppsConfig pihAppsConfig) {
+                      @SpringBean("pihAppsConfig") PihAppsConfig pihAppsConfig,
+                      @SpringBean AppFrameworkService appFrameworkService) {
 
         patientDomainWrapper.setPatient(patient);
         model.addAttribute("patient", patientDomainWrapper);
         model.addAttribute("pihAppsConfig", pihAppsConfig);
+        model.addAttribute("resultRendererExtensions", LabExtensions.getExtensions(appFrameworkService, LabExtensions.RESULT_RENDERERS));
     }
+
 }

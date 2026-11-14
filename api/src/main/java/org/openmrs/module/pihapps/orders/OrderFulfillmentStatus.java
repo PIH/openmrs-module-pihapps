@@ -16,12 +16,13 @@ import static org.openmrs.Order.FulfillerStatus.RECEIVED;
 
 public enum OrderFulfillmentStatus {
 
-    AWAITING_FULFILLMENT(OrderStatus.ACTIVE, Collections.singletonList(RECEIVED), Boolean.TRUE),
-    IN_FULFILLMENT(null, Arrays.asList(IN_PROGRESS, ON_HOLD), null),
-    COMPLETED_FULFILLMENT(null, Collections.singletonList(COMPLETED), null),
-    UNABLE_TO_COMPLETE_FULFILLMENT(null, Arrays.asList(EXCEPTION, DECLINED), null),
-    EXPIRED_BEFORE_FULFILLMENT(OrderStatus.EXPIRED, Collections.singletonList(RECEIVED), Boolean.TRUE),
-    CANCELLED_BEFORE_FULFILLMENT(OrderStatus.STOPPED, Collections.singletonList(RECEIVED), Boolean.TRUE);
+    AWAITING_FULFILLMENT(OrderStatus.ACTIVE, Collections.singletonList(RECEIVED), Boolean.TRUE, null),
+    IN_FULFILLMENT(null, Arrays.asList(IN_PROGRESS, ON_HOLD), null, Boolean.FALSE),
+    AWAITING_VALIDATION(null, Collections.singletonList(IN_PROGRESS), null, Boolean.TRUE),
+    COMPLETED_FULFILLMENT(null, Collections.singletonList(COMPLETED), null, null),
+    UNABLE_TO_COMPLETE_FULFILLMENT(null, Arrays.asList(EXCEPTION, DECLINED), null, null),
+    EXPIRED_BEFORE_FULFILLMENT(OrderStatus.EXPIRED, Collections.singletonList(RECEIVED), Boolean.TRUE, null),
+    CANCELLED_BEFORE_FULFILLMENT(OrderStatus.STOPPED, Collections.singletonList(RECEIVED), Boolean.TRUE, null);
 
     @Getter
     private final OrderStatus orderStatus;
@@ -32,9 +33,17 @@ public enum OrderFulfillmentStatus {
     @Getter
     private final Boolean includeNullFulfillerStatus;
 
-    OrderFulfillmentStatus(OrderStatus orderStatus,  List<Order.FulfillerStatus> fulfillerStatuses, Boolean includeNullFulfillerStatus) {
+    /**
+     * TRUE to match only orders awaiting validation, FALSE to exclude them, null to ignore validation
+     */
+    @Getter
+    private final Boolean awaitingValidation;
+
+    OrderFulfillmentStatus(OrderStatus orderStatus,  List<Order.FulfillerStatus> fulfillerStatuses, Boolean includeNullFulfillerStatus,
+                           Boolean awaitingValidation) {
         this.orderStatus = orderStatus;
         this.fulfillerStatuses = fulfillerStatuses;
         this.includeNullFulfillerStatus = includeNullFulfillerStatus;
+        this.awaitingValidation = awaitingValidation;
     }
 }

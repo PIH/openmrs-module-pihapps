@@ -1,25 +1,29 @@
 package org.openmrs.module.pihapps.page.controller.labs;
 
+import org.openmrs.module.pihapps.labs.LabExtensions;
 import org.openmrs.Location;
-import org.openmrs.module.appframework.domain.Extension;
+import org.openmrs.api.context.Context;
 import org.openmrs.module.appframework.service.AppFrameworkService;
 import org.openmrs.module.appui.UiSessionContext;
 import org.openmrs.module.emrapi.adt.AdtService;
+import org.openmrs.module.pihapps.orders.LabOrderConfig;
 import org.openmrs.ui.framework.annotation.SpringBean;
 import org.openmrs.ui.framework.page.PageModel;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 public class LabOrderListPageController {
 
     public static final String PATIENT_GROUP_ACTIONS_EXTENSION_POINT = "org.openmrs.module.pihapps.labOrderList.patientGroupActions";
 
+    /**
+     * Extensions whose extensionParams.jsFunction is given the orders shown and returns, or resolves to, a map from order
+     * uuid to a badge {text, cssClass, title, showOnPatientRow} to show beside the order's status
+     */
+    public static final String ORDER_BADGES_EXTENSION_POINT = "org.openmrs.module.pihapps.labOrderList.orderBadges";
+
     public void controller(PageModel model, UiSessionContext sessionContext,
                            @SpringBean AdtService adtService,
-                           @SpringBean AppFrameworkService appFrameworkService) {
+                           @SpringBean AppFrameworkService appFrameworkService,
+                           @SpringBean LabOrderConfig labOrderConfig) {
 
         Location sessionLocation = sessionContext.getSessionLocation();
         model.addAttribute("sessionLocation", sessionLocation);
@@ -29,16 +33,10 @@ public class LabOrderListPageController {
         }
         model.addAttribute("visitLocationForSessionLocation", visitLocation);
 
-        List<Extension> extensions = appFrameworkService.getExtensionsForCurrentUser(PATIENT_GROUP_ACTIONS_EXTENSION_POINT);
-        List<Map<String, Object>> patientGroupActionExtensions = new ArrayList<>();
-        for (Extension ext : extensions) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", ext.getId());
-            map.put("label", ext.getLabel());
-            map.put("order", ext.getOrder());
-            map.put("extensionParams", ext.getExtensionParams() != null ? ext.getExtensionParams() : new HashMap<>());
-            patientGroupActionExtensions.add(map);
-        }
-        model.addAttribute("patientGroupActionExtensions", patientGroupActionExtensions);
+        model.addAttribute("patientGroupActionExtensions", LabExtensions.getExtensions(appFrameworkService, PATIENT_GROUP_ACTIONS_EXTENSION_POINT));
+        model.addAttribute("orderBadgeExtensions", LabExtensions.getExtensions(appFrameworkService, ORDER_BADGES_EXTENSION_POINT));
+        model.addAttribute("canValidateResults", labOrderConfig.getRequireResultValidation()
+                && Context.hasPrivilege(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS));
     }
+
 }

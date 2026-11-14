@@ -37,7 +37,12 @@
             tableInfoSelector: "#lab-result-trends-table-info-and-paging",
             endpoint: openmrsContextPath + "/ws/rest/v1/pihapps/labResults",
             representation: "custom:(" + obsRep + ")",
-            parameters: { patient: patientUuid, labTest: obs.concept.uuid },
+            parameters: {
+                patient: patientUuid,
+                labTest: obs.concept.uuid,
+                // Clinicians only see results a validator has released
+                ...(pihAppsConfig.labOrderConfig.requireResultValidation ? { status: ["FINAL", "AMENDED"] } : {})
+            },
             columnTransformFunctions: [
                 (obs) => { return dateUtils.formatDateWithTimeIfPresent(obs.obsDatetime) },
                 (obs) => { return patientUtils.formatObsValue(obs, dateUtils) },

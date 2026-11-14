@@ -85,6 +85,12 @@ class PihAppsPatientUtils {
         // fulfillerStatus at all here — matching the backend's OrderFulfillmentStatus enum, where
         // AWAITING/EXPIRED_BEFORE/CANCELLED_BEFORE all include RECEIVED alongside null.
         if (order.fulfillerStatus && order.fulfillerStatus !== 'RECEIVED') {
+            if (order.fulfillerStatus === 'IN_PROGRESS' && order.labResultValidation?.eventType === 'RESULTS_SUBMITTED') {
+                const awaitingValidation = orderFulfillmentStatusOptions.filter((option) => option.status === 'AWAITING_VALIDATION')[0];
+                if (awaitingValidation) {
+                    return awaitingValidation;
+                }
+            }
             if (order.fulfillerStatus === 'IN_PROGRESS' || order.fulfillerStatus === 'ON_HOLD') {
                 return orderFulfillmentStatusOptions.filter((option) => option.status === 'IN_FULFILLMENT')[0];
             }
