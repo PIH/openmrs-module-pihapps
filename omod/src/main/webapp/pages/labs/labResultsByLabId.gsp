@@ -228,7 +228,7 @@
             "patient:(uuid),encounter:(uuid),fulfillerEncounter:(uuid),concept:(uuid,displayStringForLab)";
         const obsRep = "uuid,concept:(uuid,datatype:(name)),value,valueCoded:(uuid,display),valueDatetime,valueText,valueNumeric,comment,formNamespaceAndPath,order:(uuid)";
         const encounterRep = "uuid,encounterDatetime,encounterType:(uuid),location:(uuid,display)," +
-            "encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(" + obsRep + ",groupMembers:(" + obsRep + "))";
+            "encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(" + obsRep + ",groupMembers:(" + obsRep + ",groupMembers:(" + obsRep + ")))";
 
         getJson(rest + "pihapps/config?v=custom:(" + configRep + ")").then(config => {
             const labConfig = config.labOrderConfig;
@@ -673,7 +673,9 @@
 
                 group.specimens.forEach(specimen => {
                     const encounter = specimen.encounter;
-                    const allObs = (encounter.obs || []).flatMap(o => o.groupMembers ? [o, ...o.groupMembers] : [o]);
+                    // The obs and the members of their groups: panels within panels are two levels deep
+                    const flatten = (obsList) => (obsList || []).flatMap(o => [o, ...flatten(o.groupMembers)]);
+                    const allObs = flatten(encounter.obs);
                     const card = jq("<div>").addClass("lr-specimen");
                     card.append(specimenHeader(specimen, (conceptUuid) => allObs.find(o => o.concept.uuid === conceptUuid)));
 

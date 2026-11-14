@@ -40,7 +40,7 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
         jq.get(openmrsContextPath + "/ws/rest/v1/pihapps/config?v=custom:(" + configRep + ")", function(pihAppsConfig) {
 
             const collectComments = pihAppsConfig.labOrderConfig.collectResultComments;
-            const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + ")),order:(uuid),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",effectiveReferenceRange,creator:(display,person:(display))"
+            const obsRep = "uuid,obsDatetime,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + "),obsGroup:(uuid,concept:(" + conceptRep + "))),order:(uuid),valueCoded:(" + conceptRep + "),valueNumeric,valueDatetime,valueText,value" + (collectComments ? ",comment" : "") + ",effectiveReferenceRange,creator:(display,person:(display))"
 
             // Obs groups whose result an extension renders, by concept uuid: they are returned as one obs, the group
             const resultRenderers = PihAppsLabResultFields.getResultRenderers(resultRendererExtensions);
@@ -127,32 +127,47 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
                     });
                 }
                 // Group by panel after grouping by date.  Obs of the order of the panel that are not in its group, such as
-                // groups rendered by an extension, are shown in the panel.
+                // groups rendered by an extension, are shown in the panel.  The results of a panel within a panel are
+                // shown in the outer panel, under the name of the inner one.
+                const panelGroup = (obs) => obs.obsGroup?.obsGroup ?? obs.obsGroup;
+                const subPanelGroup = (obs) => obs.obsGroup?.obsGroup ? obs.obsGroup : null;
                 let displayedGroup = null;
+                let displayedSubGroup = null;
                 let displayedGroupOrder = null;
                 const alternateRowColor = "rgb(255, 253, 245)";
                 let rowColor = null;
                 tableRowObjects.forEach((obs, index) => {
                     const tableRow = jq(tableRowData[index]);
                     const inDisplayedGroupOrder = !obs.obsGroup && displayedGroup && obs.order && obs.order.uuid === displayedGroupOrder;
-                    const currentGroup = inDisplayedGroupOrder ? displayedGroup : obs.obsGroup?.uuid;
+                    const currentGroup = inDisplayedGroupOrder ? displayedGroup : panelGroup(obs)?.uuid;
                     if (currentGroup !== displayedGroup) {
                         rowColor = (rowColor === "white" ? alternateRowColor : "white");
                         if (currentGroup) {
-                            const newRow = jq("<tr>").addClass("obs-group-row").css("background-color", rowColor);;
-                            const newCell = jq("<td>").attr("colspan", pagingDataTable.columnTransformFunctions.length).html(obs.obsGroup.concept.displayStringForLab);
+                            const newRow = jq("<tr>").addClass("obs-group-row").css("background-color", rowColor);
+                            const newCell = jq("<td>").attr("colspan", pagingDataTable.columnTransformFunctions.length).html(panelGroup(obs).concept.displayStringForLab);
                             newRow.append(newCell);
                             newRow.insertBefore(tableRow);
                         }
                         displayedGroup = currentGroup;
+                        displayedSubGroup = null;
                         displayedGroupOrder = obs.order?.uuid ?? null;
+                    }
+                    const currentSubGroup = subPanelGroup(obs);
+                    if (currentGroup && (currentSubGroup?.uuid ?? null) !== displayedSubGroup) {
+                        if (currentSubGroup) {
+                            const subRow = jq("<tr>").addClass("obs-group-row obs-subgroup-row").css("background-color", rowColor);
+                            subRow.append(jq("<td>").attr("colspan", pagingDataTable.columnTransformFunctions.length)
+                                .addClass("obs-group-member-row").html(currentSubGroup.concept.displayStringForLab));
+                            subRow.insertBefore(tableRow);
+                        }
+                        displayedSubGroup = currentSubGroup?.uuid ?? null;
                     }
                     else if (!currentGroup && !displayedGroup) {
                         rowColor = (rowColor === "white" ? alternateRowColor : "white");
                     }
                     if (currentGroup) {
                         const testNameCell = tableRow.find("td")[0];
-                        jq(testNameCell).addClass("obs-group-member-row");
+                        jq(testNameCell).addClass(currentSubGroup ? "obs-subgroup-member-row" : "obs-group-member-row");
                     }
                     tableRow.css("background-color", rowColor);
                 });
@@ -333,6 +348,9 @@ ${ ui.includeFragment("coreapps", "patientHeader", [ patient: patient.patient ])
     }
     .obs-group-member-row {
         padding-left: 20px;
+    }
+    .obs-subgroup-member-row {
+        padding-left: 40px;
     }
     #groupByDate-filter {
         margin-top:8px;

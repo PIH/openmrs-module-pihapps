@@ -13,7 +13,15 @@ class FormHelper {
         this.encounter = args.encounter;
         this.patientUuid = this.encounter?.patient?.uuid ?? args.patientUuid ?? null;
         this.date = this.encounter?.encounterDatetime ?? args.date ?? new Date();
-        this.initialObs = this.encounter?.obs?.flatMap(o => { return o.groupMembers ? [o, ...o.groupMembers] : o }) ?? [];
+        // The obs of the encounter and the members of its groups, at any depth, and the group each member is in
+        this.initialObsGroups = new Map();
+        const flatten = (obsList, group) => (obsList ?? []).flatMap(o => {
+            if (group) {
+                this.initialObsGroups.set(o.uuid, group);
+            }
+            return [o, ...flatten(o.groupMembers, o)];
+        });
+        this.initialObs = flatten(this.encounter?.obs, null);
         this.obsWidgetFields = [];
     }
 
@@ -141,6 +149,9 @@ class FormHelper {
             widgetField.attr("data-concept-datatype", concept.datatype.name);
             if (options?.groupingConceptUuid) {
                 widgetField.attr("data-grouping-concept-uuid", options.groupingConceptUuid);
+            }
+            if (options?.parentGroupingConceptUuid) {
+                widgetField.attr("data-parent-grouping-concept-uuid", options.parentGroupingConceptUuid);
             }
             widgetField.attr("data-form-path", "/" + (options.groupingConceptUuid ? options.groupingConceptUuid + "/" : "") + concept.uuid + (options?.pathIndex != null ? "/" + options.pathIndex : ""))
             if (this.patientUuid) {
@@ -411,10 +422,10 @@ class FormHelper {
     }
 
     /**
-     * @return the top level obs group of the encounter that contains the obs, or null if the obs is at the top level
+     * @return the obs group of the encounter that contains the obs, at any depth, or null if the obs is at the top level
      */
     getInitialObsGroup(obsUuid) {
-        return (this.encounter?.obs ?? []).find(o => o.groupMembers?.some(m => m.uuid === obsUuid)) ?? null;
+        return this.initialObsGroups.get(obsUuid) ?? null;
     }
 
     /**
@@ -422,7 +433,7 @@ class FormHelper {
      * with no order if no other order in the form has results for the panel, else null. A group of another order is never used.
      */
     getInitialPanelGroup(groupingConceptUuid, orderUuid) {
-        const groups = (this.encounter?.obs ?? []).filter(o => o.concept.uuid === groupingConceptUuid && o.groupMembers?.length > 0);
+        const groups = this.initialObs.filter(o => o.concept.uuid === groupingConceptUuid && o.groupMembers?.length > 0);
         const ownGroup = groups.find(g => g.order?.uuid === orderUuid);
         if (ownGroup) {
             return ownGroup;
@@ -435,12 +446,23 @@ class FormHelper {
     }
 
     /**
-     * @return the obs group in the payload for an existing group, or for a new group of the concept and order
+     * @return the obs group in the payload for an existing group, in the payload of the group it is in, if any; or for a
+     * new group of the concept and order, in the given parent group of the payload, else at the top level
      */
-    getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath) {
+    getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath, parentPayloadGroup) {
+        const find = (obsList, test) => {
+            for (const o of obsList ?? []) {
+                const found = test(o) ? o : find(o.groupMembers, test);
+                if (found) {
+                    return found;
+                }
+            }
+            return null;
+        };
         let obsGroup = initialGroup
-            ? encounter.obs.find(o => o.uuid === initialGroup.uuid)
-            : encounter.obs.find(o => !o.uuid && o.groupMembers && o.concept === groupingConceptUuid && o.order === orderUuid);
+            ? find(encounter.obs, o => o.uuid === initialGroup.uuid)
+            : (parentPayloadGroup ? parentPayloadGroup.groupMembers : encounter.obs)
+                .find(o => !o.uuid && o.groupMembers && o.concept === groupingConceptUuid && o.order === orderUuid);
         if (!obsGroup) {
             obsGroup = {
                 uuid: initialGroup?.uuid,
@@ -449,7 +471,16 @@ class FormHelper {
                 formNamespaceAndPath: initialGroup ? initialGroup.formNamespaceAndPath : groupNamespaceAndPath,
                 groupMembers: []
             };
-            encounter.obs.push(obsGroup);
+            const initialParent = initialGroup ? this.getInitialObsGroup(initialGroup.uuid) : null;
+            if (initialParent) {
+                this.getPayloadGroup(encounter, initialParent, orderUuid).groupMembers.push(obsGroup);
+            }
+            else if (!initialGroup && parentPayloadGroup) {
+                parentPayloadGroup.groupMembers.push(obsGroup);
+            }
+            else {
+                encounter.obs.push(obsGroup);
+            }
         }
         return obsGroup;
     }
@@ -472,6 +503,7 @@ class FormHelper {
             const data = obsWidgetFields.data();
             const value = obsWidgetFields.val();
             const groupingConceptUuid = data.groupingConceptUuid;
+            const parentGroupingConceptUuid = data.parentGroupingConceptUuid;
             const conceptUuid = data.conceptUuid;
             const dataType = data.conceptDatatype;
             const obsUuid = data.obsUuid;
@@ -523,9 +555,15 @@ class FormHelper {
                     this.getPayloadGroup(encounter, existingGroup, orderUuid).groupMembers.push(obs);
                 }
                 else if (groupingConceptUuid && !obsUuid) {
-                    // A new obs goes in the existing group of its panel, for this order if there is one
+                    // A new obs goes in the existing group of its panel, for this order if there is one.  A new group
+                    // of a panel within a panel goes in the group of the outer panel.
                     const initialGroup = this.getInitialPanelGroup(groupingConceptUuid, orderUuid);
-                    this.getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath).groupMembers.push(obs);
+                    let parentPayloadGroup = null;
+                    if (!initialGroup && parentGroupingConceptUuid) {
+                        const initialParent = this.getInitialPanelGroup(parentGroupingConceptUuid, orderUuid);
+                        parentPayloadGroup = this.getPayloadGroup(encounter, initialParent, orderUuid, parentGroupingConceptUuid, this.formName + "/" + parentGroupingConceptUuid);
+                    }
+                    this.getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath, parentPayloadGroup).groupMembers.push(obs);
                 }
                 else {
                     encounter.obs.push(obs);
@@ -533,15 +571,16 @@ class FormHelper {
             }
         });
 
-        // Void any obs groups that only have voided members
-        encounter.obs.forEach(o => {
+        // Void any obs groups that only have voided members, at any depth
+        const voidEmptyGroups = (obsList) => obsList.forEach(o => {
             if (o.groupMembers && o.groupMembers.length > 0) {
-                const numNonVoided = o.groupMembers.filter(o => !o.voided).length;
-                if (numNonVoided === 0) {
+                voidEmptyGroups(o.groupMembers);
+                if (o.groupMembers.every(m => m.voided)) {
                     o.voided = true;
                 }
             }
         });
+        voidEmptyGroups(encounter.obs);
 
         return encounter;
     }

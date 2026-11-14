@@ -399,6 +399,38 @@ public class LabResultValidationTest extends BaseModuleContextSensitiveTest {
         assertThat(results.get(0).getStatus(), equalTo(Obs.Status.AMENDED));
     }
 
+    @Test
+    public void saveEditorResult_shouldPutTheResultOfAPanelMemberInTheGroupOfThePanel() {
+        Order order = order(ORDER_9201);
+        Encounter encounter = encounter(order);
+        order = saveWithEditorResult(encounter, order, Order.FulfillerStatus.COMPLETED, CD4_COUNT, cd4(300.0));
+        Obs cd4 = cd4Results(order).get(0);
+        Obs panelGroup = cd4.getObsGroup();
+        assertThat(panelGroup.getConcept().getConceptId(), equalTo(PANEL));
+        assertThat(panelGroup.getOrder(), equalTo(order));
+        assertThat(panelGroup.getObsGroup(), nullValue());
+
+        // Another member's result goes in the same group, and a replaced result is replaced within it
+        Obs weight = cd4(70.0);
+        weight.setConcept(Context.getConceptService().getConcept(WEIGHT));
+        order = saveWithEditorResult(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order,
+                Order.FulfillerStatus.COMPLETED, WEIGHT, weight);
+        order = saveWithEditorResult(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order,
+                Order.FulfillerStatus.COMPLETED, CD4_COUNT, cd4(310.0));
+        Obs group = Context.getObsService().getObsByUuid(panelGroup.getUuid());
+        assertThat(group.getVoided(), equalTo(false));
+        assertThat(group.getGroupMembers(false).stream().map(m -> m.getConcept().getConceptId() + "=" + m.getValueNumeric())
+                .collect(Collectors.toSet()), equalTo(new java.util.HashSet<>(Arrays.asList(CD4_COUNT + "=310.0", WEIGHT + "=70.0"))));
+
+        // Removing the results voids the group once it has none
+        order = saveWithEditorResult(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order,
+                Order.FulfillerStatus.COMPLETED, CD4_COUNT, null);
+        assertThat(Context.getObsService().getObsByUuid(panelGroup.getUuid()).getVoided(), equalTo(false));
+        saveWithEditorResult(Context.getEncounterService().getEncounterByUuid(encounter.getUuid()), order,
+                Order.FulfillerStatus.COMPLETED, WEIGHT, null);
+        assertThat(Context.getObsService().getObsByUuid(panelGroup.getUuid()).getVoided(), equalTo(true));
+    }
+
     private Obs cd4(Double value) {
         Obs obs = new Obs();
         obs.setConcept(Context.getConceptService().getConcept(CD4_COUNT));

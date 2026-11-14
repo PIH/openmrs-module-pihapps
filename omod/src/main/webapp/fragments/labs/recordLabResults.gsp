@@ -82,7 +82,7 @@
         const dateUtils = new PihAppsDateUtils(moment, pihAppsConfig.dateFormat, pihAppsConfig.dateTimeFormat);
 
         const obsRep = "uuid,concept:(uuid,datatype:(name)),value,valueCoded:(uuid,display),valueDatetime,valueText,valueNumeric,comment,formNamespaceAndPath,order:(uuid)"
-        const specimenEncounterRep = "uuid,encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(" + obsRep + ",groupMembers:(" + obsRep + "))";
+        const specimenEncounterRep = "uuid,encounterDatetime,encounterType:(uuid),location:(uuid,display),encounterProviders:(provider:(uuid,display),encounterRole:(uuid,display)),obs:(" + obsRep + ",groupMembers:(" + obsRep + ",groupMembers:(" + obsRep + ")))";
         jq.get(openmrsContextPath + "/ws/rest/v1/encounter/" + order.fulfillerEncounter.uuid + "?v=custom:(" + specimenEncounterRep + ")", function (fulfillerEncounter) {
 
             const formHelper = new FormHelper({

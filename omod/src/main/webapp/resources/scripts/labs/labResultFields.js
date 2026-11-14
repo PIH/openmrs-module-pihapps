@@ -276,7 +276,7 @@ class PihAppsLabResultFields {
         const isPanel = PihAppsLabResultFields.isPanel(orderable, resultEditors);
         const tests = isPanel ? orderable.setMembers : [orderable];
         tests.forEach((concept) => {
-            // A member that is a panel itself: a heading, then its tests, recorded in their own obs group
+            // A member that is a panel itself: a heading, then its tests, recorded in their own obs group, in the group of the panel
             if (isPanel && PihAppsLabResultFields.isNestedPanel(concept, resultEditors)) {
                 const section = jq("<div>").addClass("result-subpanel lr-subpanel");
                 section.append(jq("<div>").addClass("result-subpanel-heading lr-row")
@@ -284,6 +284,7 @@ class PihAppsLabResultFields {
                 config.container.append(section);
                 PihAppsLabResultFields.render(Object.assign({}, config, {
                     orderable: concept,
+                    parentGroupingConceptUuid: orderable.uuid,
                     container: section,
                     idPrefix: id + concept.uuid + "-",
                     resultEditors: {}
@@ -348,6 +349,7 @@ class PihAppsLabResultFields {
                         id: id + concept.uuid + (obsForRow ? '_' + obsForRow.uuid : '_new_' + formHelper.generateUUID()),
                         orderUuid: order.uuid,
                         groupingConceptUuid: isPanel ? orderable.uuid : null,
+                        parentGroupingConceptUuid: isPanel ? (config.parentGroupingConceptUuid ?? null) : null,
                         initialObsUuid: obsForRow?.uuid ?? null,
                         pathIndex: obsForRow ? undefined : nextPathIndex++,
                         withComment: config.collectResultComments,
@@ -412,6 +414,7 @@ class PihAppsLabResultFields {
                     id: id + concept.uuid,
                     orderUuid: order.uuid,
                     groupingConceptUuid: isPanel ? orderable.uuid : null,
+                    parentGroupingConceptUuid: isPanel ? (config.parentGroupingConceptUuid ?? null) : null,
                     initialObsUuid: singleObs?.uuid ?? null,
                     withComment: config.collectResultComments,
                     addCommentLabel: messages.addComment,

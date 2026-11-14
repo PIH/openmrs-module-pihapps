@@ -789,8 +789,9 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 	/**
 	 * Applies the results of editors, each a single obs or an obs group: for each, voids the order's existing non-voided
 	 * obs of its concept in the encounter, with their members, and adds the new obs, if any, with its members, linked to
-	 * the order.  A new result that replaces a final or amended one is amended, with the replaced one as its previous
-	 * version; with
+	 * the order.  The result of a member of an ordered panel goes in the order's group of the panel, as the panel's other
+	 * results do; a group of the panel left with no results is voided.  A new result that replaces a final or amended one
+	 * is amended, with the replaced one as its previous version; with
 	 * validation required, {@link #markNewResultsPreliminary} later makes the new results of an order that is not
 	 * completed preliminary.
 	 */
@@ -816,6 +817,12 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 				voidWithMembers(existing, "Replaced by pihAppsService.saveEncounterFulfillingOrders");
 			}
 			Obs obs = result.getObs();
+			if (obs == null && replaced != null && replaced.getObsGroup() != null) {
+				Obs group = replaced.getObsGroup();
+				if (group.getGroupMembers(true).stream().allMatch(m -> BooleanUtils.isTrue(m.getVoided()))) {
+					voidWithMembers(group, "Replaced by pihAppsService.saveEncounterFulfillingOrders");
+				}
+			}
 			if (obs != null) {
 				if (!concept.equals(obs.getConcept())) {
 					throw new IllegalArgumentException("The obs of an editor result must be of the result's concept");
@@ -829,9 +836,36 @@ public class PihAppsServiceImpl extends BaseOpenmrsService implements PihAppsSer
 					}
 				}
 				prepareNewObs(obs, encounter, order, status);
+				Concept panel = order.getConcept();
+				if (!concept.equals(panel) && panel.getSetMembers() != null && panel.getSetMembers().contains(concept)) {
+					getPanelGroup(encounter, order).addGroupMember(obs);
+				}
 				encounter.addObs(obs);
 			}
 		}
+	}
+
+	/**
+	 * @return the order's group of its panel in the encounter: a new one the request adds, else a saved one, else a new
+	 * one, added to the encounter
+	 */
+	private Obs getPanelGroup(Encounter encounter, Order order) {
+		Concept panel = order.getConcept();
+		for (Obs o : encounter.getObsAtTopLevel(false)) {
+			if (o.getObsId() == null && panel.equals(o.getConcept()) && order.equals(o.getOrder())) {
+				return o;
+			}
+		}
+		for (Obs o : getSavedResults(encounter, order, panel)) {
+			if (o.getObsGroup() == null) {
+				return o;
+			}
+		}
+		Obs group = new Obs();
+		group.setConcept(panel);
+		prepareNewObs(group, encounter, order, Obs.Status.FINAL);
+		encounter.addObs(group);
+		return group;
 	}
 
 	/**

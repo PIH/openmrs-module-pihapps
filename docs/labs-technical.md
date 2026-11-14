@@ -214,7 +214,11 @@ The results form labels its `COMPLETED` choice "Submit for validation", except f
 `COMPLETED`, where saving amends its results and "In progress" is not offered.
 
 Results are the obs linked to the order whose concept is the ordered concept or one of its set members, and the
-members of their obs groups (`getLabResultObs`). Results entered by an implementation's own editor are
+members of their obs groups (`getLabResultObs`). The results of an ordered panel are recorded in one obs group of
+the panel concept, linked to the order, whatever their type: a member test's result is an obs in it, a member that is a
+panel itself is a group in it, with its tests' results, and a member's result entered by an editor (a single obs or a
+group) goes in it too. A test ordered on its own is recorded as a top-level obs (or group, from an editor). Results
+saved before a member's result was moved into a group stay where they are. Results entered by an implementation's own editor are
 saved through `saveEncounterFulfillingOrders` too (`editorResults`), so they get the same status and validation as
 the order's other results. Code that saves results of a lab order some other way gives its new obs the status
 `PihAppsService.getNewLabResultStatus(order)` returns.
