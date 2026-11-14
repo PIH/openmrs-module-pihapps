@@ -549,9 +549,11 @@
                 let changed = false;  // whether the user changed anything of the test: only changed tests are saved
 
                 // Results awaiting validation open as completed, without "In progress": the server can't tell that
-                // choice from re-saving the specimen, so the order would stay awaiting validation
+                // choice from re-saving the specimen, so the order would stay awaiting validation.  Results returned
+                // for correction open as completed too, as on the single order form, as they are usually resubmitted
                 const awaitingValidation = isAwaitingValidation(order);
-                const initialStatus = awaitingValidation ? 'COMPLETED' : 'IN_PROGRESS';
+                const returnedForCorrection = validationEventType(order) === 'RESULTS_RETURNED';
+                const initialStatus = (awaitingValidation || returnedForCorrection) ? 'COMPLETED' : 'IN_PROGRESS';
                 const statusOptions = (awaitingValidation ? ["COMPLETED", "EXCEPTION"] : ["IN_PROGRESS", "COMPLETED", "EXCEPTION"])
                     .map(s => ({ value: s, display: statusLabel(s) }));
                 const statusWidget = formHelper.createSelectWidget({
@@ -595,7 +597,7 @@
                     element.append(results);
                 }
 
-                if (validationEventType(order) === 'RESULTS_RETURNED') {
+                if (returnedForCorrection) {
                     element.append(jq("<div>").addClass("lr-note")
                         .text(messages.returnedForCorrection + ": " + (order.labResultValidation.comment || "")));
                 }
