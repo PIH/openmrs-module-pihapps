@@ -136,11 +136,7 @@ public class LabOrderRestController {
 
             OrderSearchResult result = pihAppsService.getOrders(searchCriteria);
 
-            boolean hasMoreResults = false;
-            if (limit != null) {
-                int recordsProcessed = startIndex + limit + 1;
-                hasMoreResults = recordsProcessed < result.getTotalCount();
-            }
+            boolean hasMoreResults = PihAppsRestSupport.hasMoreResults(startIndex, limit, result.getTotalCount());
 
             // Resolve fulfillerEncounter for the whole page in one query
             Map<Order, Encounter> fulfillerEncounters = pihAppsService.getFulfillerEncountersForOrders(result.getOrders());
@@ -212,11 +208,7 @@ public class LabOrderRestController {
 
             PatientWithOrdersSearchResult result = pihAppsService.getPatientsWithOrders(searchCriteria);
 
-            boolean hasMoreResults = false;
-            if (limit != null) {
-                int recordsProcessed = startIndex + limit + 1;
-                hasMoreResults = recordsProcessed < result.getTotalCount();
-            }
+            boolean hasMoreResults = PihAppsRestSupport.hasMoreResults(startIndex, limit, result.getTotalCount());
 
             // Same batching as getLabOrders, flattened across all patients on this page since the orders
             // being serialized are nested inside each PatientWithOrders rather than a single flat list.

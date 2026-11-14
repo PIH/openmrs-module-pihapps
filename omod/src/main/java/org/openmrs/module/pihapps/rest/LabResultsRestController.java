@@ -140,11 +140,7 @@ public class LabResultsRestController {
 
             ObsSearchResult result = pihAppsService.getObs(searchCriteria);
 
-            boolean hasMoreResults = false;
-            if (limit != null) {
-                int recordsProcessed = startIndex + limit + 1;
-                hasMoreResults = recordsProcessed < result.getTotalCount();
-            }
+            boolean hasMoreResults = PihAppsRestSupport.hasMoreResults(startIndex, limit, result.getTotalCount());
 
             Converter<Obs> obsConverter = (Converter<Obs>) restService.getResourceByName(RestConstants.VERSION_1 + "/obs");
             AlreadyPaged<Obs> alreadyPaged = new AlreadyPaged<>(requestContext, result.getObs(), hasMoreResults, result.getTotalCount());
