@@ -2,6 +2,7 @@ package org.openmrs.module.pihapps.obs;
 
 import lombok.Data;
 import org.openmrs.Concept;
+import org.openmrs.Obs;
 import org.openmrs.Patient;
 import org.openmrs.User;
 import org.openmrs.module.pihapps.SortCriteria;
@@ -25,6 +26,9 @@ public class ObsSearchCriteria {
      * {@link #voidedBy} search, and what an auditor most wants to see in a {@link #createdBy} one.
      */
     private boolean includeVoided = false;
+
+    /** Restrict to observations with one of these statuses, such as FINAL and AMENDED. Null means any status. */
+    private List<Obs.Status> statuses;
 
     /** Restrict to observations this user created. */
     private User createdBy;

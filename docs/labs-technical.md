@@ -48,10 +48,11 @@ omod/src/main/webapp/
     labOrderList.gsp                     # System-wide order list + inline forms
     labPatientList.gsp                   # Patient dashboard (grouped by patient)
     labPatientReception.gsp              # Per-patient specimen collection
+    labResultsByLabId.gsp                # Enter or validate a patient's results, grouped by Lab ID
     patientLabResults.gsp                # Patient result history
   fragments/labs/
     specimenCollectionEncounter.gsp      # Specimen collection form (inline in multiple pages)
-    recordLabResults.gsp                 # Results entry form (inline in labOrderList)
+    recordLabResults.gsp                 # Results entry form for one order (inline in labOrderList)
     recordOrderNotFulfilled.gsp          # Not-performed reason form (inline in multiple pages)
     selectedOrders.gsp                   # Read-only order display used within forms
     patientLabTrends.gsp                 # Chart.js trend chart (inline in patientLabResults)
@@ -87,6 +88,7 @@ The frontend fetches config via `GET /rest/v1/pihapps/config?v=custom:(...)`. Th
 | `getLabOrderEncounterType/Role()` | `pihapps.labs.labOrderEncounterType/Role` | Used when placing/discontinuing orders |
 | `getSpecimenCollectionEncounterType/Role()` | `pihapps.labs.specimenCollectionEncounterType/Role` | Used when saving specimen collection encounters |
 | `getCollectResultComments()` | `pihapps.labs.collectResultComments` | Defaults `true`; controls comment field in results entry |
+| `getRequireResultValidation()` | `pihapps.labs.requireResultValidation` | Defaults `false`; see [Result validation](#result-validation) |
 | `getMultipleAnswerConceptsReference()` | `pihapps.labs.multipleAnswerConcepts` | Falls back to `laboratorymanagement.multipleAnswerConceptIds`; returns raw property string |
 | `getMultipleAnswerConcepts()` | — | Resolves the reference string to `List<Concept>`; result is cached and invalidated when the property value changes |
 
@@ -117,13 +119,113 @@ A composite status that combines `OrderStatus` + `FulfillerStatus` into user-fac
 | Enum value | OrderStatus | FulfillerStatuses | Include null fulfiller? |
 |---|---|---|---|
 | `AWAITING_FULFILLMENT` | ACTIVE | RECEIVED | yes (not yet collected) |
-| `IN_FULFILLMENT` | — | IN_PROGRESS, ON_HOLD | — |
+| `IN_FULFILLMENT` | — | IN_PROGRESS, ON_HOLD | — (excludes orders awaiting validation) |
+| `AWAITING_VALIDATION` | — | IN_PROGRESS | — (only orders awaiting validation) |
 | `COMPLETED_FULFILLMENT` | — | COMPLETED | — |
 | `UNABLE_TO_COMPLETE_FULFILLMENT` | — | EXCEPTION, DECLINED | — |
 | `EXPIRED_BEFORE_FULFILLMENT` | EXPIRED | RECEIVED | yes |
 | `CANCELLED_BEFORE_FULFILLMENT` | STOPPED | RECEIVED | yes |
 
 Note: `AWAITING_FULFILLMENT` includes both null fulfiller status (never collected) and `RECEIVED` status (specimen collected but fulfiller not yet updated), because specimen collection sets the fulfiller status to `RECEIVED`.
+
+An order awaits validation when its fulfiller status is `IN_PROGRESS` and its latest non-voided result validation
+event (see below) is `RESULTS_SUBMITTED`. `AWAITING_VALIDATION` is only offered as a filter option when result
+validation is required, and only then does `IN_FULFILLMENT` exclude orders awaiting validation.
+
+### Result validation
+
+When `pihapps.labs.requireResultValidation` is `true`, results are entered by one user and validated by another.
+Validation is per order. With it `false` (the default), no events are recorded and results are saved `FINAL`.
+
+**Order fulfillment events.** Table `pihapps_order_fulfillment_event` (entity `OrderFulfillmentEvent`) records the
+steps of an order's fulfillment, one append-only row per event:
+
+| Column | Notes |
+|---|---|
+| `order_fulfillment_event_id`, `uuid` | |
+| `order_id` | the order |
+| `event_type` | `OrderFulfillmentEventType`, stored by name |
+| `comment` | the reason results were returned, or the validator's note |
+| `event_datetime` | when it happened |
+| `creator`, `date_created` | who recorded it, and when |
+| `voided`, `voided_by`, `date_voided`, `void_reason` | an event entered in error is voided, not deleted |
+
+The result validation event types (`OrderFulfillmentEventType.RESULT_VALIDATION`):
+
+| Event type | Recorded by | Order fulfiller status after |
+|---|---|---|
+| `RESULTS_SUBMITTED` | `saveEncounterFulfillingOrders`, when results are submitted as `COMPLETED` | `IN_PROGRESS` |
+| `RESULTS_RETURNED` | `returnLabResultsForCorrection`, with the reason as comment | `IN_PROGRESS` |
+| `RESULTS_VALIDATED` | `validateLabResults`, with an optional comment | `COMPLETED` |
+| `RESULTS_WITHDRAWN` | `saveEncounterFulfillingOrders`, `markOrdersAsNotFulfilled` and `revertOrdersToOrdered`, when an order whose results await validation leaves `IN_PROGRESS` (not performed, reverted...) | any but `IN_PROGRESS` |
+
+An order's validation state is its latest non-voided event of these types: submitted (awaiting validation), returned
+(back with the lab), validated, withdrawn, or none (the lab is still entering results). A withdrawn submission does
+not await validation again when the order is later in progress again: the lab submits again.
+
+`RESULTS_AMENDED` is recorded by `saveEncounterFulfillingOrders` when the results of a `COMPLETED` order change
+(added, changed or removed) while validation is on. It is not one of the validation event types, so it does not change
+whether the order awaits validation; it lets changes made after validation be listed and reviewed. Saving
+`RESULTS_VALIDATED` or `RESULTS_RETURNED` events through `saveOrderFulfillmentEvent` requires the validate privilege.
+
+**Result obs status.** Result obs are the obs linked to the order whose concept is the ordered concept or one of its
+set members, recursively (`getLabResultConcepts`). Specimen obs, such as the lab identifier and received date, are
+not result obs and stay `FINAL`.
+- `saveEncounterFulfillingOrders` never completes an order that is not already `COMPLETED`: an order submitted as
+  `COMPLETED` is saved as `IN_PROGRESS` and `RESULTS_SUBMITTED` is recorded, unless it already awaits validation.
+  New result obs of such an order are saved `PRELIMINARY`. This is enforced on the server, whatever the client sends.
+- `validateLabResults` sets the order's non-voided `PRELIMINARY` result obs to `FINAL` in place, by allowing the
+  `status` property through `ImmutableObsInterceptor` for the current thread. The obs keep their ids; obs have no
+  `changedBy`, so the `RESULTS_VALIDATED` event records who validated and when. Being an in-place update, it does
+  not go through `ObsService.saveObs`, so obs save hooks and events do not fire for it, and since obs have no
+  `date_changed`, tools that find changed obs by date (incremental exports, sync) do not see it either: they should
+  read `pihapps_order_fulfillment_event` for validations.
+- A result edited on a `COMPLETED` order is saved by core as `AMENDED`, and a result added to it is saved `FINAL`.
+  The order stays `COMPLETED`; with validation on, `RESULTS_AMENDED` is recorded.
+- `GET /labResults` returns obs of any status unless the client passes `status`. With validation on, the patient lab
+  results page and the trends fragment pass `FINAL` and `AMENDED`; results not linked to an order are `FINAL` by
+  default.
+- Only those two pages hide results awaiting validation. Anything else that shows obs (other pages, forms, reports,
+  FHIR) shows `PRELIMINARY` obs unless it filters on status, so an implementation that turns validation on must check
+  each place its users see lab results. Results saved other than through `saveEncounterFulfillingOrders` (a lab
+  machine integration, `POST /obs`) are `FINAL` unless their writer uses `getNewLabResultStatus`.
+- Turning validation off makes those pages show any leftover `PRELIMINARY` results, and the `AWAITING_VALIDATION` filter then
+  matches all `IN_PROGRESS` orders (the option is not offered when validation is off).
+
+**Validating.** `validateLabResults` and `returnLabResultsForCorrection` require the
+`Task: pihapps.labs.validateResults` privilege (`LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS`). Validators also need
+core `Edit Orders`, as validating calls `OrderService.updateOrderFulfillerStatus`. Both check
+every order before changing anything. They throw an `APIException` naming the first order
+that:
+- is not awaiting validation (not `IN_PROGRESS`, or its latest validation event is not `RESULTS_SUBMITTED`), or
+- has results the current user entered, changed or removed, or submitted (`getLabResultEditors`): the creators and
+  voiders of the order's result obs, voided ones included, and the creators of its `RESULTS_SUBMITTED` events since
+  its results were last validated, eg whoever submits results that a lab machine recorded.
+`validateLabResults` is also given the uuids of the results the validator reviewed, for each order (the validation
+`GET` returns them as `results`), and fails if they are no longer the order's non-voided results, eg the lab changed a
+result after the validator opened the page.
+
+`canValidateLabResults(order, user)` answers the same question for one order and user. Returning results requires
+a non-blank reason; the order stays `IN_PROGRESS` with its results `PRELIMINARY` until the lab submits again.
+Marking an order not performed (`EXCEPTION` or `DECLINED`) works as without validation, including for an order
+that is already `COMPLETED`.
+
+The results form labels its `COMPLETED` choice "Submit for validation", except for an order that is already
+`COMPLETED`, where saving amends its results and "In progress" is not offered.
+
+Results are the obs linked to the order whose concept is the ordered concept or one of its set members, and the
+members of their obs groups (`getLabResultObs`). The results of an ordered panel are recorded in one obs group of
+the panel concept, linked to the order, whatever their type: a member test's result is an obs in it, a member that is a
+panel itself is a group in it, with its tests' results, and a member's result entered by an editor (a single obs or a
+group) goes in it too. A test ordered on its own is recorded as a top-level obs (or group, from an editor). Results
+saved before a member's result was moved into a group stay where they are. Results entered by an implementation's own editor are
+saved through `saveEncounterFulfillingOrders` too (`editorResults`), so they get the same status and validation as
+the order's other results. Code that saves results of a lab order some other way gives its new obs the status
+`PihAppsService.getNewLabResultStatus(order)` returns.
+
+The lab order list has a built-in "Validate lab results" action, on each order awaiting validation and on each
+patient row with one, when validation is on and the user has `Task: pihapps.labs.validateResults`. It opens
+`labResultsByLabId.page` in validate mode for the patient.
 
 ---
 
@@ -177,6 +279,7 @@ Sets fulfiller status to `EXCEPTION` on each order and records a reason obs link
 | `labTest` | UUID | Walks concept set members recursively |
 | `category` | UUID | Walks concept set members recursively |
 | `onOrAfter`, `onOrBefore` | `yyyy-MM-dd` | |
+| `status` | `Obs.Status`, repeatable | e.g. `status=FINAL&status=AMENDED`. Omit for any status |
 | `sortBy` | `field-DIRECTION` | Defaults to `obsDatetime-DESC, obsId-DESC` |
 
 If neither `labTest` nor `category` is supplied, uses `labResultCategoriesConceptSet` to find all result concept leaves.
@@ -207,6 +310,28 @@ All pages follow the same pattern: the Groovy page controller injects minimal se
 - `patientUtils.js` — helpers for extracting preferred identifier, computing order status display values
 - `dateUtils.js` — locale-aware date formatting using moment.js
 - `formHelper.js` — used by specimen collection and results forms to build OpenMRS encounter/obs payloads
+- `labs/labResultFields.js` — `PihAppsLabResultFields.render()` draws the result fields of one order (reference ranges,
+  multiple answers, field dependency rules), and the obs group editors and renderers. Used by `recordLabResults.gsp`,
+  `labResultsByLabId.gsp` and `patientLabResults.gsp`
+
+### Extension points on `labOrderList.gsp`
+
+| Extension point | `extensionParams` | Purpose |
+|---|---|---|
+| `org.openmrs.module.pihapps.labOrderList.patientGroupActions` | `iconClass`, `jsFunction`, `visibleForOrderStatuses` | An action icon on each patient row. `jsFunction(patientWithOrders, extensionParams)` is called on click. With `visibleForOrderStatuses` (a list of `AWAITING`, `COLLECTED`, `AWAITING_VALIDATION`, `COMPLETED`, `NOT_PERFORMED`, `EXPIRED`, `CANCELED`, `ORPHANED`), the icon only shows on rows with at least one order in one of those statuses |
+| `org.openmrs.module.pihapps.labOrderList.orderBadges` | `jsFunction` | Badges beside order statuses. `jsFunction(orders, extensionParams)` returns, or resolves to, a map from order uuid to `{text, cssClass, title, showOnPatientRow}`. Patient rows show the distinct badges of their orders, except those with `showOnPatientRow: false` |
+
+### Extension points for results recorded as obs groups
+
+| Extension point | `extensionParams` | Purpose |
+|---|---|---|
+| `org.openmrs.module.pihapps.labResults.resultRenderers` | `concept`, `jsFunction` | Shows the result of `concept`, a single obs or an obs group such as the organisms a culture isolated and their antibiotic susceptibility, as one row. `jsFunction(obs, extensionParams)` returns, or resolves to, the html or element to show as its result. `obs` is loaded the same way everywhere (`PihAppsLabResultFields.renderResult`): uuid, concept, values, status, order and, for a group, its members at every level, so the renderer needs nothing else. Used by the patient lab results page, which asks `GET /labResults` for a group rather than its members (`renderedConcept`), and by the validate view of `labResultsByLabId.page` |
+| `org.openmrs.module.pihapps.labResults.resultEditors` | `concept`, `jsFunction` | Enters the result of `concept` on both results forms (the single order form and `labResultsByLabId.page`), when `concept` is the ordered test or a direct member of the ordered panel; an ordered concept with an editor is entered as one result, even if it has set members. `jsFunction(context, extensionParams)` returns, or resolves to, an editor `{element, hasValue(), isChanged(), clear(), getObs()}`; `context.obs` is the existing result, loaded as for renderers, or null. The editor saves nothing: for a changed editor, the form sends `getObs()` (a single obs or a group, as new obs as the obs resource accepts them and without the uuids of existing obs, which the server rejects; or null to remove the result) with the order's other results, in one request (`EncounterFulfillingOrders.editorResults`). The server replaces the order's existing result of the concept, voiding it with any members, links the new obs to the order and gives them the status of the order's other new results; a result replacing a `FINAL` or `AMENDED` one is `AMENDED`, with the replaced one as its previous version. An editor of a result recorded as an obs group needs a renderer of the same concept too: without one, the validate view and the patient lab results page do not show the group. The context is described in `labs/labResultFields.js` |
+
+pihapps does not know how such a result is structured: the implementation's script and its own service define it.
+
+The functions are looked up on `window`, so the implementation must load the script that defines them, for example as
+a global resource.
 
 ### Page interactions
 
@@ -215,6 +340,20 @@ All pages follow the same pattern: the Groovy page controller injects minimal se
 **labOrderList.gsp** — More complex. Three sections toggled in/out: the order table (`#view-orders-section`), specimen encounter edit (`#edit-specimen-encounter-section`), and results entry (`#record-lab-results-section`). Each section contains an included fragment whose JavaScript function (`initializeSpecimenCollectionForm`, `initializeLabResultsForm`, `initializeOrderNotFulfilledForm`) is called with the relevant data and a callback to refresh the table on save.
 
 **labPatientReception.gsp** — Loads `/labOrder` with patient + `AWAITING_FULFILLMENT` status. Checkboxes select orders; the specimen collection fragment is initialized with the selected orders when the user proceeds.
+
+**labResultsByLabId.gsp** — Opened from the lab order list for a patient: by the `pihappsLabEnterResults` patient
+action, and in validate mode by the built-in validate action. Loads every collected order of the patient that is not
+completed (in validate mode, every order awaiting validation) and groups them by Lab ID (the order's accession
+number), STAT first and then the oldest. The page shows one Lab ID: the `labId` parameter, or the first; when there are
+several, a row of choices at the top switches between them. The validate action on an order opens its Lab ID. A Lab ID
+shows its specimen collection encounter, or each of them if the same Lab ID was recorded for more than one, with a
+section per lab test category. Orders without a Lab ID are grouped by specimen collection encounter. In enter mode, only the tests the user changed are saved, so
+tests on hold or already submitted are left as they are; one result date applies to the tests completed, and each
+specimen collection encounter with changes is saved in turn through `POST /encounterFulfillingOrders`, with its obs
+group results; if one fails, those already saved are marked as saved and left out when saving again. At most 100
+orders are loaded, with a note when the patient has more. In validate mode, results are read only, and the selected orders are
+validated or returned for correction together. Unlike the single order form (`recordLabResults.gsp`), it does not
+edit completed orders.
 
 **patientLabResults.gsp** — Loads `/labResults` for the patient. Clicking a result value calls `initializeLabTrends()` which loads Chart.js with historical data for that concept.
 
@@ -241,6 +380,10 @@ EncounterFulfillingOrders getEncounterFulfillingOrders(String encounterUuid)
 Encounter getFulfillerEncounterForOrder(Order order)
 Obs getReasonOrderNotFulfilled(Order order)
 void markOrdersAsNotFulfilled(List<Order> orders, Concept reason)
+Set<User> getLabResultEditors(Order order)
+boolean canValidateLabResults(Order order, User user)
+void validateLabResults(List<Order> orders, String comment)
+void returnLabResultsForCorrection(List<Order> orders, String reason)
 ObsSearchResult getObs(ObsSearchCriteria criteria)
 ```
 
@@ -290,7 +433,8 @@ Two custom resource wrappers add fields not available in core representations:
 4. Fetches existing obs from the fulfiller encounter
 5. User enters result values; form validates ranges if `allowDecimal` / reference range is set
 6. On save, PATCHes or POSTs obs on the fulfiller encounter:
-   - Sets `fulfillerStatus = COMPLETED` on the order
+   - Sets `fulfillerStatus = COMPLETED` on the order or, when validation is required, leaves it `IN_PROGRESS` with
+     `RESULTS_SUBMITTED` recorded and its new results `PRELIMINARY`
    - Records `specimenReceivedDateQuestion` and `resultsDateQuestion` obs
    - Optionally records `comment` on the obs if `collectResultComments = true`
 

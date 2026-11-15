@@ -67,4 +67,77 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="RWA-1089-create-pihapps-order-fulfillment-event" author="mseaton">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="pihapps_order_fulfillment_event"/></not>
+        </preConditions>
+        <comment>
+            RWA-1089: Creates the pihapps_order_fulfillment_event table, recording events in an order's fulfillment
+            such as lab results being submitted, returned or validated
+        </comment>
+        <createTable tableName="pihapps_order_fulfillment_event">
+            <column name="order_fulfillment_event_id" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="order_id" type="int">
+                <constraints nullable="false" foreignKeyName="pihapps_order_fulfillment_event_order_fk" references="orders(order_id)"/>
+            </column>
+            <column name="event_type" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="comment" type="text"/>
+            <column name="event_datetime" type="datetime">
+                <constraints nullable="false"/>
+            </column>
+            <column name="creator" type="int">
+                <constraints nullable="false" foreignKeyName="pihapps_order_fulfillment_event_creator_fk" references="users(user_id)"/>
+            </column>
+            <column name="date_created" type="datetime">
+                <constraints nullable="false"/>
+            </column>
+            <column name="changed_by" type="int">
+                <constraints foreignKeyName="pihapps_order_fulfillment_event_changed_by_fk" references="users(user_id)"/>
+            </column>
+            <column name="date_changed" type="datetime"/>
+            <column name="voided" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="voided_by" type="int">
+                <constraints foreignKeyName="pihapps_order_fulfillment_event_voided_by_fk" references="users(user_id)"/>
+            </column>
+            <column name="date_voided" type="datetime"/>
+            <column name="void_reason" type="varchar(255)"/>
+            <column name="uuid" type="char(38)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+        </createTable>
+        <createIndex indexName="pihapps_order_fulfillment_event_order" tableName="pihapps_order_fulfillment_event">
+            <column name="order_id"/>
+            <column name="order_fulfillment_event_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="RWA-1089-index-pihapps-order-fulfillment-event-by-datetime" author="mseaton">
+        <preConditions onFail="MARK_RAN">
+            <not><indexExists indexName="pihapps_order_fulfillment_event_order_datetime"/></not>
+        </preConditions>
+        <comment>
+            RWA-1089: Indexes the events of an order in the order they are read: by event datetime, then id.  The new
+            index also serves the order foreign key, so the index it replaces can be dropped
+        </comment>
+        <createIndex indexName="pihapps_order_fulfillment_event_order_datetime" tableName="pihapps_order_fulfillment_event">
+            <column name="order_id"/>
+            <column name="event_datetime"/>
+            <column name="order_fulfillment_event_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="RWA-1089-drop-pihapps-order-fulfillment-event-order-index" author="mseaton">
+        <preConditions onFail="MARK_RAN">
+            <indexExists indexName="pihapps_order_fulfillment_event_order"/>
+        </preConditions>
+        <comment>RWA-1089: Drops the index replaced by pihapps_order_fulfillment_event_order_datetime</comment>
+        <dropIndex tableName="pihapps_order_fulfillment_event" indexName="pihapps_order_fulfillment_event_order"/>
+    </changeSet>
+
 </databaseChangeLog>

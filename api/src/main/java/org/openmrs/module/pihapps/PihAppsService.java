@@ -19,6 +19,7 @@ import org.openmrs.EncounterType;
 import org.openmrs.Location;
 import org.openmrs.Obs;
 import org.openmrs.Order;
+import org.openmrs.User;
 import org.openmrs.annotation.Authorized;
 import org.openmrs.api.OpenmrsService;
 import org.openmrs.module.pihapps.encounter.EncounterSearchCriteria;
@@ -26,13 +27,18 @@ import org.openmrs.module.pihapps.encounter.EncounterSearchResult;
 import org.openmrs.module.pihapps.obs.ObsSearchCriteria;
 import org.openmrs.module.pihapps.obs.ObsSearchResult;
 import org.openmrs.module.pihapps.orders.EncounterFulfillingOrders;
+import org.openmrs.module.pihapps.orders.LabOrderConfig;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentEvent;
+import org.openmrs.module.pihapps.orders.OrderFulfillmentEventType;
 import org.openmrs.module.pihapps.orders.OrderSearchCriteria;
 import org.openmrs.module.pihapps.orders.OrderSearchResult;
 import org.openmrs.module.pihapps.orders.PatientWithOrdersSearchResult;
 import org.openmrs.util.PrivilegeConstants;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface PihAppsService extends OpenmrsService {
 
@@ -55,6 +61,83 @@ public interface PihAppsService extends OpenmrsService {
 	void markOrdersAsNotFulfilled(List<Order> orders, Concept reason);
 
 	void revertOrdersToOrdered(List<Order> orders);
+
+	/**
+	 * @return the concepts that results of the given order are recorded with: the ordered concept and, if it is a
+	 * set, its members, recursively
+	 */
+	@Authorized(PrivilegeConstants.GET_CONCEPTS)
+	Set<Concept> getLabResultConcepts(Order order);
+
+	/**
+	 * Saves the given event, setting its event datetime to now if it has none.  Events decide whether an order's
+	 * results await validation, so saving one directly (including voiding it) also requires
+	 * {@link LabOrderConfig#PRIVILEGE_VALIDATE_RESULTS}; saving, validating and returning results record theirs themselves
+	 */
+	@Authorized(PrivilegeConstants.EDIT_ORDERS)
+	OrderFulfillmentEvent saveOrderFulfillmentEvent(OrderFulfillmentEvent event);
+
+	/**
+	 * @return for each of the given orders that has any, its latest non-voided event of the given types
+	 */
+	@Authorized(PrivilegeConstants.GET_ORDERS)
+	Map<Order, OrderFulfillmentEvent> getLatestOrderFulfillmentEvents(List<Order> orders, Collection<OrderFulfillmentEventType> types);
+
+	/**
+	 * @return the non-voided events of the given order, oldest first
+	 */
+	@Authorized(PrivilegeConstants.GET_ORDERS)
+	List<OrderFulfillmentEvent> getOrderFulfillmentEvents(Order order);
+
+	/**
+	 * @return the status a result of the given order saved now should have: PRELIMINARY when results must be validated
+	 * and the order is not completed, not performed or declined, otherwise FINAL.  For code that saves results of a
+	 * lab order outside {@link #saveEncounterFulfillingOrders}, such as an implementation's own result widgets, so that
+	 * its results are validated with the order's other results
+	 */
+	@Authorized(PrivilegeConstants.GET_ORDERS)
+	Obs.Status getNewLabResultStatus(Order order);
+
+	/**
+	 * @return the non-voided results of the given order: obs linked to the order whose concept is one of
+	 * {@link #getLabResultConcepts(Order)}, and the members of their obs groups
+	 */
+	@Authorized(PrivilegeConstants.GET_OBS)
+	List<Obs> getLabResultObs(Order order);
+
+	/**
+	 * @return the users who entered, changed or removed any result of the given order, or submitted its results: the
+	 * creators and voiders of the order's result obs (see {@link #getLabResultObs(Order)}), voided ones included, and
+	 * the creators of its RESULTS_SUBMITTED events since its results were last validated
+	 */
+	@Authorized(PrivilegeConstants.GET_OBS)
+	Set<User> getLabResultEditors(Order order);
+
+	/**
+	 * @return whether the given user may validate the results of the given order: validation is required, the order
+	 * is in progress and awaiting validation, and the user is not one of {@link #getLabResultEditors(Order)}
+	 */
+	@Authorized(value = { PrivilegeConstants.GET_ORDERS, PrivilegeConstants.GET_OBS }, requireAll = true)
+	boolean canValidateLabResults(Order order, User user);
+
+	/**
+	 * Validates the results of the given orders: their preliminary results become final and each order is completed.
+	 * Nothing is changed if the current user cannot validate any one of
+	 * the orders, or if the results of any order are not those the validator reviewed.
+	 * @param reviewedResults for each order, the uuids of the results the validator reviewed, which must be its
+	 * current non-voided results (see {@link #getLabResultObs(Order)})
+	 * @param comment an optional note from the validator
+	 */
+	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
+	void validateLabResults(List<Order> orders, Map<Order, ? extends Collection<String>> reviewedResults, String comment);
+
+	/**
+	 * Returns the results of the given orders to the lab for correction: each order stays in progress with its results
+	 * preliminary.  Nothing is changed if the current user cannot validate any one of the orders.
+	 * @param reason why the results are returned, required
+	 */
+	@Authorized(LabOrderConfig.PRIVILEGE_VALIDATE_RESULTS)
+	void returnLabResultsForCorrection(List<Order> orders, String reason);
 
 	/**
 	 * Searches observations by whatever {@link ObsSearchCriteria} names: the patient, the concepts,

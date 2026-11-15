@@ -31,6 +31,19 @@ final class PihAppsRestSupport {
     }
 
     /**
+     * Whether rows remain after the page that starts at startIndex and holds at most limit rows.
+     *
+     * @return false when no limit was given, since the whole result was returned
+     */
+    static boolean hasMoreResults(Integer startIndex, Integer limit, Long totalCount) {
+        if (limit == null || totalCount == null) {
+            return false;
+        }
+        int start = startIndex == null ? 0 : startIndex;
+        return start + limit < totalCount;
+    }
+
+    /**
      * Reads a date parameter with no bound semantics, for an endpoint that decides what an end of a
      * range means further down. Blank means the parameter was not given.
      *

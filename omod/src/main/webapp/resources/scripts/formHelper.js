@@ -13,7 +13,15 @@ class FormHelper {
         this.encounter = args.encounter;
         this.patientUuid = this.encounter?.patient?.uuid ?? args.patientUuid ?? null;
         this.date = this.encounter?.encounterDatetime ?? args.date ?? new Date();
-        this.initialObs = this.encounter?.obs?.flatMap(o => { return o.groupMembers ? [o, ...o.groupMembers] : o }) ?? [];
+        // The obs of the encounter and the members of its groups, at any depth, and the group each member is in
+        this.initialObsGroups = new Map();
+        const flatten = (obsList, group) => (obsList ?? []).flatMap(o => {
+            if (group) {
+                this.initialObsGroups.set(o.uuid, group);
+            }
+            return [o, ...flatten(o.groupMembers, o)];
+        });
+        this.initialObs = flatten(this.encounter?.obs, null);
         this.obsWidgetFields = [];
     }
 
@@ -141,6 +149,9 @@ class FormHelper {
             widgetField.attr("data-concept-datatype", concept.datatype.name);
             if (options?.groupingConceptUuid) {
                 widgetField.attr("data-grouping-concept-uuid", options.groupingConceptUuid);
+            }
+            if (options?.parentGroupingConceptUuid) {
+                widgetField.attr("data-parent-grouping-concept-uuid", options.parentGroupingConceptUuid);
             }
             widgetField.attr("data-form-path", "/" + (options.groupingConceptUuid ? options.groupingConceptUuid + "/" : "") + concept.uuid + (options?.pathIndex != null ? "/" + options.pathIndex : ""))
             if (this.patientUuid) {
@@ -309,6 +320,10 @@ class FormHelper {
             }
             button.html(option.html());
             button.on("click", () => {
+                // Clicking the selected option changes nothing, so it must not fire change: listeners clear fields on change
+                if (widget.val() === value) {
+                    return;
+                }
                 widget.val(value);
                 widget.change();
                 buttonGroup.find("button").removeClass("active");
@@ -406,6 +421,70 @@ class FormHelper {
         return widget;
     }
 
+    /**
+     * @return the obs group of the encounter that contains the obs, at any depth, or null if the obs is at the top level
+     */
+    getInitialObsGroup(obsUuid) {
+        return this.initialObsGroups.get(obsUuid) ?? null;
+    }
+
+    /**
+     * @return the existing group of the panel that new obs of the order go into: the order's own group, else a group
+     * with no order if no other order in the form has results for the panel, else null. A group of another order is never used.
+     */
+    getInitialPanelGroup(groupingConceptUuid, orderUuid) {
+        const groups = this.initialObs.filter(o => o.concept.uuid === groupingConceptUuid && o.groupMembers?.length > 0);
+        const ownGroup = groups.find(g => g.order?.uuid === orderUuid);
+        if (ownGroup) {
+            return ownGroup;
+        }
+        const otherOrderHasResults = this.obsWidgetFields.some(w => {
+            const d = w.data();
+            return d.groupingConceptUuid === groupingConceptUuid && d.orderUuid !== orderUuid && (d.obsUuid || w.val());
+        });
+        return otherOrderHasResults ? null : (groups.find(g => !g.order) ?? null);
+    }
+
+    /**
+     * @return the obs group in the payload for an existing group, in the payload of the group it is in, if any; or for a
+     * new group of the concept and order, in the given parent group of the payload, else at the top level
+     */
+    getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath, parentPayloadGroup) {
+        const find = (obsList, test) => {
+            for (const o of obsList ?? []) {
+                const found = test(o) ? o : find(o.groupMembers, test);
+                if (found) {
+                    return found;
+                }
+            }
+            return null;
+        };
+        let obsGroup = initialGroup
+            ? find(encounter.obs, o => o.uuid === initialGroup.uuid)
+            : (parentPayloadGroup ? parentPayloadGroup.groupMembers : encounter.obs)
+                .find(o => !o.uuid && o.groupMembers && o.concept === groupingConceptUuid && o.order === orderUuid);
+        if (!obsGroup) {
+            obsGroup = {
+                uuid: initialGroup?.uuid,
+                order: initialGroup ? (initialGroup.order?.uuid ?? orderUuid) : orderUuid,
+                concept: initialGroup ? initialGroup.concept.uuid : groupingConceptUuid,
+                formNamespaceAndPath: initialGroup ? initialGroup.formNamespaceAndPath : groupNamespaceAndPath,
+                groupMembers: []
+            };
+            const initialParent = initialGroup ? this.getInitialObsGroup(initialGroup.uuid) : null;
+            if (initialParent) {
+                this.getPayloadGroup(encounter, initialParent, orderUuid).groupMembers.push(obsGroup);
+            }
+            else if (!initialGroup && parentPayloadGroup) {
+                parentPayloadGroup.groupMembers.push(obsGroup);
+            }
+            else {
+                encounter.obs.push(obsGroup);
+            }
+        }
+        return obsGroup;
+    }
+
     constructEncounterPayload() {
         const encounter = {
             uuid: this.encounter?.uuid,
@@ -424,6 +503,7 @@ class FormHelper {
             const data = obsWidgetFields.data();
             const value = obsWidgetFields.val();
             const groupingConceptUuid = data.groupingConceptUuid;
+            const parentGroupingConceptUuid = data.parentGroupingConceptUuid;
             const conceptUuid = data.conceptUuid;
             const dataType = data.conceptDatatype;
             const obsUuid = data.obsUuid;
@@ -468,20 +548,22 @@ class FormHelper {
                     obs.comment = commentValue.length > 0 ? commentValue : null;
                 }
 
-                if (groupingConceptUuid) {
-                    let initialGroup = this.initialObs.find(o => o.concept.uuid === groupingConceptUuid);
-                    let obsGroup = encounter.obs.find(o => o.concept === groupingConceptUuid);
-                    if (!obsGroup) {
-                        obsGroup = {
-                            uuid: initialGroup?.uuid,
-                            order: orderUuid,
-                            concept: groupingConceptUuid,
-                            formNamespaceAndPath: initialGroup ? initialGroup.formNamespaceAndPath : groupNamespaceAndPath,
-                            groupMembers: []
-                        };
-                        encounter.obs.push(obsGroup);
+                // An existing obs stays where it is: in the group it belongs to, or at the top level. It cannot be
+                // moved into a new group, which happens to results recorded without a group, eg by a lab machine.
+                const existingGroup = obsUuid ? this.getInitialObsGroup(obsUuid) : undefined;
+                if (existingGroup) {
+                    this.getPayloadGroup(encounter, existingGroup, orderUuid).groupMembers.push(obs);
+                }
+                else if (groupingConceptUuid && !obsUuid) {
+                    // A new obs goes in the existing group of its panel, for this order if there is one.  A new group
+                    // of a panel within a panel goes in the group of the outer panel.
+                    const initialGroup = this.getInitialPanelGroup(groupingConceptUuid, orderUuid);
+                    let parentPayloadGroup = null;
+                    if (!initialGroup && parentGroupingConceptUuid) {
+                        const initialParent = this.getInitialPanelGroup(parentGroupingConceptUuid, orderUuid);
+                        parentPayloadGroup = this.getPayloadGroup(encounter, initialParent, orderUuid, parentGroupingConceptUuid, this.formName + "/" + parentGroupingConceptUuid);
                     }
-                    obsGroup.groupMembers.push(obs);
+                    this.getPayloadGroup(encounter, initialGroup, orderUuid, groupingConceptUuid, groupNamespaceAndPath, parentPayloadGroup).groupMembers.push(obs);
                 }
                 else {
                     encounter.obs.push(obs);
@@ -489,15 +571,16 @@ class FormHelper {
             }
         });
 
-        // Void any obs groups that only have voided members
-        encounter.obs.forEach(o => {
+        // Void any obs groups that only have voided members, at any depth
+        const voidEmptyGroups = (obsList) => obsList.forEach(o => {
             if (o.groupMembers && o.groupMembers.length > 0) {
-                const numNonVoided = o.groupMembers.filter(o => !o.voided).length;
-                if (numNonVoided === 0) {
+                voidEmptyGroups(o.groupMembers);
+                if (o.groupMembers.every(m => m.voided)) {
                     o.voided = true;
                 }
             }
         });
+        voidEmptyGroups(encounter.obs);
 
         return encounter;
     }

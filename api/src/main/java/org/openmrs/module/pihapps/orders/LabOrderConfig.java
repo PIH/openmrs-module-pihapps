@@ -31,6 +31,10 @@ public class LabOrderConfig {
 
     private static final Logger log = LoggerFactory.getLogger(LabOrderConfig.class);
 
+    public static final String PRIVILEGE_VALIDATE_RESULTS = "Task: pihapps.labs.validateResults";
+
+    public static final String GP_REQUIRE_RESULT_VALIDATION = "pihapps.labs.requireResultValidation";
+
     @Setter
     ConceptService conceptService;
 
@@ -66,7 +70,11 @@ public class LabOrderConfig {
 
     public List<Map<String, String>> getOrderFulfillmentStatusOptions() {
         List<Map<String, String>> l = new ArrayList<>();
+        boolean requireResultValidation = getRequireResultValidation();
         for (OrderFulfillmentStatus s : OrderFulfillmentStatus.values()) {
+            if (s == OrderFulfillmentStatus.AWAITING_VALIDATION && !requireResultValidation) {
+                continue;
+            }
             String display = messageSourceService.getMessage("pihapps.orderFulfillmentStatus." + s.name());
             l.add(map("status", s.name(), "display", display));
         }
@@ -484,6 +492,18 @@ public class LabOrderConfig {
 
     public boolean getCollectResultComments() {
         return !"false".equalsIgnoreCase(getCollectResultCommentsReference());
+    }
+
+    // Whether entered results must be validated by a second user before the order is completed.
+    // Defaults to false. When true, saving results leaves the order IN_PROGRESS and awaiting validation,
+    // and the results stay PRELIMINARY until a validator makes them FINAL.
+
+    public String getRequireResultValidationReference() {
+        return ConfigUtil.getProperty(GP_REQUIRE_RESULT_VALIDATION, "false");
+    }
+
+    public boolean getRequireResultValidation() {
+        return "true".equalsIgnoreCase(getRequireResultValidationReference());
     }
 
     // Multiple answer concepts (tests that can produce more than one obs value)
