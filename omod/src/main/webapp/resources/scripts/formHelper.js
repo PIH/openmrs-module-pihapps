@@ -35,6 +35,28 @@ class FormHelper {
         });
     }
 
+    /**
+     * Returns the value of a field.  A checkbox has a value only when checked.
+     */
+    getFieldValue(field) {
+        if (field.is(":checkbox")) {
+            return field.is(":checked") ? field.val() : "";
+        }
+        return field.val();
+    }
+
+    /**
+     * Sets the value of a field.  A checkbox is checked if the value matches its own, and unchecked otherwise.
+     */
+    setFieldValue(field, value) {
+        if (field.is(":checkbox")) {
+            field.prop("checked", !!value && field.val() === value);
+        }
+        else {
+            field.val(value);
+        }
+    }
+
     getInitialObsValues(conceptUuid) {
         return this.initialObs
             .filter(o => o.concept.uuid === conceptUuid)
@@ -241,7 +263,7 @@ class FormHelper {
             const triggerField = container.find('.result-row[data-concept-uuid="' + test.uuid + '"] .result-value-field');
 
             const applyRule = (isInitialLoad) => {
-                const answerRule = rule[triggerField.val()];
+                const answerRule = rule[this.getFieldValue(triggerField)];
                 const toShow = new Set(answerRule?.show ?? []);
                 controlledConcepts.forEach((conceptUuid) => {
                     const row = container.find('.result-row[data-concept-uuid="' + conceptUuid + '"]');
@@ -249,12 +271,12 @@ class FormHelper {
                     if (toShow.has(conceptUuid) || (isInitialLoad && field.data('obsUuid'))) {
                         row.show();
                         const defaultValue = answerRule?.defaults?.[conceptUuid];
-                        if (defaultValue != null && !field.val()) {
-                            field.val(defaultValue);
+                        if (defaultValue != null && !this.getFieldValue(field)) {
+                            this.setFieldValue(field, defaultValue);
                         }
                     } else {
                         row.hide();
-                        field.val('');
+                        this.setFieldValue(field, '');
                     }
                 });
             };
@@ -345,6 +367,9 @@ class FormHelper {
     createCheckboxWidget(config) {
         const jq = this.jq;
         const widget = jq("<input>").attr("type", "checkbox");
+        if (config.id) {
+            widget.attr("id", config.id);
+        }
         if (config.name) {
             widget.attr("name", config.name);
         }
@@ -440,7 +465,7 @@ class FormHelper {
         }
         const otherOrderHasResults = this.obsWidgetFields.some(w => {
             const d = w.data();
-            return d.groupingConceptUuid === groupingConceptUuid && d.orderUuid !== orderUuid && (d.obsUuid || w.val());
+            return d.groupingConceptUuid === groupingConceptUuid && d.orderUuid !== orderUuid && (d.obsUuid || this.getFieldValue(w));
         });
         return otherOrderHasResults ? null : (groups.find(g => !g.order) ?? null);
     }
@@ -501,7 +526,7 @@ class FormHelper {
         // Construct obs and obs groups in the encounter
         this.obsWidgetFields.forEach(obsWidgetFields => {
             const data = obsWidgetFields.data();
-            const value = obsWidgetFields.val();
+            const value = this.getFieldValue(obsWidgetFields);
             const groupingConceptUuid = data.groupingConceptUuid;
             const parentGroupingConceptUuid = data.parentGroupingConceptUuid;
             const conceptUuid = data.conceptUuid;
