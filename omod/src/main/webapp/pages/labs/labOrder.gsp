@@ -14,6 +14,9 @@
     const testsByPanel = new Map();
     const returnUrl = '${returnUrl ?: ui.pageLink("pihapps", "labs/labOrders", [patient: patient.id])}';
 
+    // Listeners added by the fragments of the labOrder.fragments extension point
+    const labOrderListeners = window.pihappsLabOrderListeners = window.pihappsLabOrderListeners || [];
+
     // Order Data
     const orderedTests = [];
     const urgencies = new Map();
@@ -146,7 +149,21 @@
         }
     }
 
+    function notifyDraftChange() {
+        labOrderListeners.forEach(listener => {
+            try {
+                if (typeof listener.onDraftChange === 'function') {
+                    listener.onDraftChange([...orderedTests]);
+                }
+            }
+            catch (e) {
+                console.error(e);
+            }
+        });
+    }
+
     function updateDraftList() {
+        notifyDraftChange();
         jq("#num-draft-orders").html(orderedTests.length);
         const discardAllButton = jq("#draft-discard-all");
         const saveButton = jq("#draft-save-button");
@@ -240,8 +257,19 @@
                     data: JSON.stringify(encounterPayload),
                     dataType: 'json', // Expect JSON response
                     success: function(response) {
-                        emr.successMessage('${ui.encodeJavaScript(ui.message("pihapps.orderSuccessMessage"))}');
-                        document.location.href = returnUrl;
+                        const afterSave = labOrderListeners.filter(listener => typeof listener.afterSave === 'function').map(listener => {
+                            try {
+                                return Promise.resolve(listener.afterSave(response));
+                            }
+                            catch (e) {
+                                console.error(e);
+                                return Promise.resolve();
+                            }
+                        });
+                        Promise.allSettled(afterSave).then(() => {
+                            emr.successMessage('${ui.encodeJavaScript(ui.message("pihapps.orderSuccessMessage"))}');
+                            document.location.href = returnUrl;
+                        });
                     },
                     error: function(xhr, status, error) {
                         const message = xhr.responseJSON?.error?.message ?? error ?? xhr.responseText;
@@ -515,6 +543,9 @@ ${ui.includeFragment("coreapps", "patientHeader", [patient: patient.patient])}
                 </span>
             </div>
         </div>
+        <% labOrderFragments.each { labOrderFragment -> %>
+            ${ ui.includeFragment(labOrderFragment.provider, labOrderFragment.fragment, [patient: patient.patient]) }
+        <% } %>
         <br/>
         <input type="button" id="draft-discard-all" value="${ui.message('pihapps.discard')}" disabled="disabled" class="cancel modified-btn"/>
         <input type="submit" id="draft-save-button" value="${ui.message('pihapps.save')}" disabled="disabled" class="right confirm modified-btn"/>
